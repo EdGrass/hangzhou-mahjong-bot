@@ -34,16 +34,29 @@ def _tile_id(t):
     return id_of(t)
 
 
-def load_rows(path, max_rows=0):
+def load_rows(paths, max_rows=0):
+    """支持逗号分隔/通配多个样本文件。"""
+    import glob as _glob
+    files = []
+    for p in paths.split(","):
+        p = p.strip()
+        if not p:
+            continue
+        if any(ch in p for ch in "*?"):
+            files += sorted(_glob.glob(p))
+        else:
+            files.append(p)
+    if not files:
+        raise SystemExit("没有找到样本文件: %s" % paths)
     rows = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            if not line.strip():
-                continue
-            r = json.loads(line)
-            rows.append(r)
-            if max_rows and len(rows) >= max_rows:
-                break
+    for fp in files:
+        with open(fp, encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                rows.append(json.loads(line))
+                if max_rows and len(rows) >= max_rows:
+                    return rows
     return rows
 
 
