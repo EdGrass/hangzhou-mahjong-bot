@@ -11,6 +11,7 @@ from __future__ import annotations
 import time
 
 from .api import ApiError
+from .meldtrack import MeldTracker
 from .model import snap_view
 from .util import log
 
@@ -28,6 +29,7 @@ def play_game(client, gid, strategy):
     """打一场：返回该场结束时快照（含 scores），或 None（异常中止由调用方决定）。"""
     seq = 0
     decided_sig = None          # 最近一次已决策的 (phase, seq) —— 窗口去重
+    tracker = MeldTracker()     # 本人副露跟踪（真机快照无 melds，本地累计）
     while True:
         res = client.game_state(gid, seq)
         snap = res.get("snapshot")
@@ -55,6 +57,7 @@ def play_game(client, gid, strategy):
             seq = int(res.get("seq", seq))
 
         view = snap_view(snap)
+        view.update(tracker.view_extra())   # 注入本人副露（策略 view 扩展键）
         if view["seat"] < 0:
             continue            # 观赛视角无动作权
 
@@ -77,5 +80,7 @@ def play_game(client, gid, strategy):
                 time.sleep(1.0)
             else:
                 raise
+        else:
+            tracker.record_action(act)      # 提交成功 → 副露本地累计
         decided_sig = sig       # 本局面已决策（无论成败）
         seq = 0                 # 动作后重建权威快照，避免状态漂移

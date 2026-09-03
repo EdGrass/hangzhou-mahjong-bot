@@ -18,8 +18,41 @@ import bot  # noqa: F401  （触发 __init__，含版本常量）
 from bot.api import ApiError, Client
 from bot.protocol import run_tournament
 from bot.smoke import run_smoke
-from bot.strategy import NaiveStrategy
 from bot.util import ensure_utf8, log, server_from_env
+
+# 实盘可用策略（均含财神/爆头/窗口语义；默认 heuristicA 稳健版）
+STRATEGY_FACTORIES = {}
+
+
+def _reg(name):
+    def deco(fn):
+        STRATEGY_FACTORIES[name] = fn
+        return fn
+    return deco
+
+
+@_reg("naive")
+def _naive():
+    from bot.strategy import NaiveStrategy
+    return NaiveStrategy()
+
+
+@_reg("heuristicA")
+def _heuristic():
+    from bot.heuristic import HeuristicA
+    return HeuristicA()
+
+
+@_reg("heuristicA2")
+def _heuristic2():
+    from bot.heuristic2 import HeuristicA2
+    return HeuristicA2()
+
+
+@_reg("speedA")
+def _speed():
+    from bot.speed import SpeedA
+    return SpeedA()
 
 
 def main(argv=None):
@@ -29,7 +62,8 @@ def main(argv=None):
     ap.add_argument("tid", nargs="?", default="", help="锦标赛 id（仅全局令牌自测需显式指定）")
     ap.add_argument("--server", default=server_from_env(), help="服务器地址")
     ap.add_argument("--smoke", action="store_true", help="免认证冒烟自检（不参赛）")
-    ap.add_argument("--strategy", default="naive", help="策略名（当前仅 naive；后续接入真实牌技）")
+    ap.add_argument("--strategy", default="heuristicA",
+                    help="策略名（%s）" % "/".join(sorted(STRATEGY_FACTORIES)))
     args = ap.parse_args(argv)
 
     if args.smoke:
@@ -41,9 +75,10 @@ def main(argv=None):
 
     log("服务器: %s", args.server)
     log("策略: %s", args.strategy)
-    if args.strategy != "naive":
-        raise SystemExit("未知策略: %s" % args.strategy)
-    strategy = NaiveStrategy()
+    if args.strategy not in STRATEGY_FACTORIES:
+        raise SystemExit("未知策略: %s（可用 %s）" % (
+            args.strategy, sorted(STRATEGY_FACTORIES)))
+    strategy = STRATEGY_FACTORIES[args.strategy]()
 
     client = Client(args.server, token)
 
