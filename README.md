@@ -108,6 +108,19 @@ python -m uvicorn arena.dashboard:app --host 127.0.0.1 --port 8088
 成绩按策略身份聚合（混编中 heuristicA vs naive 直接可比：基准 100 局
 heuristicA ≈ +9.8 均分 vs naive ≈ −9.8）。
 
+## 学习线 v0 数据管道（M3，监督蒸馏准备）
+
+```powershell
+# 教师样本批量生成（v0 教师 = heuristicA；输出 var/ml/samples.jsonl）
+python -m ml.gen_data --games 300 --rounds 8 --out var/ml/samples.jsonl
+# 实测：12.4 万样本/44s（2.8k/s）→ 小时级千万样本
+```
+
+- 样本 = 每次摸牌决策：`hand_counts[34]+melds[e,g,chi]+god[baotou,catch,chain,piao]+seat+drawn[34]`，
+  动作空间 35（34 弃牌 + hu），合法掩码训练时由 counts 派生；
+- 引擎判定与服务器 fan-calc **126/126 完全一致**（2026-09-03 复核），数据无判定污染；
+- 下一步（GPU 就绪后）：特征 → 小策略网（policy+value）监督训练 → Arena 2+2 混编评估。
+
 ## 版本追踪
 
 服务器指南版本与变更日志：`GET /portal/api/guide/version`（免认证）。
