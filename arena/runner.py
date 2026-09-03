@@ -57,6 +57,17 @@ def _v0():
     return V0Policy(ckpt)
 
 
+@_reg("v1")
+def _v1():
+    """v1（更大数据集训练版，var/ml/model_v1.pt）。"""
+    import os
+    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v1.pt")
+    if not os.path.exists(ckpt):
+        raise ValueError("模型 %s 不存在" % ckpt)
+    from bot.model_policy import V0Policy
+    return V0Policy(ckpt, name="v1")
+
+
 def parse_combo(combo):
     """'heuristicAx4' | 'naivex2+heuristicAx2'（兼容 × 全角）。"""
     names = []
