@@ -63,6 +63,26 @@ def _v0():
     return V0Policy(ckpt)
 
 
+@_reg("v2a")
+def _v2a():
+    import os
+    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v2a.pt")
+    if not os.path.exists(ckpt):
+        raise ValueError("模型 %s 不存在" % ckpt)
+    from bot.model_policy import V0Policy
+    return V0Policy(ckpt, name="v2a")
+
+
+@_reg("v2b")
+def _v2b():
+    import os
+    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v2b.pt")
+    if not os.path.exists(ckpt):
+        raise ValueError("模型 %s 不存在" % ckpt)
+    from bot.model_policy import V0Policy
+    return V0Policy(ckpt, name="v2b")
+
+
 @_reg("v1")
 def _v1():
     """v1（更大数据集训练版，var/ml/model_v1.pt）。"""
