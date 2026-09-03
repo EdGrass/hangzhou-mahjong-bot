@@ -80,8 +80,13 @@ class PolicyPlayer:
         return {"action": "discard", "tile": tile_of(act)}
 
 
-def selfplay_batch(model, device, games, rounds, seed):
-    """自对弈 games 局 → (轨迹汇总, rewards)。座位轮换消除偏差。"""
+def selfplay_batch(model, device, games, rounds, seed, opponents=None):
+    """自对弈/对抗对弈 games 局 → (轨迹汇总, rewards)。
+
+    opponents: 固定对手策略名列表（如 ['heuristicA']），每局 2 模型 + 2 对手
+    （座位随机）。reward 仅模型座位取梯度；优势用四座局均校准。
+    """
+    from arena.runner import STRATEGIES
     rng = random.Random(seed)
     all_rows = []               # (feat_vec, act, logp, adv)
     for g in range(games):
@@ -89,13 +94,27 @@ def selfplay_batch(model, device, games, rounds, seed):
                    for i in range(4)]
         order = list(range(4))
         rng.shuffle(order)
-        strategies = [players[order[i]] for i in range(4)]
+        if opponents:
+            model_seats = set(order[:2])           # 模型座
+            opp_seats = order[2:]
+            strategies = [None] * 4
+            opps = [STRATEGIES[n]() for n in opponents]
+            for i, seat in enumerate(opp_seats):
+                strategies[seat] = opps[i % len(opps)]
+            for seat in model_seats:
+                strategies[seat] = players[seat]
+        else:
+            model_seats = set(range(4))
+            strategies = [players[order[i]] for i in range(4)]
         res = SimGame(strategies, rounds=rounds, base=1,
                       seed=seed * 100000 + g).run()
         mean = sum(res["totals"]) / 4.0
-        for i in range(4):
-            # 玩家 players[i] 实际坐在 order.index(i)
-            seat = order.index(i)
+        for i in model_seats:
+            if opponents:
+                # 玩家 i 即坐在 seat i（模型座直接对位）
+                seat = i
+            else:
+                seat = order.index(i)
             adv = (res["totals"][seat] - mean) / 8.0   # 缩放到 ±10 量级
             for fv, a, lp in players[i].logs:
                 all_rows.append((fv, a, lp, adv))
@@ -103,7 +122,7 @@ def selfplay_batch(model, device, games, rounds, seed):
 
 
 def train(ckpt_path, out_path, games=32, rounds=8, iters=120, lr=1e-4,
-          temp=1.0, seed=1, log_every=10, save_every=0):
+          temp=1.0, seed=1, log_every=10, save_every=0, opponents=None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = PolicyNet().to(device)
     data = torch.load(ckpt_path, map_location=device)
@@ -112,7 +131,8 @@ def train(ckpt_path, out_path, games=32, rounds=8, iters=120, lr=1e-4,
     history = []
     t0 = time.time()
     for it in range(iters):
-        rows = selfplay_batch(model, device, games, rounds, seed + it * 7)
+        rows = selfplay_batch(model, device, games, rounds,
+                              seed + it * 7, opponents=opponents)
         if not rows:
             continue
         X = torch.tensor([r[0] for r in rows], dtype=torch.float32,
@@ -168,9 +188,11 @@ def main():
     ap.add_argument("--temp", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--save-every", type=int, default=0, help="每 N iter 中途存档")
+    ap.add_argument("--opp", default="", help="对抗对手（逗号分隔策略名，如 heuristicA）")
     args = ap.parse_args()
+    opps = [n.strip() for n in args.opp.split(",") if n.strip()] or None
     train(args.ckpt, args.out, args.games, args.rounds, args.iters, args.lr,
-          args.temp, args.seed, save_every=args.save_every)
+          args.temp, args.seed, save_every=args.save_every, opponents=opps)
 
 
 if __name__ == "__main__":
