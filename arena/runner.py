@@ -69,6 +69,16 @@ def _v0():
     return V0Policy(ckpt)
 
 
+@_reg("rl1")
+def _rl1():
+    import os
+    ckpt = os.path.join(HERE, "..", "var", "ml", "model_rl1.pt")
+    if not os.path.exists(ckpt):
+        raise ValueError("模型 %s 不存在（先 python -m ml.rl）" % ckpt)
+    from bot.model_policy import V0Policy
+    return V0Policy(ckpt, name="rl1")
+
+
 @_reg("v4sr")
 def _v4sr():
     """v4s + 引擎胡规则（hu_rule）：弃牌学 SpeedA、胡由引擎即时接管。"""
