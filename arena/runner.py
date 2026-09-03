@@ -46,6 +46,12 @@ def _heuristic():
     return HeuristicA()
 
 
+@_reg("speedA")
+def _speed():
+    from bot.speed import SpeedA
+    return SpeedA()
+
+
 @_reg("heuristicA2")
 def _heuristic2():
     from bot.heuristic2 import HeuristicA2

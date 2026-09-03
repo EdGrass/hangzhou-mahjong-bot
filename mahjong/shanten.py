@@ -17,33 +17,39 @@ from .tiles import FULL_TILES, counts_of, id_of, is_suit_tile, suit_and_num
 _win_memo = {}
 
 
-def _win14(tiles):
-    key = tuple(sorted(tiles))
+def _win14(tiles, exposed=0, gangs=0):
+    key = (tuple(sorted(tiles)), exposed, gangs)
     got = _win_memo.get(key)
     if got is None:
-        got = is_win(tiles)
+        got = is_win(tiles, exposed_melds=exposed, gangs=gangs)
         _win_memo[key] = got
     return got
 
 
-def _waits_of(hand13):
+def _waits_of(hand, exposed=0, gangs=0):
     """等待牌（内部：不查 deck，仅排除已 4 张）。"""
-    counts = counts_of(hand13)
+    counts = counts_of(hand)
     return [t for t in FULL_TILES
-            if counts[id_of(t)] < 4 and _win14(hand13 + [t])]
+            if counts[id_of(t)] < 4 and _win14(hand + [t], exposed, gangs)]
 
 
-def waits(hand13):
-    """13 张手牌的等待牌（34 种含白；同种已满 4 张则排除）。"""
-    if len(hand13) != 13:
-        raise ValueError("听牌判定需要 13 张，实际 %d" % len(hand13))
-    return _waits_of(hand13)
+def waits(hand, exposed_melds=0, gangs=0):
+    """摸牌前暗牌（13-3e-g 张）的等待牌（34 种含白；同种满 4 张排除）。"""
+    e, g = int(exposed_melds or 0), int(gangs or 0)
+    need = 13 - 3 * e - g
+    if len(hand) != need:
+        raise ValueError("副露 %d 杠 %d 时等待判定需 %d 张，实际 %d" % (
+            e, g, need, len(hand)))
+    return _waits_of(hand, e, g)
 
 
-def is_tenpai(hand13):
-    if len(hand13) != 13:
-        raise ValueError("听牌判定需要 13 张，实际 %d" % len(hand13))
-    return bool(_waits_of(hand13))
+def is_tenpai(hand, exposed_melds=0, gangs=0):
+    e, g = int(exposed_melds or 0), int(gangs or 0)
+    need = 13 - 3 * e - g
+    if len(hand) != need:
+        raise ValueError("副露 %d 杠 %d 时听牌判定需 %d 张，实际 %d" % (
+            e, g, need, len(hand)))
+    return bool(_waits_of(hand, e, g))
 
 
 def _neighborhood(kinds):

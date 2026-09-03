@@ -132,20 +132,21 @@ def _iter_decompositions(c):
         yield (m, p, t)
 
 
-def _score(m, p, t):
-    if m > 4:
+def _score(m, p, t, base_faces=4):
+    if m > base_faces:
         return 99
-    need = 4 - m
+    need = base_faces - m
     has = 1 if p >= 1 else 0
     ta = t + max(0, p - 1)
     return max(0, 2 * need - has - min(ta, need))
 
 
 @lru_cache(maxsize=65536)
-def _shanten_counts(counts_tuple):
-    best = 8
+def _shanten_counts(counts_tuple, exposed, gangs):
+    base = 4 - exposed
+    best = 2 * base
     for m, p, t in _iter_decompositions(list(counts_tuple)):
-        s = _score(m, p, t)
+        s = _score(m, p, t, base)
         if s < best:
             best = s
             if best == 0:
@@ -154,24 +155,30 @@ def _shanten_counts(counts_tuple):
 
 
 def _qidui_shanten(counts):
-    """七对向听：实体对数 + 白补对上限（白 1 张补 1 孤；白两两成对）。"""
+    """七对向听：实体对数 + 白补孤 + 余白两两成对（仅无副露/无杠可用）。"""
     j = counts[_GOD]
     pairs = sum(v // 2 for v in counts[:_GOD])
     odds = sum(1 for v in counts[:_GOD] if v % 2 == 1)
-    # 单张实体与白配对(≤min(odds, j))，剩余白两两成对
     paired = min(odds, j)
     pairs += paired
     pairs += (j - paired) // 2
     return max(0, 6 - pairs)
 
 
-def shanten(hand13, qidui=True):
-    """13 张暗牌（含财神白板）的精确向听数（一般形与七对取小）。"""
-    if len(hand13) != 13:
-        raise ValueError("向听数需要 13 张，实际 %d" % len(hand13))
-    counts = list(counts_of(hand13))
-    best = _shanten_counts(tuple(counts))
-    if qidui:
+def shanten(hand, qidui=True, exposed_melds=0, gangs=0):
+    """摸牌前暗牌（13-3e-g 张，含财神）的精确向听数。
+
+    一般形基准面子 = 4-e；七对仅当 e=g=0 时参与。
+    """
+    e = int(exposed_melds or 0)
+    g = int(gangs or 0)
+    need_len = 13 - 3 * e - g
+    if len(hand) != need_len:
+        raise ValueError("副露 %d 杠 %d 时向听判定需 %d 张，实际 %d" % (
+            e, g, need_len, len(hand)))
+    counts = list(counts_of(hand))
+    best = _shanten_counts(tuple(counts), e, g)
+    if qidui and e == 0 and g == 0:
         q = _qidui_shanten(counts)
         if q < best:
             best = q
