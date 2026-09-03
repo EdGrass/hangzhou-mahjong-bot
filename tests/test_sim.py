@@ -66,5 +66,27 @@ class TestSimMakesWins(unittest.TestCase):
         self.assertGreater(max(st["fan_total"]), 0)
 
 
+class TestSimV2Melds(unittest.TestCase):
+    def test_windows_and_gangs_triggered_zero_violations(self):
+        """副露窗口/杠路径在多局中必然触发，且策略零违规、总分守恒。"""
+        for seed in (11, 7, 99):
+            res = SimGame(_heur4(), rounds=32, seed=seed).run()
+            st = res["stats"]
+            self.assertEqual(st["violations"], 0, "seed=%d 不应违规" % seed)
+            self.assertEqual(sum(res["totals"]), 0)
+            self.assertGreater(sum(st["chi"]) + sum(st["peng"]), 0,
+                               "seed=%d 应出现吃/碰" % seed)
+            self.assertGreater(sum(st["gang"]), 0, "seed=%d 应出现杠" % seed)
+            self.assertEqual(st["rounds_played"], 32)
+
+    def test_meld_players_can_still_hu(self):
+        """副露后仍能完成胡牌（链/面子折算路径）。"""
+        res = SimGame(_heur4(), rounds=64, seed=2026).run()
+        st = res["stats"]
+        self.assertGreater(sum(st["hu_count"]), 0)
+        self.assertGreaterEqual(sum(st["chi"]) + sum(st["peng"]) +
+                                sum(st["gang"]), sum(st["hu_count"]) // 2)
+
+
 if __name__ == "__main__":
     unittest.main()

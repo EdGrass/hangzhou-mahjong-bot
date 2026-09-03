@@ -81,20 +81,55 @@ def _best_discard(hand14, drawn):
 
 
 class HeuristicA(Strategy):
-    """启发式策略 A（v1：自摸即胡 + 静态牌型分弃牌）。"""
+    """启发式策略 A（v2：副露窗口 + 自杠参与）。
+
+    规则（骨架期基线，非最优）：
+    - 摸牌后可胡 → 立即 hu；有自杠机会（4 张同码暗杠 / 碰组第 4 张补杠，
+      白板禁杠、牌墙许可）→ 杠（吃动作链/杠上花机会）；
+    - 窗口：可直杠/碰 → 要；下家可吃（未满 2 摊）→ 吃；
+    - 否则静态牌型分弃牌（同 v1）。
+    """
 
     def __init__(self, name="heuristicA"):
         self.name = name
 
     def decide(self, view):
+        offer = view.get("offer_tile")
+        if window_pending(view) and offer:
+            cnt = view["my_hand"].count(offer)
+            if view["phase"] == "response_peng":
+                if cnt >= 3:
+                    return {"action": "gang", "tile": offer}
+                if cnt >= 2:
+                    return {"action": "peng", "tile": offer}
+            elif view["phase"] == "response_chi" and cnt >= 1:
+                # 由引擎在 tiles 缺省时选第一组；这里显式不指定
+                return {"action": "chi", "tile": offer}
+        if window_pending(view):
+            return {"action": "pass", "tile": ""}
         if my_turn(view):
             hand = list(view["my_hand"])
-            if len(hand) % 3 == 2 and is_win(hand):
+            melds = view.get("melds") or []
+            exposed = len(melds)
+            gangs = sum(1 for m in melds if m["type"] == "gang")
+            peng_t = [m["tile"] for m in melds if m["type"] == "peng"]
+            can_gang = view.get("can_gang", False)
+            if can_gang and view.get("drawn_tile"):
+                # 仅摸牌后可自杠（副露后出牌态无杠权）
+                for t in sorted(set(hand)):
+                    if t != "白" and hand.count(t) == 4:
+                        return {"action": "gang", "tile": t}
+                for t in peng_t:
+                    if t != "白" and t in hand:
+                        return {"action": "gang", "tile": t}
+            try:
+                hu = is_win(hand, exposed_melds=exposed, gangs=gangs)
+            except ValueError:                # 真机快照无 melds 时按纯手牌
+                hu = (exposed == 0 and gangs == 0) and is_win(hand)
+            if hu and view.get("drawn_tile"):
                 return {"action": "hu", "tile": ""}
             if hand:
                 return {"action": "discard",
                         "tile": _best_discard(hand, view.get("drawn_tile"))}
             return None
-        if window_pending(view):
-            return {"action": "pass", "tile": ""}   # v1 窗口全过
         return None

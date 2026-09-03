@@ -29,40 +29,51 @@ def _qidui_groups(counts):
     return n
 
 
-def branch_of(hand14):
-    """分支识别：可七对 → 七对家族（含组数）；否则平胡。返回 (倍率, detail名)。"""
+def branch_of(hand14, exposed_melds=0):
+    """分支识别：无副露且可七对 → 七对家族（含组数）；否则平胡。
+    返回 (倍率, detail名)。hand14 = 暗牌计数形态（含摸牌），张数 14-3e。"""
     counts = counts_of(hand14)
     real = list(counts[:33])
     jokers = counts[33]
-    singles = sum(1 for i in range(33) if real[i] % 2 == 1)
-    if singles <= jokers and (jokers - singles) % 2 == 0:
-        n = _qidui_groups(counts)
-        return 2 ** (n + 1), ("七对" if n == 0 else "豪华七对×%d" % n)
+    if exposed_melds == 0:
+        singles = sum(1 for i in range(33) if real[i] % 2 == 1)
+        if singles <= jokers and (jokers - singles) % 2 == 0:
+            n = _qidui_groups(counts)
+            return 2 ** (n + 1), ("七对" if n == 0 else "豪华七对×%d" % n)
     return 1, "平胡"
 
 
-def calc(hand13, draw, chain=None, base=1):
-    """本地 fan-calc 等价实现。hand13 恰 13 张、draw 恰 1 张。
+def calc(hand_pre, draw, chain=None, base=1, exposed_melds=0, gangs=0):
+    """本地 fan-calc 等价实现（支持副露/杠）。
 
-    chain: {"count": 0..6, "piao": ≤count}。返回与服务器同构的 dict。
+    hand_pre = 摸牌前暗牌（3(4-e)+1-g 张）；draw 恰 1 张；
+    e = 已亮面子数；g = 其中杠组数。chain: {"count", "piao"}。
     """
     from .tiles import validate_hand
-    validate_hand(hand13)
+    validate_hand(hand_pre)
     if not isinstance(draw, str):
         raise ValueError("draw 必须是单张牌码")
-    hand14 = hand13 + [draw]
+    e = int(exposed_melds or 0)
+    g = int(gangs or 0)
+    if not (0 <= e <= 4 and 0 <= g <= e):
+        raise ValueError("副露/杠数非法: e=%d g=%d" % (e, g))
+    need_pre = 3 * (4 - e) + 1 - g
+    if len(hand_pre) != need_pre:
+        raise ValueError("副露 %d 组（杠 %d）时摸牌前暗牌须 %d 张，实际 %d" % (
+            e, g, need_pre, len(hand_pre)))
+    hand14 = hand_pre + [draw]
     chain = chain or {"count": 0, "piao": 0}
     count = int(chain.get("count") or 0)
     piao = int(chain.get("piao") or 0)
     if not (0 <= count <= 6 and 0 <= piao <= count):
         raise ValueError("chain 非法: %r" % (chain,))
 
-    hu = is_win(hand14)
+    hu = is_win(hand14, exposed_melds=e, gangs=g)
     if not hu:
         return {"hu": False, "baotou": False, "fan": 0, "detail": None}
 
-    baotou = is_baotou(hand13)
-    branch, branch_name = branch_of(hand14)
+    baotou = is_baotou(hand_pre, exposed_melds=e, gangs=g)
+    branch, branch_name = branch_of(hand14, exposed_melds=e)
 
     detail = [branch_name]
     fan = branch

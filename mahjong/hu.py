@@ -72,12 +72,16 @@ def _honor_bits(c_honors, budget):
 
 
 @lru_cache(maxsize=200000)
-def _core_win(counts14, jokers, allow_qidui):
-    """核心判定：counts14 = 34 维计数元组（含白板位）。返回 bool。"""
+def _core_win(counts14, jokers, allow_qidui, exposed, gangs, extra_jokers):
+    """核心判定：counts14 = 34 维计数元组（含白板位）。返回 bool。
+
+    gangs：杠组数。杠的第四张物理牌等价于结构上一张万能牌
+    （暗牌数相应少一张：len = 3(4-e)+2-g）。
+    """
     real = list(counts14[:JOKER_ID])
-    if allow_qidui and _qidui_ok(real, jokers):
+    if allow_qidui and exposed == 0 and gangs == 0 and _qidui_ok(real, jokers):
         return True
-    return _standard_ok(real, jokers)
+    return _standard_ok(real, jokers + extra_jokers)
 
 
 def _qidui_ok(real, jokers):
@@ -145,33 +149,41 @@ def _masks_fit(w, b, t, h, jokers):
     return False
 
 
-def is_win(hand, allow_qidui=True):
-    """判定 3n+2 张手牌是否可胡（含财神百搭）。
+def is_win(hand, allow_qidui=True, exposed_melds=0, gangs=0):
+    """判定暗牌（另有 e 组已亮面子，其中 g 组为杠）是否可胡（含财神百搭）。
 
-    - len(hand) % 3 != 2 或含非法牌码 → ValueError；
-    - allow_qidui=False 时仅判普通胡（供副露/杠后手牌用）。
+    - 张数须 = 3*(4-e)+2-g（杠的第四张等价结构万能牌，暗牌少一张）；
+    - allow_qidui=False / e>0 / g>0 时仅判普通胡。
     """
     validate_hand(hand)
+    e, g = int(exposed_melds or 0), int(gangs or 0)
+    if not (0 <= e <= 4 and 0 <= g <= e):
+        raise ValueError("面子/杠数非法: e=%d g=%d" % (e, g))
     n = len(hand)
-    if n % 3 != 2:
-        raise ValueError("可胡手牌张数须为 3n+2，实际 %d" % n)
+    need = 3 * (4 - e) + 2 - g
+    if n != need:
+        raise ValueError(
+            "副露 %d 组（杠 %d）时暗牌须 %d 张（可胡），实际 %d" % (e, g, need, n))
     counts = counts_of(hand)
-    return _core_win(tuple(counts), counts[JOKER_ID], allow_qidui)
+    return _core_win(tuple(counts), counts[JOKER_ID], allow_qidui, e, g, g)
 
 
-def is_baotou(hand13, allow_qidui=True):
-    """爆头判定（摸牌前 13 张）：摸任意 1 张牌上来都能胡。
+def is_baotou(hand_pre, allow_qidui=True, exposed_melds=0, gangs=0):
+    """爆头判定（摸牌前暗牌）：摸任意 1 张牌上来都能胡。
 
-    接入指南 §1.2：「听牌态摸任意 1 张牌上来即胡」——即任意摸牌均成胡，
-    典型形态：4 面子 + 单钓财神、六对半 + 财神（七对形）等。
+    接入指南 §1.2：「听牌态摸任意 1 张牌上来即胡」（财神数不限，支持副露）。
     边界（正好 4 张白板不视为爆头）经 fan-calc 实测确认。
     """
-    validate_hand(hand13)
-    if len(hand13) != 13:
-        raise ValueError("爆头判定需要摸牌前 13 张，实际 %d" % len(hand13))
-    if hand13.count("白") == 4:
+    validate_hand(hand_pre)
+    e, g = int(exposed_melds or 0), int(gangs or 0)
+    need = 3 * (4 - e) + 1 - g               # 摸牌前 = 可胡张数 - 1
+    if len(hand_pre) != need:
+        raise ValueError("爆头判定需要摸牌前暗牌 %d 张（副露 %d 杠 %d），实际 %d" % (
+            need, e, g, len(hand_pre)))
+    if hand_pre.count("白") == 4:
         return False
     for t in FULL_TILES:                 # 34 种摸牌（含摸白）
-        if not is_win(hand13 + [t], allow_qidui=allow_qidui):
+        if not is_win(hand_pre + [t], allow_qidui=allow_qidui,
+                      exposed_melds=e, gangs=g):
             return False
     return True
