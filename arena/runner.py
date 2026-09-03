@@ -46,6 +46,12 @@ def _heuristic():
     return HeuristicA()
 
 
+@_reg("heuristicA2")
+def _heuristic2():
+    from bot.heuristic2 import HeuristicA2
+    return HeuristicA2()
+
+
 @_reg("v0")
 def _v0():
     """学习线 v0 模型策略（读 var/ml/model_v0.pt；不存在时报错提示先训练）。"""
@@ -197,10 +203,18 @@ class Arena:
             }
         snap = {"updated_at": time.time(), "total_batches": len(batches),
                 "combos": combos}
-        tmp = self.metrics_path + ".tmp"
+        # 并发多写进程（连续流 + 临时评估）可能冲突：唯一临时名 + 重试原子替换
+        tmp = "%s.tmp.%d.%d" % (self.metrics_path, os.getpid(),
+                                int(time.time() * 1000))
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(snap, f, ensure_ascii=False, indent=1)
-        os.replace(tmp, self.metrics_path)
+        for attempt in range(8):
+            try:
+                os.replace(tmp, self.metrics_path)
+                return
+            except PermissionError:
+                time.sleep(0.05)
+        raise PermissionError("metrics 写入持续冲突: %s" % self.metrics_path)
 
 
 def main():
