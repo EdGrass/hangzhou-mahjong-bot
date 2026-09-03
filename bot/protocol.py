@@ -13,6 +13,7 @@ game_id 自动出现，含 _s{k} 段标识）。只有 finished/closed/void 才�
 """
 from __future__ import annotations
 
+import threading
 import time
 import urllib.error
 
@@ -77,6 +78,34 @@ def active_game_ids(client, tid, t):
     if mine:
         return [g for g in act if g in mine]
     return act
+
+
+def _play_concurrent(client, gids, strategy):
+    """并发打多场（M 上限内 active_games 同时多场：长轮询各自推进，防超时代打）。
+
+    每场一个 daemon 线程跑 play_game；瞬断类错误在线程内已自愈，
+    其它异常收集后由主线程记录（不阻断其余场次）。返回异常列表。
+    """
+    errors = []
+    lock = threading.Lock()
+
+    def worker(gid):
+        try:
+            play_game(client, gid, strategy)
+        except ApiError as e:
+            with lock:
+                errors.append((gid, e))
+
+    threads = []
+    for gid in gids:
+        t = threading.Thread(target=worker, args=(gid,), daemon=True)
+        t.start()
+        threads.append(t)
+    for t in threads:
+        t.join()               # 等待全部场次结束（各自事件驱动）
+    for gid, e in errors:
+        log("场次 %s 异常终止: %s %s", gid, e.status, (e.code or e.body)[:160])
+    return errors
 
 
 def run_tournament(client, tid, strategy, scoped=True):
@@ -148,17 +177,10 @@ def run_tournament(client, tid, strategy, scoped=True):
                     time.sleep(1.0)
                     continue
                 raise
-            for gid in acts:
-                try:
-                    play_game(client, gid, strategy)
-                except ApiError as e:
-                    if e.status == 0 or e.status >= 500:
-                        log("场次 %s 瞬时故障(%s)，回主循环重试…" % (gid, e.code or e.status))
-                        time.sleep(1.0)
-                        break   # 同一批其他场次稍后随主循环复查
-                    raise
             if acts:
-                continue        # 立刻复查：同批余场/决赛加赛新场可能刚出现
+                # 多场并发（同一桌位事件驱动互不阻塞），全部结束后立刻复查
+                _play_concurrent(client, acts, strategy)
+                continue        # 同批余场/决赛加赛新场可能刚出现
             time.sleep(POLL_INTERVAL)
         elif intent == "wait":
             time.sleep(POLL_INTERVAL)
