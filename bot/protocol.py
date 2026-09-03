@@ -81,7 +81,7 @@ def active_game_ids(client, tid, t):
 
 def run_tournament(client, tid, strategy, scoped=True):
     """锦标赛主循环（阻塞直到 finished/closed/void 或确定与我无关）。"""
-    joined = False                  # 是否成功进场（注册过）
+    registered_in_period = False    # 是否已成功报名+到位（幂等；报名期成功一次即可，也用于 403 未入场判定）
     last_confirm_at = 0.0           # 上次出席确认时间 —— 确认幂等(200)，仅做节流防每秒刷
     give_up_at = time.time() + JOIN_GIVE_UP_SEC
     log("锦标赛主循环启动: tid=%s", tid)
@@ -94,13 +94,13 @@ def run_tournament(client, tid, strategy, scoped=True):
                 log("锦标赛详情瞬时故障(%s)，重试…" % (e.code or e.status))
                 time.sleep(POLL_INTERVAL)
                 continue
-            if e.status == 403 and not joined:
+            if e.status == 403 and not registered_in_period:
                 # 非参赛者查详情 403（如全局令牌自测路径报名前）：先尝试幂等进场再看
                 log("详情 403（未入场），尝试注册进场…")
                 try:
                     client.register(tid)
                     client.ready(tid)
-                    joined = True
+                    registered_in_period = True
                     continue
                 except ApiError:
                     pass
@@ -122,7 +122,10 @@ def run_tournament(client, tid, strategy, scoped=True):
             summary(client, tid, t)
             return t
         if intent == "register":
-            joined = _register(client, tid) or joined
+            if not registered_in_period:
+                # 报名+到位幂等：本报名期成功一次即可，之后纯轮询等开赛
+                registered_in_period = _register(client, tid)
+            time.sleep(POLL_INTERVAL)   # 报名期轮询节流：1s/轮
         elif intent == "confirm":
             # 出席确认幂等(200)，10s 节流即可；即使中途崩溃重赛回同一阶段也会重新确认
             now = time.time()
@@ -132,6 +135,7 @@ def run_tournament(client, tid, strategy, scoped=True):
                     log("名单外 NOT_QUALIFIED：无本阶段资格，本锦标赛与我无关，退出")
                     return t
                 last_confirm_at = now
+            time.sleep(POLL_INTERVAL)
         elif intent == "eliminated":
             log("已淘汰：本阶段名单外（海选未晋级/未报名），本锦标赛与我无关，退出")
             return t
