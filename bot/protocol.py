@@ -23,7 +23,9 @@ from .model import TERMINAL_STATUSES
 from .util import log
 
 # 状态机行为参数
-POLL_INTERVAL = 1.0            # 锦标赛详情轮询间隔（秒）
+POLL_INTERVAL = 1.0            # 锦标赛详情轮询间隔（秒，running 等需要反应性的状态）
+REGISTER_POLL = 15.0           # 报名期稳态轮询（开赛秒级感知足够，降 90%+ 请求）
+STAGE_WAIT_POLL = 5.0          # stage_done 等管理员推进（分钟~小时级）
 UNKNOWN_STATUS_INTERVAL = 5.0  # 未知状态（版本前向兼容）的保守轮询间隔
 JOIN_GIVE_UP_SEC = 300.0       # 一直无法入场的放弃时间（错过报名/名额满）
 
@@ -161,7 +163,7 @@ def run_tournament(client, tid, strategy, scoped=True):
             if not registered_in_period:
                 # 报名+到位幂等：本报名期成功一次即可，之后纯轮询等开赛
                 registered_in_period = _register(client, tid)
-            time.sleep(POLL_INTERVAL)   # 报名期轮询节流：1s/轮
+            time.sleep(REGISTER_POLL)   # 报名期稳态轮询（低频率）
         elif intent == "confirm":
             # 出席确认幂等(200)，10s 节流即可；即使中途崩溃重赛回同一阶段也会重新确认
             now = time.time()
@@ -190,7 +192,7 @@ def run_tournament(client, tid, strategy, scoped=True):
                 continue        # 同批余场/决赛加赛新场可能刚出现
             time.sleep(POLL_INTERVAL)
         elif intent == "wait":
-            time.sleep(POLL_INTERVAL)
+            time.sleep(STAGE_WAIT_POLL)     # 等管理员推进：分钟~小时级，低频轮询
         else:  # unknown：保守轮询（版本前向兼容），不退出
             time.sleep(UNKNOWN_STATUS_INTERVAL)
 

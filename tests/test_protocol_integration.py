@@ -9,8 +9,15 @@ import threading
 import time
 import unittest
 
+import bot.protocol as protocol_mod
 from bot.protocol import run_tournament
 from bot.strategy import NaiveStrategy
+
+
+def setUpModule():
+    # 测试节奏：把稳态轮询缩短（生产值：REGISTER 15s / STAGE_WAIT 5s）
+    protocol_mod.REGISTER_POLL = 1.2
+    protocol_mod.STAGE_WAIT_POLL = 1.2
 
 
 class FakeClient:
