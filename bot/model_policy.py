@@ -25,7 +25,8 @@ from .strategy import Strategy                # noqa: E402
 class V0Policy(Strategy):
     """checkpoint 驱动的 v0 策略（协议 view 同构）。"""
 
-    def __init__(self, ckpt_path, name="v0", device=None, greedy=True):
+    def __init__(self, ckpt_path, name="v0", device=None, greedy=True,
+                 hu_rule=False):
         self.name = name
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model = PolicyNet().to(self.device)
@@ -34,6 +35,7 @@ class V0Policy(Strategy):
         self.model.eval()
         self.greedy = greedy
         self.ckpt = ckpt_path
+        self.hu_rule = hu_rule       # True：可胡即胡由引擎接管（hu 槽不参与）
 
     def decide(self, view):
         from mahjong.hu import is_win
@@ -56,7 +58,13 @@ class V0Policy(Strategy):
         except ValueError:
             hu_ok = False
         counts = feat["hand_counts"]
-        mask = [1 if c > 0 else 0 for c in counts] + [int(hu_ok)]
+        if self.hu_rule:
+            # 引擎接管胡：可胡即胡；否则在 34 弃牌槽内 argmax
+            if hu_ok:
+                return {"action": "hu", "tile": ""}
+            mask = [1 if c > 0 else 0 for c in counts] + [0]
+        else:
+            mask = [1 if c > 0 else 0 for c in counts] + [int(hu_ok)]
         logits = logits + (1.0 - torch.tensor(mask)) * -1e9
         act = int(logits.argmax().item())
         if act == ACT_DIM - 1:                  # hu 槽 = 34

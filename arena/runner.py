@@ -69,6 +69,31 @@ def _v0():
     return V0Policy(ckpt)
 
 
+@_reg("v4sr")
+def _v4sr():
+    """v4s + 引擎胡规则（hu_rule）：弃牌学 SpeedA、胡由引擎即时接管。"""
+    import os
+    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v4s.pt")
+    from bot.model_policy import V0Policy
+    return V0Policy(ckpt, name="v4sr", hu_rule=True)
+
+
+@_reg("v4s")
+def _v4s():
+    import os
+    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v4s.pt")
+    from bot.model_policy import V0Policy
+    return V0Policy(ckpt, name="v4s")
+
+
+@_reg("v4a")
+def _v4a():
+    import os
+    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v4a.pt")
+    from bot.model_policy import V0Policy
+    return V0Policy(ckpt, name="v4a")
+
+
 @_reg("v3")
 def _v3():
     import os
