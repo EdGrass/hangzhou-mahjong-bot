@@ -68,17 +68,18 @@ class Client:
                         return json.loads(raw)
                     except ValueError:
                         return raw  # 个别端点返回非 JSON（如纯文本）也照常透传
+            except urllib.error.HTTPError as e:
+                # HTTPError 是 URLError 子类，必须先于网络分支判断
+                if e.code == 429 and attempt < RATE_LIMIT_RETRIES:
+                    time.sleep(RATE_LIMIT_BACKOFF * (attempt + 1))
+                    continue
+                raise ApiError(e.code, e.read().decode("utf-8", errors="replace"))
             except urllib.error.URLError as e:
                 # 网络瞬断/超时：统一转 ApiError(0)，调用方按瞬时故障处理
                 if attempt < NETWORK_RETRIES:
                     time.sleep(NETWORK_BACKOFF * (attempt + 1))
                     continue
                 raise ApiError(0, "network error: %s" % (e,))
-            except urllib.error.HTTPError as e:
-                if e.code == 429 and attempt < RATE_LIMIT_RETRIES:
-                    time.sleep(RATE_LIMIT_BACKOFF * (attempt + 1))
-                    continue
-                raise ApiError(e.code, e.read().decode("utf-8", errors="replace"))
         raise ApiError(429, "rate limited after %d retries" % RATE_LIMIT_RETRIES)
 
     # -- 便捷方法 ------------------------------------------------------------
