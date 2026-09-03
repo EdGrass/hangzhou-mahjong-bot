@@ -13,7 +13,7 @@
 """
 from __future__ import annotations
 
-from .tiles import (JOKER_ID, counts_of, is_suit_tile, suit_and_num,
+from .tiles import (FULL_TILES, JOKER_ID, counts_of, is_suit_tile, suit_and_num,
                     validate_hand)
 
 # 是否允许"纯财神面子"（如 白白白 当任意刻子）参与普通胡。
@@ -136,6 +136,25 @@ def _qidui_win(real_counts, jokers):
         return False
     rest = jokers - singles
     return rest % 2 == 0
+
+
+def is_baotou(hand13, allow_qidui=True):
+    """爆头判定（摸牌前 13 张）：摸任意 1 张牌上来都能胡。
+
+    接入指南 §1.2：「听牌态摸任意 1 张牌上来即胡」——即任意摸牌均成胡，
+    典型形态：4 面子 + 单钓财神、六对半 + 财神（七对形）等。
+    边界（正好 4 张白板不视为爆头等）以 fan-calc 对齐结果为准。
+    """
+    validate_hand(hand13)
+    if len(hand13) != 13:
+        raise ValueError("爆头判定需要摸牌前 13 张，实际 %d" % len(hand13))
+    # 「正好 4 张白板不视为爆头」（指南 §1.2，fan-calc 对齐确认）
+    if hand13.count("白") == 4:
+        return False
+    for t in FULL_TILES:                 # 34 种摸牌（含摸白）
+        if not is_win(hand13 + [t], allow_qidui=allow_qidui):
+            return False
+    return True
 
 
 def is_win(hand, allow_qidui=True):
