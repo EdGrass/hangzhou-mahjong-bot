@@ -11,7 +11,8 @@
 python run_bot.py --smoke
 
 # 正式运行（门户「测试房间」/「报名」派发的参赛令牌）
-python run_bot.py <参赛令牌>
+python run_bot.py <参赛令牌>                    # 默认策略 heuristicA
+python run_bot.py <参赛令牌> --strategy speedA   # 向听数速度版（更强，需副露跟踪 E2E 后更稳）
 
 # 全局令牌（POST /api/users 注册所得）需显式带锦标赛 id
 python run_bot.py <token> <锦标赛id>
@@ -19,6 +20,16 @@ python run_bot.py <token> <锦标赛id>
 # 其他服务器（默认 https://10.240.169.190:18080；本地调试可用 http://localhost:8080）
 python run_bot.py <token> --server http://localhost:8080
 # 或用环境变量 HM_SERVER 覆盖
+```
+
+赛前自助检查（建议每项都过一遍）：
+
+```powershell
+python -m unittest discover -s tests     # 100 测试全绿
+python run_bot.py --smoke                # 服务器 v10 + 番型口径对齐
+python tools/stability.py                # 四策略稳定性矩阵 ALL PASS
+python tools/align_fan_calc.py           # 黄金集对齐复核（缓存复用）
+python -m uvicorn arena.dashboard:app --host 127.0.0.1 --port 8088  # 训练面板
 ```
 
 运行前提：Windows 控制台已做 UTF-8 兜底（`bot/util.ensure_utf8`）；Python 3.10+ 即可。
