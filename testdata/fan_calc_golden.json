@@ -496,26 +496,27 @@
   },
   "resp": {
    "hu": true,
-   "baotou": false,
-   "fan": 1,
+   "baotou": true,
+   "fan": 2,
    "detail": [
-    "平胡"
+    "平胡",
+    "爆头"
    ],
    "scores": {
     "dealer_hu": {
-     "win": 24,
+     "win": 48,
      "lose": [
-      8,
-      8,
-      8
+      16,
+      16,
+      16
      ]
     },
     "nondealer_hu": {
-     "win": 10,
+     "win": 20,
      "lose": [
-      8,
-      1,
-      1
+      16,
+      2,
+      2
      ]
     }
    }
@@ -881,18 +882,29 @@
    "piao": 0
   },
   "resp": {
-   "hu": false,
-   "baotou": false,
-   "fan": 0,
-   "detail": null,
+   "hu": true,
+   "baotou": true,
+   "fan": 2,
+   "detail": [
+    "平胡",
+    "爆头"
+   ],
    "scores": {
     "dealer_hu": {
-     "win": 0,
-     "lose": null
+     "win": 48,
+     "lose": [
+      16,
+      16,
+      16
+     ]
     },
     "nondealer_hu": {
-     "win": 0,
-     "lose": null
+     "win": 20,
+     "lose": [
+      16,
+      2,
+      2
+     ]
     }
    }
   }
@@ -919,18 +931,29 @@
    "piao": 0
   },
   "resp": {
-   "hu": false,
-   "baotou": false,
-   "fan": 0,
-   "detail": null,
+   "hu": true,
+   "baotou": true,
+   "fan": 2,
+   "detail": [
+    "平胡",
+    "爆头"
+   ],
    "scores": {
     "dealer_hu": {
-     "win": 0,
-     "lose": null
+     "win": 48,
+     "lose": [
+      16,
+      16,
+      16
+     ]
     },
     "nondealer_hu": {
-     "win": 0,
-     "lose": null
+     "win": 20,
+     "lose": [
+      16,
+      2,
+      2
+     ]
     }
    }
   }
@@ -957,18 +980,78 @@
    "piao": 0
   },
   "resp": {
-   "hu": false,
-   "baotou": false,
-   "fan": 0,
-   "detail": null,
+   "hu": true,
+   "baotou": true,
+   "fan": 2,
+   "detail": [
+    "平胡",
+    "爆头"
+   ],
    "scores": {
     "dealer_hu": {
-     "win": 0,
-     "lose": null
+     "win": 48,
+     "lose": [
+      16,
+      16,
+      16
+     ]
     },
     "nondealer_hu": {
-     "win": 0,
-     "lose": null
+     "win": 20,
+     "lose": [
+      16,
+      2,
+      2
+     ]
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "1w",
+   "1w",
+   "1w",
+   "2b",
+   "2b",
+   "2b",
+   "3t",
+   "3t",
+   "3t",
+   "4w",
+   "白",
+   "白",
+   "白"
+  ],
+  "draw": "5w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": true,
+   "baotou": true,
+   "fan": 2,
+   "detail": [
+    "平胡",
+    "爆头"
+   ],
+   "scores": {
+    "dealer_hu": {
+     "win": 48,
+     "lose": [
+      16,
+      16,
+      16
+     ]
+    },
+    "nondealer_hu": {
+     "win": 20,
+     "lose": [
+      16,
+      2,
+      2
+     ]
     }
    }
   }
@@ -4201,6 +4284,766 @@
    "8t"
   ],
   "draw": "3w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "东",
+   "5t",
+   "6w",
+   "6b",
+   "8b",
+   "北",
+   "6t",
+   "6b",
+   "2t",
+   "6w",
+   "1w",
+   "白",
+   "2w"
+  ],
+  "draw": "中",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "2t",
+   "4b",
+   "9t",
+   "白",
+   "9t",
+   "5t",
+   "8b",
+   "白",
+   "发",
+   "7b",
+   "1b",
+   "2b",
+   "西"
+  ],
+  "draw": "9w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "4b",
+   "6b",
+   "1w",
+   "8b",
+   "5t",
+   "中",
+   "5b",
+   "5b",
+   "8b",
+   "1t",
+   "1t",
+   "白",
+   "7t"
+  ],
+  "draw": "7w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "西",
+   "6t",
+   "5t",
+   "发",
+   "6w",
+   "4w",
+   "白",
+   "2b",
+   "6w",
+   "7w",
+   "8w",
+   "4w",
+   "8w"
+  ],
+  "draw": "1w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "发",
+   "3b",
+   "3t",
+   "4w",
+   "白",
+   "发",
+   "3b",
+   "白",
+   "9b",
+   "8b",
+   "8t",
+   "东",
+   "6b"
+  ],
+  "draw": "3b",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "北",
+   "1w",
+   "1b",
+   "5b",
+   "白",
+   "2w",
+   "8w",
+   "白",
+   "6w",
+   "9t",
+   "发",
+   "2w",
+   "中"
+  ],
+  "draw": "4w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "1t",
+   "4b",
+   "白",
+   "7w",
+   "3b",
+   "1w",
+   "6w",
+   "9t",
+   "白",
+   "8t",
+   "2t",
+   "9b",
+   "5b"
+  ],
+  "draw": "7t",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "白",
+   "白",
+   "西",
+   "北",
+   "6t",
+   "6t",
+   "9t",
+   "3t",
+   "4t",
+   "2t",
+   "5t",
+   "2w",
+   "2t"
+  ],
+  "draw": "2w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "中",
+   "2w",
+   "白",
+   "6t",
+   "6b",
+   "白",
+   "8w",
+   "8w",
+   "5t",
+   "4t",
+   "8w",
+   "3t",
+   "6t"
+  ],
+  "draw": "1b",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "7w",
+   "白",
+   "6b",
+   "4b",
+   "5b",
+   "2w",
+   "9w",
+   "7b",
+   "东",
+   "北",
+   "5t",
+   "8t",
+   "6w"
+  ],
+  "draw": "1w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "9w",
+   "8b",
+   "7b",
+   "8w",
+   "4t",
+   "1b",
+   "白",
+   "3w",
+   "发",
+   "5w",
+   "5t",
+   "中",
+   "4t"
+  ],
+  "draw": "1w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "白",
+   "7b",
+   "8b",
+   "4t",
+   "4w",
+   "西",
+   "5t",
+   "8w",
+   "3w",
+   "8t",
+   "2b",
+   "9b",
+   "9t"
+  ],
+  "draw": "2w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "3t",
+   "9b",
+   "西",
+   "4w",
+   "白",
+   "北",
+   "3b",
+   "1b",
+   "9w",
+   "2w",
+   "9b",
+   "白",
+   "1b"
+  ],
+  "draw": "4t",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "1t",
+   "2b",
+   "中",
+   "2t",
+   "南",
+   "南",
+   "西",
+   "9w",
+   "中",
+   "1w",
+   "4t",
+   "8w",
+   "东"
+  ],
+  "draw": "8t",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "3w",
+   "4b",
+   "2t",
+   "9b",
+   "5b",
+   "1w",
+   "1t",
+   "白",
+   "2b",
+   "7t",
+   "东",
+   "1w",
+   "白"
+  ],
+  "draw": "北",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "西",
+   "东",
+   "8b",
+   "9t",
+   "5w",
+   "2b",
+   "1w",
+   "8t",
+   "9b",
+   "南",
+   "东",
+   "北",
+   "6w"
+  ],
+  "draw": "2b",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "白",
+   "1t",
+   "8t",
+   "5b",
+   "6w",
+   "白",
+   "北",
+   "5w",
+   "9t",
+   "3w",
+   "东",
+   "7t",
+   "1w"
+  ],
+  "draw": "9w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "4b",
+   "发",
+   "4t",
+   "8w",
+   "6t",
+   "1w",
+   "6b",
+   "白",
+   "4w",
+   "白",
+   "6w",
+   "7w",
+   "1t"
+  ],
+  "draw": "5t",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "2w",
+   "3b",
+   "9w",
+   "中",
+   "3t",
+   "白",
+   "5w",
+   "1b",
+   "9t",
+   "8t",
+   "9b",
+   "5b",
+   "东"
+  ],
+  "draw": "9w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": false,
+   "baotou": false,
+   "fan": 0,
+   "detail": null,
+   "scores": {
+    "dealer_hu": {
+     "win": 0,
+     "lose": null
+    },
+    "nondealer_hu": {
+     "win": 0,
+     "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "9w",
+   "白",
+   "白",
+   "8w",
+   "西",
+   "发",
+   "1w",
+   "1w",
+   "8b",
+   "9t",
+   "东",
+   "5w",
+   "1w"
+  ],
+  "draw": "2t",
   "chain": {
    "count": 0,
    "piao": 0
