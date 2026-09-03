@@ -69,6 +69,16 @@ def _v0():
     return V0Policy(ckpt)
 
 
+@_reg("rl5")
+def _rl5():
+    import os
+    ckpt = os.path.join(HERE, "..", "var", "ml", "model_rl5.pt")
+    if not os.path.exists(ckpt):
+        raise ValueError("模型 %s 不存在" % ckpt)
+    from bot.model_policy import V0Policy
+    return V0Policy(ckpt, name="rl5")
+
+
 @_reg("rl4")
 def _rl4():
     import os
