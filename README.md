@@ -90,6 +90,24 @@ class Strategy(ABC):
    建议同时用 `GET /api/test-rooms/{id}/games/{batch}/events`（免认证）离线拉取
    赛后完整事件流做算法优化（本骨架暂未内置，属迭代范围）。
 
+## 本地评估：Arena 数据工厂 + FastAPI 训练面板（M2.5/M3.5 初版）
+
+```powershell
+# 1) 数据工厂：持续跑批次自对弈（默认 8 局×60 场/批，每 3s 一批）
+python -m arena.runner --combo "heuristicAx4" --games 60 --rounds 8 --every 3
+python -m arena.runner --combo "naivex2+heuristicAx2" --games 100 --rounds 8   # 单批
+
+# 2) 训练面板（FastAPI，需 pip install fastapi uvicorn）
+python -m uvicorn arena.dashboard:app --host 127.0.0.1 --port 8088
+# 浏览器打开 http://127.0.0.1:8088 —— 总览/趋势/最近对局，3s 自动刷新
+
+# 数据：var/arena/{metrics.json, history.jsonl, games.jsonl}（进程解耦，只读面板）
+```
+
+组合语法：`策略名x座数` 用 `+` 连接，如 `heuristicAx2+naivex2`；座位每局轮换，
+成绩按策略身份聚合（混编中 heuristicA vs naive 直接可比：基准 100 局
+heuristicA ≈ +9.8 均分 vs naive ≈ −9.8）。
+
 ## 版本追踪
 
 服务器指南版本与变更日志：`GET /portal/api/guide/version`（免认证）。
