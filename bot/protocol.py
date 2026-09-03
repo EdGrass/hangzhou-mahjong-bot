@@ -113,6 +113,8 @@ def run_tournament(client, tid, strategy, scoped=True):
     registered_in_period = False    # 是否已成功报名+到位（幂等；报名期成功一次即可，也用于 403 未入场判定）
     last_confirm_at = 0.0           # 上次出席确认时间 —— 确认幂等(200)，仅做节流防每秒刷
     give_up_at = time.time() + JOIN_GIVE_UP_SEC
+    last_state = (None, None, None)     # 上次 (status, 阶段名, crashed)——状态变化才打印
+    last_heartbeat = 0.0                # 心跳日志（长时间同态时每 60s 一行）
     log("锦标赛主循环启动: tid=%s", tid)
 
     while True:
@@ -142,8 +144,13 @@ def run_tournament(client, tid, strategy, scoped=True):
 
         st = _stage(t)
         intent, why = tournament_intent(t)
-        log("status=%s 阶段=[%s] 意图=%s（%s）" % (
-            t.get("status"), st["name"] or "-", intent, why))
+        state_key = (t.get("status"), st["name"], st["crashed"])
+        now = time.time()
+        if state_key != last_state or now - last_heartbeat >= 60:
+            log("status=%s 阶段=[%s] 意图=%s（%s）" % (
+                t.get("status"), st["name"] or "-", intent, why))
+            last_state = state_key
+            last_heartbeat = now
         if st["crashed"] and intent in ("wait", "play"):
             log("⚠ stage_crashed=true：中断待重赛，继续轮询直至重赛场次出现")
 
