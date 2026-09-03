@@ -16,20 +16,23 @@ from mahjong.shanten import waits
 from .heuristic import HeuristicA, _block_score
 
 
-def _best_discard2(hand14, drawn):
-    """弃牌选择：听牌优先 + 等待数 + 静态分。"""
+def _best_discard2(hand, drawn, exposed, gangs):
+    """弃牌选择：听牌优先（含副露基准）+ 等待数 + 静态分。"""
     best_tile, best_key = None, None
-    for d in sorted(set(hand14)):
-        rem = list(hand14)
+    for d in sorted(set(hand)):
+        rem = list(hand)
         rem.remove(d)
-        w = waits(rem)
+        try:
+            w = waits(rem, exposed_melds=exposed, gangs=gangs)
+        except ValueError:                    # 防御：张数口径异常时不抛
+            w = []
         key = (0, -len(w), -_block_score(rem)) if w else \
               (1, 0, -_block_score(rem))
         if d == drawn:
             key = (key[0], key[1], key[2] - 0.01)   # 同分偏留旧牌
         if best_key is None or key < best_key:
             best_key, best_tile = key, d
-    return best_tile if best_tile is not None else hand14[0]
+    return best_tile if best_tile is not None else hand[0]
 
 
 class HeuristicA2(HeuristicA):
@@ -53,6 +56,8 @@ class HeuristicA2(HeuristicA):
         if my_turn(view):
             hand = list(view["my_hand"])
             melds = view.get("melds") or []
+            exposed = len(melds)
+            gangs = sum(1 for m in melds if m["type"] == "gang")
             drawn = view.get("drawn_tile")
             if drawn == "白" and view.get("god", {}).get("baotou"):
                 return {"action": "discard", "tile": "白"}
@@ -62,9 +67,7 @@ class HeuristicA2(HeuristicA):
                     if t != "白" and hand.count(t) == 4:
                         return {"action": "gang", "tile": t}
             try:
-                hu = is_win(hand, exposed_melds=len(melds),
-                            gangs=sum(1 for m in melds
-                                      if m["type"] == "gang"))
+                hu = is_win(hand, exposed_melds=exposed, gangs=gangs)
             except ValueError:
                 hu = False
             if hu and drawn:
@@ -73,6 +76,6 @@ class HeuristicA2(HeuristicA):
                 if view.get("god", {}).get("catch_play") and drawn:
                     return {"action": "discard", "tile": drawn}
                 return {"action": "discard",
-                        "tile": _best_discard2(hand, drawn)}
+                        "tile": _best_discard2(hand, drawn, exposed, gangs)}
             return None
         return None

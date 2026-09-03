@@ -1,8 +1,21 @@
-"""SpeedA（向听数驱动速度基线）冒烟测试。"""
+"""SpeedA（向听数驱动速度基线）+ A2 副露稳定性的冒烟测试。"""
 import unittest
 
+from bot.heuristic2 import HeuristicA2
 from bot.speed import SpeedA
 from mahjong.sim import SimGame
+
+
+class TestHeuristicA2Melds(unittest.TestCase):
+    def test_zero_violation_with_melds(self):
+        """A2 副露手牌出牌不得抛异常（曾在 waits(13) 约束上崩 1300+ 次）。"""
+        for seed in (100, 101):
+            r = SimGame([HeuristicA2()] * 4, rounds=8, seed=seed).run()
+            st = r["stats"]
+            self.assertEqual(st["violations"], 0, "seed=%d 违规 %d" % (
+                seed, st["violations"]))
+            self.assertEqual(sum(r["totals"]), 0)
+            self.assertGreater(sum(st["hu_count"]), 0)
 
 
 class TestSpeedA(unittest.TestCase):
