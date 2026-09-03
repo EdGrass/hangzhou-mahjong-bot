@@ -11,4 +11,5 @@
 __version__ = "0.1.0"
 
 # 本 bot 开发时对应的服务器接入指南版本（用于版本自检，见 bot/smoke.py）
-GUIDE_VERSION_KNOWN = 8
+# v9/v10（2026-09-03）为兼容改进（测试房间限速粒度、state 跨局快照提速），无破坏
+GUIDE_VERSION_KNOWN = 10
