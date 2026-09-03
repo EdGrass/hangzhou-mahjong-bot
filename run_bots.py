@@ -43,7 +43,12 @@ def main(argv=None):
     ap.add_argument("--tid", default="", help="锦标赛 id（全局令牌自测路径用）")
     args = ap.parse_args(argv)
 
-    tokens = args.tokens or read_tokens(args.file)
+    if args.tokens:
+        tokens = args.tokens
+    elif args.file:
+        tokens = read_tokens(args.file)
+    else:
+        ap.error("请提供令牌：python run_bots.py t1 t2 t3 t4 或 --file tokens.txt")
     if len(tokens) < 4:
         ap.error("需要至少 4 个令牌（当前 %d 个）：python run_bots.py t1 t2 t3 t4" % len(tokens))
     tokens = tokens[:4]
