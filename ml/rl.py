@@ -103,7 +103,7 @@ def selfplay_batch(model, device, games, rounds, seed):
 
 
 def train(ckpt_path, out_path, games=32, rounds=8, iters=120, lr=1e-4,
-          temp=1.0, seed=1, log_every=10):
+          temp=1.0, seed=1, log_every=10, save_every=0):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = PolicyNet().to(device)
     data = torch.load(ckpt_path, map_location=device)
@@ -142,6 +142,12 @@ def train(ckpt_path, out_path, games=32, rounds=8, iters=120, lr=1e-4,
             print("iter %d  rows=%d  pg=%.4f ent=%.3f adv_mean=%.3f (%.0fs)"
                   % (it + 1, len(rows), pg_loss.item(), ent.item(),
                      adv_mean.item(), time.time() - t0), flush=True)
+        if save_every and (it + 1) % save_every == 0:
+            mid = out_path.replace(".pt", "_step%d.pt" % (it + 1))
+            torch.save({"state": model.state_dict(),
+                        "meta": {"base_ckpt": ckpt_path, "iters": it + 1}},
+                       mid)
+            print("中途存档 → %s" % mid, flush=True)
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     torch.save({"state": model.state_dict(),
                 "meta": {"base_ckpt": ckpt_path, "iters": iters,
@@ -161,9 +167,10 @@ def main():
     ap.add_argument("--lr", type=float, default=1e-4)
     ap.add_argument("--temp", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--save-every", type=int, default=0, help="每 N iter 中途存档")
     args = ap.parse_args()
     train(args.ckpt, args.out, args.games, args.rounds, args.iters, args.lr,
-          args.temp, args.seed)
+          args.temp, args.seed, save_every=args.save_every)
 
 
 if __name__ == "__main__":

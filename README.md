@@ -121,6 +121,23 @@ python -m ml.gen_data --games 300 --rounds 8 --out var/ml/samples.jsonl
 - 引擎判定与服务器 fan-calc **126/126 完全一致**（2026-09-03 复核），数据无判定污染；
 - 下一步（GPU 就绪后）：特征 → 小策略网（policy+value）监督训练 → Arena 2+2 混编评估。
 
+## 监督训练 / 自对弈微调（S3/S4）
+
+```powershell
+# 监督训练（小策略网 PolicyNet，带合法掩码 CE）
+python -m ml.train --data var/ml/samples.jsonl --epochs 10 --out var/ml/model_vX.pt
+
+# S4 自对弈策略梯度（让模型自选 速度×打点：reward=局末总分）
+python -m ml.rl --ckpt var/ml/model_v3.pt --out var/ml/model_rlX.pt \
+    --games 24 --iters 700 --lr 5e-5 --save-every 175
+
+# Arena 评估/教师矩阵：strategy 名 = naive/heuristicA/heuristicA2/speedA/
+#   v0/v1/v3/v4s/v4a/rl1（模型读 var/ml/*.pt），组合语法见上
+```
+
+模型战力排行（2026-09-03 Arena 实测）：speedA（向听数速度教师）≫ heuristicA2 ≈
+heuristicA > v3(208万监督) > v4s/rl1 ≈ v1 ≈ v0 > naive。
+
 ## 版本追踪
 
 服务器指南版本与变更日志：`GET /portal/api/guide/version`（免认证）。
