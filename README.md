@@ -27,6 +27,7 @@ python run_bot.py <token> --server http://localhost:8080
 
 ```
 run_bot.py            CLI 入口：--smoke 冒烟 / <token> [tid] 完整协议循环
+run_bots.py           四 AI 编排（4 子进程 + 席位日志 + 异常重启）
 bot/
   api.py              HTTP 传输：Bearer、自签 TLS、429/网络瞬断退避、ApiError(status, body, code)
   model.py            牌码工具（1w-9w/1b-9b/1t-9t/东南西北中发白）+ 快照本人视角视图
@@ -35,7 +36,10 @@ bot/
   protocol.py         v8 锦标赛状态机：intent 映射（纯函数）+ 主循环
   smoke.py            --smoke 免认证冒烟
   util.py             日志与服务器地址
+mahjong/              杭麻规则引擎（蓝图 M1，纯算法）：牌张编码 + 胡牌判定
+                      （含财神百搭/七对）→ 后续：向听/听牌/番型/模拟器/Arena
 tests/                unittest 离线单测（python -m unittest discover -s tests）
+docs/杭麻AI蓝图-设计.md   牌技路线总设计（M1 引擎 → Arena 数据工厂 → 学习线）
 ```
 
 ## v8 状态机（进度真相 = GET /api/tournaments/{id} 的 status）
