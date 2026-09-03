@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -32,19 +33,22 @@ def main():
     args = ap.parse_args()
 
     log("看门狗启动：strategy=%s（Ctrl+C 退出并终止 bot）", args.strategy)
+    os.makedirs("logs", exist_ok=True)
     while True:
         cmd = [sys.executable, "run_bot.py", args.token]
         if args.tid:
             cmd.append(args.tid)
         cmd += ["--strategy", args.strategy, "--server", args.server]
         log("启动 bot 子进程…")
-        proc = subprocess.Popen(cmd, cwd=".")
+        out = open("logs/bot_live.log", "a", encoding="utf-8")
+        proc = subprocess.Popen(cmd, cwd=".", stdout=out, stderr=subprocess.STDOUT)
         try:
             code = proc.wait()
         except KeyboardInterrupt:
             log("人工中断：终止 bot 子进程")
             proc.terminate()
             return 130
+        out.close()
         log("bot 子进程退出 code=%s，5s 后自动重启（幂等进场安全）", code)
         time.sleep(5)
 
