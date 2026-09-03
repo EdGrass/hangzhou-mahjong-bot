@@ -113,8 +113,12 @@ class HeuristicA(Strategy):
             exposed = len(melds)
             gangs = sum(1 for m in melds if m["type"] == "gang")
             peng_t = [m["tile"] for m in melds if m["type"] == "peng"]
+            drawn = view.get("drawn_tile")
+            # 财飘：爆头态摸白 → 弃胡打白（chain+1/piao+1，仍听任意牌）
+            if drawn == "白" and view.get("god", {}).get("baotou"):
+                return {"action": "discard", "tile": "白"}
             can_gang = view.get("can_gang", False)
-            if can_gang and view.get("drawn_tile"):
+            if can_gang and drawn:
                 # 仅摸牌后可自杠（副露后出牌态无杠权）
                 for t in sorted(set(hand)):
                     if t != "白" and hand.count(t) == 4:
@@ -126,10 +130,13 @@ class HeuristicA(Strategy):
                 hu = is_win(hand, exposed_melds=exposed, gangs=gangs)
             except ValueError:                # 真机快照无 melds 时按纯手牌
                 hu = (exposed == 0 and gangs == 0) and is_win(hand)
-            if hu and view.get("drawn_tile"):
+            if hu and drawn:
                 return {"action": "hu", "tile": ""}
             if hand:
+                # 抓打圈内只能打刚摸的牌（服务端强校验，客户端先自检）
+                if view.get("god", {}).get("catch_play") and drawn:
+                    return {"action": "discard", "tile": drawn}
                 return {"action": "discard",
-                        "tile": _best_discard(hand, view.get("drawn_tile"))}
+                        "tile": _best_discard(hand, drawn)}
             return None
         return None

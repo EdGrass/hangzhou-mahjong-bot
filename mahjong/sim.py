@@ -59,13 +59,14 @@ def make_view(seat, phase, turn, hand, drawn=None, melds=None, offer=None,
 
 
 class SimGame:
-    def __init__(self, strategies, rounds=1, base=1, seed=0):
+    def __init__(self, strategies, rounds=1, base=1, seed=0, deck=None):
         if len(strategies) != 4:
             raise ValueError("需要恰好 4 个策略，实际 %d" % len(strategies))
         self.strategies = list(strategies)
         self.rounds = rounds
         self.base = base
         self.rng = random.Random(seed)
+        self.fixed_deck = list(deck) if deck else None   # 测试注入：完整 136 张
         self.totals = [0, 0, 0, 0]
         z = [0] * 4
         self.stats = {"rounds_played": 0, "hu_count": list(z),
@@ -80,8 +81,9 @@ class SimGame:
 
     # ---------- 状态 ----------
     def _new_round(self):
-        wall = list(DECK)
-        self.rng.shuffle(wall)
+        wall = list(self.fixed_deck) if self.fixed_deck else list(DECK)
+        if not self.fixed_deck:
+            self.rng.shuffle(wall)
         self.hands = [sorted(wall[i * 13:(i + 1) * 13]) for i in range(4)]
         del wall[:52]
         self.wall = wall
@@ -301,6 +303,7 @@ class SimGame:
                     self.piao[seat] = 0
                 if state == "ready":
                     self.catch_at = seat
+                    self.stats["catch_rounds"] += 1
             else:
                 self.chain[seat] = 0
                 self.piao[seat] = 0
