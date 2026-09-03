@@ -127,5 +127,45 @@ class TestConsistency(unittest.TestCase):
         self.assertEqual(bad, [], "一换判定不一致: %r" % bad[:2])
 
 
+class TestWhiteShanten(unittest.TestCase):
+    W = "白"
+
+    def test_single_joker_tenpai(self):
+        # 4 面子 + 单钓白 = 听牌（任意摸）
+        h = ["1w", "2w", "3w", "4w", "5w", "6w", "7w", "8w", "9w",
+             "1b", "1b", "1b", self.W]
+        self.assertEqual(shanten(h), 0)
+        self.assertTrue(is_tenpai(h))
+
+    def test_joker_as_pair(self):
+        # 3 面子 + 东 + 白（东白=将）+ 2 不相干孤 → 1
+        h = ["1w", "1w", "1w", "2b", "2b", "2b", "3t", "3t", "3t",
+             "东", self.W, "9w", "1t"]
+        self.assertEqual(shanten(h), 1)
+
+    def test_qidui_with_joker_tenpai(self):
+        h = ["1w", "1w", "2w", "2w", "3b", "3b", "4t", "4t",
+             "5t", "5t", "东", "东", self.W]
+        self.assertEqual(shanten(h), 0)
+        self.assertTrue(is_tenpai(h))
+
+    def test_random_white_zero_iff_tenpai(self):
+        import random as _random
+        from mahjong.tiles import id_of
+        pool = ["%d%s" % (i, s) for s in "wbt" for i in range(1, 10)] + \
+               ["东", "南", "西", "北", "中", "发"]
+        rng = _random.Random(20260904)
+        bad = []
+        for _ in range(150):
+            h = [rng.choice(pool) for _ in range(13)]
+            if rng.random() < 0.6 and h.count(self.W) < 3:
+                h[rng.randrange(13)] = self.W
+            if (shanten(h) == 0) != is_tenpai(h):
+                bad.append((h, shanten(h)))
+                if len(bad) >= 3:
+                    break
+        self.assertEqual(bad, [], "含白向听=0 不一致: %r" % bad[:2])
+
+
 if __name__ == "__main__":
     unittest.main()
