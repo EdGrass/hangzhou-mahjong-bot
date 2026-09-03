@@ -28,10 +28,11 @@ def shanten_all(hand13):
 
 class TestKnownHands(unittest.TestCase):
     def test_max_shanten_all_singles(self):
-        # 7 字 + 6 互不相邻数牌（无对无塔无面）→ 8
+        # 7 字 + 6 互不相邻数牌（无对无塔无面）
         h = ["东", "南", "西", "北", "中", "发", "1w", "4w", "7w",
              "1b", "4b", "1t", "7t"]
-        self.assertEqual(shanten(h), 8)
+        self.assertEqual(shanten(h, qidui=False), 8)   # 一般形最大
+        self.assertEqual(shanten(h), 6)                 # 七对路线 = 6-对数
 
     def test_four_melds_single_tenpai(self):
         h = ["1w", "2w", "3w", "4w", "5w", "6w", "7w", "8w", "9w",
