@@ -46,6 +46,17 @@ def _heuristic():
     return HeuristicA()
 
 
+@_reg("v0")
+def _v0():
+    """学习线 v0 模型策略（读 var/ml/model_v0.pt；不存在时报错提示先训练）。"""
+    import os
+    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v0.pt")
+    if not os.path.exists(ckpt):
+        raise ValueError("模型 %s 不存在：先 python -m ml.train" % ckpt)
+    from bot.model_policy import V0Policy
+    return V0Policy(ckpt)
+
+
 def parse_combo(combo):
     """'heuristicAx4' | 'naivex2+heuristicAx2'（兼容 × 全角）。"""
     names = []
