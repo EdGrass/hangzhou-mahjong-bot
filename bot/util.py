@@ -8,6 +8,9 @@ import time
 # 部署实例（caddy 自签证书）；可用环境变量 HM_SERVER 覆盖，本地调试可指 http://localhost:8080
 DEFAULT_SERVER = "https://10.240.169.190:18080"
 
+# 可选日志文件（双写；run_bot --log 设置，多实例分析用）
+LOG_FILE = None
+
 
 def server_from_env():
     return os.environ.get("HM_SERVER", "").strip() or DEFAULT_SERVER
@@ -41,3 +44,9 @@ def log(*args):
         else:
             msg = " ".join(str(a) for a in args)
     print("[%s] %s" % (ts, msg), flush=True)
+    if LOG_FILE is not None:
+        try:
+            LOG_FILE.write("[%s] %s\n" % (ts, msg))
+            LOG_FILE.flush()
+        except (OSError, ValueError):
+            pass

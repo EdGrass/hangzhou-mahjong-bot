@@ -39,7 +39,13 @@ def main(argv=None):
     ap.add_argument("--smoke", action="store_true", help="免认证冒烟自检（不参赛）")
     ap.add_argument("--strategy", default="speedA",
                     help="策略名（%s）" % "/".join(sorted(set(STRATEGY_FACTORIES))))
+    ap.add_argument("--log", default="", help="日志双写文件（多实例分析用）")
     args = ap.parse_args(argv)
+
+    if args.log:
+        import bot.util as _u
+        _u.LOG_FILE = open(args.log, "a", encoding="utf-8")
+        log("日志双写: %s", args.log)
 
     if args.smoke:
         sys.exit(0 if run_smoke(args.server) else 1)
