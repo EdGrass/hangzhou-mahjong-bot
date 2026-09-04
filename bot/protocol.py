@@ -178,6 +178,7 @@ def run_tournament(client, tid, strategy, scoped=True):
             if not registered_in_period:
                 # 报名+到位幂等：本报名期成功一次即可，之后纯轮询等开赛
                 registered_in_period = _register(client, tid)
+                last_ready_at = time.time()
             # 测试房跨轮：registering 期需周期 ready 维持（30 分钟无动作会被
             # 判定空闲 void）；ready 幂等无害，正式锦标赛同款安全
             now_r = time.time()
