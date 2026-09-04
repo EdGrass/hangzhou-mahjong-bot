@@ -6,7 +6,7 @@
   只在子进程退出后重启——重启后 run_bot 幂等报名/到位/确认，语义安全。
 
 用法：
-    python tools/keep_alive.py <参赛令牌> [锦标赛id] [--strategy heuristicA] [--server URL]
+    python tools/keep_alive.py <参赛令牌> [锦标赛id] [--strategy speedA] [--server URL]
 退出：Ctrl+C 终止（会连带终止子进程）。
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("token", help="参赛令牌")
     ap.add_argument("tid", nargs="?", default="")
-    ap.add_argument("--strategy", default="heuristicA")
+    ap.add_argument("--strategy", default="speedA")
     ap.add_argument("--server", default=server_from_env())
     args = ap.parse_args()
 

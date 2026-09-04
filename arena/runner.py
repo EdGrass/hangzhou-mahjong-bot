@@ -1,14 +1,12 @@
-"""Arena —— 本地数据工厂（M2.5）：批次自对弈 → JSONL 落盘 + 指标历史。
+"""arena —— SpeedA 评估台（本地自对弈跑分，精简版）。
 
-设计：
-- 策略注册表：按名取 4 座策略工厂（naive/heuristicA；未来 model 版本插槽同构）；
-- 座位轮换消除偏差；每批跑完 append 一行指标历史 + 每局一行战绩日志；
-- 循环模式：--every N 秒持续跑（面板实时看趋势）；--once 跑一批即退（CI/脚本用）。
+策略注册表当前仅 SpeedA 及其实战/开发变体；评估组合语法见 parse_combo。
+数据：var/arena/{metrics.json, history.jsonl, games.jsonl} + FastAPI 面板
+（arena.dashboard，localhost:8088）只读展示。
 
-数据目录（默认 var/arena/）：
-  metrics.json          当前汇总快照（面板总览读这个）
-  history.jsonl         批次历史（趋势图数据源）
-  games.jsonl           每局战绩（最近对局表数据源，环形保留 N 行）
+用法：
+    python -m arena.runner --combo "speedAx4" --games 200 --rounds 8   # 单批
+    python -m arena.runner --combo "speedBx2+speedAx2" --games 300 ...  # 变体对决
 """
 from __future__ import annotations
 
@@ -20,7 +18,9 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))
+ROOT = os.path.dirname(HERE)
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
 
 from mahjong.sim import SimGame                       # noqa: E402
 
@@ -34,159 +34,14 @@ def _reg(name):
     return deco
 
 
-@_reg("naive")
-def _naive():
-    from bot.strategy import NaiveStrategy
-    return NaiveStrategy()
-
-
-@_reg("heuristicA")
-def _heuristic():
-    from bot.heuristic import HeuristicA
-    return HeuristicA()
-
-
 @_reg("speedA")
 def _speed():
     from bot.speed import SpeedA
     return SpeedA()
 
 
-@_reg("heuristicA2")
-def _heuristic2():
-    from bot.heuristic2 import HeuristicA2
-    return HeuristicA2()
-
-
-@_reg("v0")
-def _v0():
-    """学习线 v0 模型策略（读 var/ml/model_v0.pt；不存在时报错提示先训练）。"""
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v0.pt")
-    if not os.path.exists(ckpt):
-        raise ValueError("模型 %s 不存在：先 python -m ml.train" % ckpt)
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt)
-
-
-@_reg("rl5")
-def _rl5():
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_rl5.pt")
-    if not os.path.exists(ckpt):
-        raise ValueError("模型 %s 不存在" % ckpt)
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="rl5")
-
-
-@_reg("rl4")
-def _rl4():
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_rl4.pt")
-    if not os.path.exists(ckpt):
-        raise ValueError("模型 %s 不存在" % ckpt)
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="rl4")
-
-
-@_reg("rl3")
-def _rl3():
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_rl3.pt")
-    if not os.path.exists(ckpt):
-        raise ValueError("模型 %s 不存在" % ckpt)
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="rl3")
-
-
-@_reg("rl2")
-def _rl2():
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_rl2.pt")
-    if not os.path.exists(ckpt):
-        raise ValueError("模型 %s 不存在" % ckpt)
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="rl2")
-
-
-@_reg("rl1")
-def _rl1():
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_rl1.pt")
-    if not os.path.exists(ckpt):
-        raise ValueError("模型 %s 不存在（先 python -m ml.rl）" % ckpt)
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="rl1")
-
-
-@_reg("v4sr")
-def _v4sr():
-    """v4s + 引擎胡规则（hu_rule）：弃牌学 SpeedA、胡由引擎即时接管。"""
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v4s.pt")
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="v4sr", hu_rule=True)
-
-
-@_reg("v4s")
-def _v4s():
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v4s.pt")
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="v4s")
-
-
-@_reg("v4a")
-def _v4a():
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v4a.pt")
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="v4a")
-
-
-@_reg("v3")
-def _v3():
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v3.pt")
-    if not os.path.exists(ckpt):
-        raise ValueError("模型 %s 不存在" % ckpt)
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="v3")
-
-
-@_reg("v2a")
-def _v2a():
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v2a.pt")
-    if not os.path.exists(ckpt):
-        raise ValueError("模型 %s 不存在" % ckpt)
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="v2a")
-
-
-@_reg("v2b")
-def _v2b():
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v2b.pt")
-    if not os.path.exists(ckpt):
-        raise ValueError("模型 %s 不存在" % ckpt)
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="v2b")
-
-
-@_reg("v1")
-def _v1():
-    """v1（更大数据集训练版，var/ml/model_v1.pt）。"""
-    import os
-    ckpt = os.path.join(HERE, "..", "var", "ml", "model_v1.pt")
-    if not os.path.exists(ckpt):
-        raise ValueError("模型 %s 不存在" % ckpt)
-    from bot.model_policy import V0Policy
-    return V0Policy(ckpt, name="v1")
-
-
 def parse_combo(combo):
-    """'heuristicAx4' | 'naivex2+heuristicAx2'（兼容 × 全角）。"""
+    """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []
     for part in combo.replace("×", "x").split("+"):
         part = part.strip()
@@ -201,7 +56,6 @@ def parse_combo(combo):
 
 
 def make_seats(combo, rng):
-    """组合描述 → 4 座策略（每次轮换座位）。"""
     names = parse_combo(combo)
     if len(names) != 4:
         raise ValueError("组合需 4 座: %s（实际 %d）" % (combo, len(names)))
@@ -225,10 +79,9 @@ class Arena:
         self.metrics_path = os.path.join(out_dir, "metrics.json")
         self._games_kept = []
 
-    # -- 批次 ----------------------------------------------------------------
     def run_batch(self, combo, games, rounds, seed0=0):
         rng = random.Random(seed0)
-        ids = {}                              # 策略名 → [tot, hu, fan, 出现座位次]
+        ids = {}
         agg = {"draw": 0, "chi": 0, "peng": 0, "gang": 0, "viol": 0, "fb": 0}
         t0 = time.time()
         for g in range(games):
@@ -240,8 +93,7 @@ class Arena:
                 e = ids.setdefault(seat_names[i], [0, 0, 0, 0])
                 e[0] += res["totals"][i]
                 e[1] += st["hu_count"][i]
-                e[2] += st["fan_total"][i]
-                e[3] += 1
+                e[2] += 1
             agg["draw"] += st["draw_count"]
             agg["chi"] += sum(st["chi"])
             agg["peng"] += sum(st["peng"])
@@ -261,8 +113,7 @@ class Arena:
                 "name": name,
                 "avg_tot": round(tot / cnt, 2),
                 "hu_rate": round(hu / cnt / rounds, 4),
-                "avg_fan": round(fs / hu, 2) if hu else 0.0,
-            } for name, (tot, hu, fs, cnt) in sorted(ids.items())],
+            } for name, (tot, hu, cnt) in sorted(ids.items())],
             "draw_rate": round(agg["draw"] / per_round, 4),
             "chi": agg["chi"], "peng": agg["peng"], "gang": agg["gang"],
             "viol": agg["viol"], "fallbacks": agg["fb"],
@@ -270,7 +121,6 @@ class Arena:
         self._write_batch(batch)
         return batch
 
-    # -- 落盘 ----------------------------------------------------------------
     def _keep_game(self, rec):
         self._games_kept.append(rec)
         if len(self._games_kept) > 300:
@@ -314,9 +164,7 @@ class Arena:
             }
         snap = {"updated_at": time.time(), "total_batches": len(batches),
                 "combos": combos}
-        # 并发多写进程（连续流 + 临时评估）可能冲突：唯一临时名 + 重试原子替换
-        tmp = "%s.tmp.%d.%d" % (self.metrics_path, os.getpid(),
-                                int(time.time() * 1000))
+        tmp = "%s.tmp.%d" % (self.metrics_path, int(time.time() * 1000))
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(snap, f, ensure_ascii=False, indent=1)
         for attempt in range(8):
@@ -325,12 +173,12 @@ class Arena:
                 return
             except PermissionError:
                 time.sleep(0.05)
-        raise PermissionError("metrics 写入持续冲突: %s" % self.metrics_path)
+        raise PermissionError("metrics 写入冲突: %s" % self.metrics_path)
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--combo", default="heuristicAx4")
+    ap.add_argument("--combo", default="speedAx4")
     ap.add_argument("--games", type=int, default=200)
     ap.add_argument("--rounds", type=int, default=8)
     ap.add_argument("--every", type=float, default=0, help="循环间隔秒（0=单批退出）")
@@ -349,7 +197,7 @@ def main():
         ids = ",".join("%s:%+.1f/%s%%" % (i["name"], i["avg_tot"],
                                           round(i["hu_rate"] * 100, 1))
                        for i in b["identities"])
-        sys.stdout.write("batch %s: games=%d 耗时%ss 身份[%s] 流局=%s%%\n" % (
+        sys.stdout.write("batch %s: games=%d 耗时%ss [%s] 流局=%s%%\n" % (
             args.combo, b["games"], b["secs"], ids,
             round(b["draw_rate"] * 100, 1)))
         sys.stdout.flush()

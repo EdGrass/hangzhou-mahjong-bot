@@ -1,156 +1,53 @@
-# 杭州麻将竞技平台 AI Bot（v8 协议骨架）
+# 杭麻 SpeedA Bot（杭州麻将竞技平台）
 
-对接服务器接入指南 **v8**（2026-09-03，多阶段锦标赛协议 + 门户 description 新增）的
-纯标准库 Python Bot。当前为**第一阶段骨架**：完整 v8 协议循环 + 示例策略验证链路；
-真实牌技（胡牌判定 / 番型 / 出牌吃碰策略）为后续迭代，只改 `bot/strategy.py` 即可接入。
+以 **SpeedA**（向听数驱动的纯速度算法）为唯一参赛策略的 bot 工程。
 
 ## 快速开始
 
-```bash
-# 免认证冒烟自检（版本自检 + fan-calc 番型口径往返校验，无需令牌）
+```powershell
+# 免认证冒烟自检（服务器版本 + fan-calc 口径）
 python run_bot.py --smoke
 
-# 正式运行（门户「测试房间」/「报名」派发的参赛令牌）
-python run_bot.py <参赛令牌>                    # 默认策略 heuristicA
-python run_bot.py <参赛令牌> --strategy speedA   # 向听数速度版（更强，需副露跟踪 E2E 后更稳）
+# 参赛（门户派发的参赛令牌；默认策略 speedA）
+python tools/keep_alive.py <参赛令牌>            # 看门狗托管：自动重启+日志落盘
+# 或直接： python run_bot.py <token>
+# 全局令牌自测：python run_bot.py <token> <锦标赛id>
 
-# 全局令牌（POST /api/users 注册所得）需显式带锦标赛 id
-python run_bot.py <token> <锦标赛id>
-
-# 其他服务器（默认 https://10.240.169.190:18080；本地调试可用 http://localhost:8080）
-python run_bot.py <token> --server http://localhost:8080
-# 或用环境变量 HM_SERVER 覆盖
+# 开赛前一键体检
+python tools/preflight.py                        # READY 期望
 ```
 
-赛前自助检查（建议每项都过一遍）：
+## SpeedA 决策规则（bot/speed.py）
+
+1. 可胡即胡（含爆头态——纯速度不打点绕路）；
+2. 出牌 = 主键 **弃后精确向听数最小**（含财神/副露/七对，`mahjong/shanten_exact.py`），
+   次键 = 听牌后**等待牌数最大化**（ukeire），同分偏好保留刚摸的牌；
+3. 窗口：可直杠/碰会要；吃全过；抓打圈内只打刚摸的牌。
+
+## 评估与优化（arena/）
 
 ```powershell
-python -m unittest discover -s tests     # 100 测试全绿
-python run_bot.py --smoke                # 服务器 v10 + 番型口径对齐
-python tools/stability.py                # 四策略稳定性矩阵 ALL PASS
-python tools/align_fan_calc.py           # 黄金集对齐复核（缓存复用）
-python -m uvicorn arena.dashboard:app --host 127.0.0.1 --port 8088  # 训练面板
+python -m arena.runner --combo "speedAx4" --games 200 --rounds 8      # 自对弈
+python -m arena.runner --combo "speedBx2+speedAx2" --games 300 ...    # 变体对决
+python -m uvicorn arena.dashboard:app --host 127.0.0.1 --port 8088    # 面板
+python tools/stability.py                          # 稳定性矩阵（0 违规/守恒）
+python -m unittest discover -s tests               # 全量测试
 ```
 
-运行前提：Windows 控制台已做 UTF-8 兜底（`bot/util.ensure_utf8`）；Python 3.10+ 即可。
+组合语法：`策略名x座数` 用 `+` 连接；新变体在 `arena/runner.py` 注册同名即可对打。
+数据：`var/arena/{metrics.json, history.jsonl, games.jsonl}`（面板只读）。
 
-## 目录结构
-
-```
-run_bot.py            CLI 入口：--smoke 冒烟 / <token> [tid] 完整协议循环
-run_bots.py           四 AI 编排（4 子进程 + 席位日志 + 异常重启）
-bot/
-  api.py              HTTP 传输：Bearer、自签 TLS、429/网络瞬断退避、ApiError(status, body, code)
-  model.py            牌码工具（1w-9w/1b-9b/1t-9t/东南西北中发白）+ 快照本人视角视图
-  strategy.py         策略接口（Strategy） + NaiveStrategy（骨架期示例）
-  game.py             单局循环：seq 长轮询、增量推进、seq=0 权威重建、窗口去重
-  protocol.py         v8 锦标赛状态机：intent 映射（纯函数）+ 主循环
-  smoke.py            --smoke 免认证冒烟
-  util.py             日志与服务器地址
-mahjong/              杭麻规则引擎（蓝图 M1，纯算法）：牌张编码 + 胡牌判定
-                      （含财神百搭/七对）→ 后续：向听/听牌/番型/模拟器/Arena
-tests/                unittest 离线单测（python -m unittest discover -s tests）
-docs/杭麻AI蓝图-设计.md   牌技路线总设计（M1 引擎 → Arena 数据工厂 → 学习线）
-```
-
-## v8 状态机（进度真相 = GET /api/tournaments/{id} 的 status）
+## 结构
 
 ```
-registering ──(报名+ready)──▶ running ──(晋级轮打完)──▶ stage_done ──(管理员推进)──▶ stage_open
-                                                                                        │
-stage_open ──(名单内 ready=出席确认；到点开赛)──▶ running ──▶ …（多阶段循环）              │
-running(决赛轮打完) ──▶ finished       任时 ──▶ closed / void                             │
-running 中断 ──▶ stage_done + stage_crashed=true（中断待重赛，继续轮询） ◀────────────────┘
+run_bot.py            参赛入口（--smoke / <token> [tid]，策略 speedA）
+bot/                  协议层 + SpeedA（api/protocol/game/model/meldtrack/speed）
+mahjong/              规则引擎 + 模拟器（tiles/hu/fan/shanten/shanten_exact/sim）
+arena/                SpeedA 评估台（runner/dashboard）
+tools/                keep_alive(看门狗) / preflight(体检) / stability(矩阵)
+tests/                协议+引擎+SpeedA 测试（黄金集对齐 132/132）
+docs/开赛操作单.md     开赛操作与异常决策树
+logs/bot_live.log     参赛 bot 全程日志（看门狗落盘）
 ```
 
-关键语义（详见指南 §2.6，v7+ BREAKING）：
-
-- **打完一个阶段 ≠ 结束**：空转窗口（active_games 为空）必须继续轮询直到
-  `finished/closed/void`；
-- **阶段确认不继承**：每个 `stage_open` 都要再提交 ready（名单外 409 `NOT_QUALIFIED`
-  即已淘汰，退出）；确认幂等，主循环 10s 节流重复确认以覆盖崩溃重赛；
-- **决赛加赛**：running 内新 game_id（含 `_s{k}`）自动出现，照常从
-  `/api/me` 收割参赛；ranking 的 `games_played` 每阶段归零，不可跨阶段累计；
-- 状态机映射集中在 `protocol.tournament_intent(t)`（纯函数，已单测）；
-  未知 status 保守轮询不退出（版本前向兼容），配合 `bot/__init__.py` 的
-  `GUIDE_VERSION_KNOWN`（当前 8）在入口做 BREAKING 自检告警。
-
-## 策略接口（后续接入真实牌技的唯一接触面）
-
-```python
-class Strategy(ABC):
-    def decide(self, view) -> dict | None: ...
-```
-
-- `view` = `model.snap_view(snapshot)`：本人视角，含 seat/phase/turn/
-  responding_seats/drawn_tile/my_hand/god{baotou, chain_count, catch_play}；
-- 返回动作 dict（`discard|chi|peng|gang|hu|pass`，格式同对局 API）或 None；
-- 快照**无 allowed_actions**：动作合法性由策略自判，服务端纯验证，非法 409；
-- 单局循环已处理：窗口「已响应」去重（(phase, seq) 签名）、动作后 seq=0 重建、
-  增量事件补齐、409/网络/5xx 容错。
-
-骨架期 `NaiveStrategy`：出第一张（抓打圈只出刚摸的）、窗口全过、不主动胡
-（服务端可胡超时自动胡兜底——本策略秒回 discard，实际不触发）。
-
-## 自测与迭代路径
-
-1. `python -m unittest discover -s tests` —— 离线单测全绿；
-2. `python run_bot.py --smoke` —— 免认证验证 连通/版本/番型口径 链路；
-3. `python run_bot.py <测试房间令牌>` —— 端到端：报名→开赛→打牌→结算；
-4. 后续牌技迭代：实现/替换 Strategy；协议层不动。
-   建议同时用 `GET /api/test-rooms/{id}/games/{batch}/events`（免认证）离线拉取
-   赛后完整事件流做算法优化（本骨架暂未内置，属迭代范围）。
-
-## 本地评估：Arena 数据工厂 + FastAPI 训练面板（M2.5/M3.5 初版）
-
-```powershell
-# 1) 数据工厂：持续跑批次自对弈（默认 8 局×60 场/批，每 3s 一批）
-python -m arena.runner --combo "heuristicAx4" --games 60 --rounds 8 --every 3
-python -m arena.runner --combo "naivex2+heuristicAx2" --games 100 --rounds 8   # 单批
-
-# 2) 训练面板（FastAPI，需 pip install fastapi uvicorn）
-python -m uvicorn arena.dashboard:app --host 127.0.0.1 --port 8088
-# 浏览器打开 http://127.0.0.1:8088 —— 总览/趋势/最近对局，3s 自动刷新
-
-# 数据：var/arena/{metrics.json, history.jsonl, games.jsonl}（进程解耦，只读面板）
-```
-
-组合语法：`策略名x座数` 用 `+` 连接，如 `heuristicAx2+naivex2`；座位每局轮换，
-成绩按策略身份聚合（混编中 heuristicA vs naive 直接可比：基准 100 局
-heuristicA ≈ +9.8 均分 vs naive ≈ −9.8）。
-
-## 学习线 v0 数据管道（M3，监督蒸馏准备）
-
-```powershell
-# 教师样本批量生成（v0 教师 = heuristicA；输出 var/ml/samples.jsonl）
-python -m ml.gen_data --games 300 --rounds 8 --out var/ml/samples.jsonl
-# 实测：12.4 万样本/44s（2.8k/s）→ 小时级千万样本
-```
-
-- 样本 = 每次摸牌决策：`hand_counts[34]+melds[e,g,chi]+god[baotou,catch,chain,piao]+seat+drawn[34]`，
-  动作空间 35（34 弃牌 + hu），合法掩码训练时由 counts 派生；
-- 引擎判定与服务器 fan-calc **126/126 完全一致**（2026-09-03 复核），数据无判定污染；
-- 下一步（GPU 就绪后）：特征 → 小策略网（policy+value）监督训练 → Arena 2+2 混编评估。
-
-## 监督训练 / 自对弈微调（S3/S4）
-
-```powershell
-# 监督训练（小策略网 PolicyNet，带合法掩码 CE）
-python -m ml.train --data var/ml/samples.jsonl --epochs 10 --out var/ml/model_vX.pt
-
-# S4 自对弈策略梯度（让模型自选 速度×打点：reward=局末总分）
-python -m ml.rl --ckpt var/ml/model_v3.pt --out var/ml/model_rlX.pt \
-    --games 24 --iters 700 --lr 5e-5 --save-every 175
-
-# Arena 评估/教师矩阵：strategy 名 = naive/heuristicA/heuristicA2/speedA/
-#   v0/v1/v3/v4s/v4a/rl1（模型读 var/ml/*.pt），组合语法见上
-```
-
-模型战力排行（2026-09-03 Arena 实测）：speedA（向听数速度教师）≫ heuristicA2 ≈
-heuristicA > v3(208万监督) > v4s/rl1 ≈ v1 ≈ v0 > naive。
-
-## 版本追踪
-
-服务器指南版本与变更日志：`GET /portal/api/guide/version`（免认证）。
-本仓库按 v8 开发；服务器若出现更新的 BREAKING 变更，启动时会打 ⚠ 告警，
-需人工核对 `bot/protocol.py` 与 `bot/game.py` 语义后再升级。
+服务器接入指南版本追踪：`GET /portal/api/guide/version`（免认证），启动自检告警 BREAKING。

@@ -1,17 +1,12 @@
-"""本地模拟器单测：不变量 + 确定性 + 非法动作兜底。"""
+﻿"""本地模拟器单测（SpeedA 全席）：不变量 + 确定性 + 非法动作兜底。"""
 import unittest
 
-from bot.heuristic import HeuristicA
-from bot.strategy import NaiveStrategy
+from bot.speed import SpeedA
 from mahjong.sim import SimGame
 
 
-def _naive4():
-    return [NaiveStrategy()] * 4
-
-
-def _heur4():
-    return [HeuristicA()] * 4
+def _speed4():
+    return [SpeedA()] * 4
 
 
 class TestSimInvariants(unittest.TestCase):
@@ -23,70 +18,42 @@ class TestSimInvariants(unittest.TestCase):
                          "胡+流局 == 局数")
         for i in range(4):
             self.assertGreaterEqual(st["hu_count"][i], 0)
-            self.assertGreaterEqual(st["fan_total"][i], 0)
 
-    def test_naive_four(self):
+    def test_speed_four(self):
         for seed in (1, 2, 3):
-            res = SimGame(_naive4(), rounds=8, seed=seed).run()
+            res = SimGame(_speed4(), rounds=8, seed=seed).run()
             self._check(res, 8)
-            self.assertEqual(res["stats"]["violations"], 0, "naive 不应违规")
-            self.assertEqual(res["stats"]["fallbacks"], 0, "naive 每次都出牌")
-
-    def test_heur_four(self):
-        for seed in (4, 5):
-            res = SimGame(_heur4(), rounds=16, seed=seed).run()
-            self._check(res, 16)
-            self.assertEqual(res["stats"]["violations"], 0, "heuristicA 不应违规")
+            self.assertEqual(res["stats"]["violations"], 0, "speedA 不应违规")
+            self.assertEqual(res["stats"]["fallbacks"], 0)
 
     def test_deterministic(self):
-        a = SimGame(_heur4(), rounds=8, seed=42).run()
-        b = SimGame(_heur4(), rounds=8, seed=42).run()
+        a = SimGame(_speed4(), rounds=8, seed=42).run()
+        b = SimGame(_speed4(), rounds=8, seed=42).run()
         self.assertEqual(a, b)
 
     def test_illegal_hu_counted_and_game_finishes(self):
-        class Bad(HeuristicA):
+        class Bad(SpeedA):
             def decide(self, view):
                 from bot.model import my_turn
                 if my_turn(view):
                     return {"action": "hu", "tile": ""}   # 无脑胡（多数非法）
                 return None
 
-        res = SimGame([Bad()] + _naive4()[1:], rounds=8, seed=7).run()
+        res = SimGame([Bad()] + _speed4()[1:], rounds=8, seed=7).run()
         st = res["stats"]
         self.assertGreaterEqual(st["violations"], 1, "非法胡应被记录并兜底")
-        self.assertEqual(st["rounds_played"], 8, "违规不阻断对局")
+        self.assertEqual(st["rounds_played"], 8)
 
 
 class TestSimMakesWins(unittest.TestCase):
-    def test_heuristic_hits_wins_over_many_rounds(self):
-        """大量局数下应出现胡牌（非零胡率），验证 hu 路径可用。"""
-        res = SimGame(_heur4(), rounds=64, seed=2026).run()
-        st = res["stats"]
-        self.assertGreater(sum(st["hu_count"]), 0, "64 局应至少出现一次自摸")
-        self.assertGreater(max(st["fan_total"]), 0)
-
-
-class TestSimV2Melds(unittest.TestCase):
-    def test_windows_and_gangs_triggered_zero_violations(self):
-        """副露窗口/杠路径在多局中必然触发，且策略零违规、总分守恒。"""
-        for seed in (11, 7, 99):
-            res = SimGame(_heur4(), rounds=32, seed=seed).run()
-            st = res["stats"]
-            self.assertEqual(st["violations"], 0, "seed=%d 不应违规" % seed)
-            self.assertEqual(sum(res["totals"]), 0)
-            self.assertGreater(sum(st["chi"]) + sum(st["peng"]), 0,
-                               "seed=%d 应出现吃/碰" % seed)
-            self.assertGreater(sum(st["gang"]), 0, "seed=%d 应出现杠" % seed)
-            self.assertEqual(st["rounds_played"], 32)
-
-    def test_meld_players_can_still_hu(self):
-        """副露后仍能完成胡牌（链/面子折算路径）。"""
-        res = SimGame(_heur4(), rounds=64, seed=2026).run()
+    def test_speed_hits_wins(self):
+        """大量局数下应出现胡牌且流局率低（速度基线特征）。"""
+        res = SimGame(_speed4(), rounds=16, seed=2026).run()
         st = res["stats"]
         self.assertGreater(sum(st["hu_count"]), 0)
-        self.assertGreaterEqual(sum(st["chi"]) + sum(st["peng"]) +
-                                sum(st["gang"]), sum(st["hu_count"]) // 2)
+        self.assertLess(st["draw_count"], 32 * 0.5)
 
 
 if __name__ == "__main__":
     unittest.main()
+

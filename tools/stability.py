@@ -1,11 +1,11 @@
-"""tools/stability —— 策略稳定性矩阵（正式赛前一键回归）。
+"""tools/stability —— SpeedA 变体稳定性矩阵（一键回归）。
 
 对每个策略跑 N seeds × rounds 局，断言：
   0 违规 / 0 兜底异常 / 总分守恒 / 局数完整
 并输出 胡率/流局率 参考。退出码 0=全过。
 
 用法：
-    python tools/stability.py [--rounds 8] [--seeds 4] [--strategy heuristicA]
+    python tools/stability.py [--rounds 8] [--seeds 4] [--strategy speedA]
 """
 from __future__ import annotations
 
@@ -16,19 +16,8 @@ import time
 sys.path.insert(0, ".")
 sys.path.insert(0, "..")
 
-from mahjong.sim import SimGame  # noqa: E402
-
-STRATEGIES = {
-    "naive": ("bot.strategy", "NaiveStrategy"),
-    "heuristicA": ("bot.heuristic", "HeuristicA"),
-    "heuristicA2": ("bot.heuristic2", "HeuristicA2"),
-    "speedA": ("bot.speed", "SpeedA"),
-}
-
-
-def make(cls_path, cls_name):
-    import importlib
-    return getattr(importlib.import_module(cls_path), cls_name)()
+from arena.runner import STRATEGIES            # noqa: E402
+from mahjong.sim import SimGame               # noqa: E402
 
 
 def main():
@@ -46,7 +35,7 @@ def main():
         cons = True
         t0 = time.time()
         for s in range(args.seeds):
-            r = SimGame([make(*STRATEGIES[name])] * 4,
+            r = SimGame([STRATEGIES[name]()] * 4,
                         rounds=args.rounds, seed=args.seed0 + s).run()
             st = r["stats"]
             hu += sum(st["hu_count"])
