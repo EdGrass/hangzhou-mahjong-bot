@@ -8,11 +8,14 @@
 """
 from __future__ import annotations
 
+import os
+
 from mahjong.hu import is_win
 from mahjong.shanten_exact import shanten as exact_shanten
 
 from .model import window_pending
 from .speed import SpeedA, _best_discard, _melds_info
+from .util import log
 
 W = "白"
 
@@ -87,15 +90,27 @@ def _want_claim(view, kind):
     except ValueError:
         before = 99
     if before == 0:
+        if os.environ.get("HM_TRACE"):
+            log("claim-trace %s offer=%s cnt=%d before=0(已听) → 不副露", kind,
+                offer, hand.count(offer))
         return False            # 已听：保留听形，不副露
     if kind == "chi":
         best = 99
-        for pair in _chi_pairs(hand, offer):
+        pairs = _chi_pairs(hand, offer)
+        for pair in pairs:
             v = _claim_value(hand, offer, "chi", exposed, gangs, pair)
             if v < best:
                 best = v
+        if os.environ.get("HM_TRACE"):
+            log("claim-trace chi offer=%s pairs=%d before=%d after=%d → %s",
+                offer, len(pairs), before, best,
+                "要" if best < before else "过")
         return best < before
     v = _claim_value(hand, offer, kind, exposed, gangs)
+    if os.environ.get("HM_TRACE"):
+        log("claim-trace %s offer=%s cnt=%d before=%d after=%d → %s", kind,
+            offer, hand.count(offer), before, v,
+            "要" if v < before else "过")
     return v < before
 
 
