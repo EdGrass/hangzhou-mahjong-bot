@@ -33,6 +33,7 @@ def play_game(client, gid, strategy):
     last_window_key = None      # 最近已响应的窗口键 (phase, turn)
     decided_seq_sig = None      # 非窗口最近已决策的 (phase, seq) —— 防 409 死循环
     self_drawn = ""             # 最近一次本人摸牌（tile_drawn 事件，tile 仅自己可见）
+    self_offer = None           # 最近弃牌 (tile, seat)（tile_discarded 事件，公开）
     tracker = MeldTracker()     # 本人副露跟踪（真机快照无 melds，本地累计）
     while True:
         res = client.game_state(gid, seq)
@@ -59,12 +60,15 @@ def play_game(client, gid, strategy):
             continue
 
         if snap is None:
-            # 增量事件：解析本人摸牌（tile_drawn 事件 tile 仅对自己可见，
-            # 他人恒空），推进 seq 后重建权威快照再决策。
+            # 增量事件：解析本人摸牌与弃牌 offer（快照不含敏感牌面：
+            # tile_drawn 仅自己可见；窗口 offer = 最近 tile_discarded.tile），
+            # 推进 seq 后重建权威快照再决策。
             for ev in res.get("events") or []:
                 seq = max(seq, int(ev.get("seq", seq)))
                 if ev.get("type") == "tile_drawn" and ev.get("tile"):
                     self_drawn = ev["tile"]     # 非空 tile = 本人刚摸
+                elif ev.get("type") == "tile_discarded" and ev.get("tile"):
+                    self_offer = (ev["tile"], ev.get("seat"))   # 弃牌牌面（公开）
             auth = client.game_state(gid, 0)
             snap = auth.get("snapshot")
             if snap is None:
@@ -77,6 +81,18 @@ def play_game(client, gid, strategy):
         view.update(tracker.view_extra())   # 注入本人副露（策略 view 扩展键）
         if view["seat"] < 0:
             continue            # 观赛视角无动作权
+
+        # 窗口 offer 注入：快照无 offer_tile（敏感牌面仅事件流公开）——
+        # 窗口期（response_*）若事件流给出弃牌牌面，则补入 view
+        if self_offer is not None:
+            offer_tile, offer_seat = self_offer
+            if view["phase"].startswith("response_") and \
+                    view.get("turn") == offer_seat:
+                view["offer_tile"] = offer_tile
+        # 本人出牌后清掉过期 offer（同弃牌不重复评估）
+        if self_offer is not None and view["phase"] == "draw" and \
+                view.get("turn") == view["seat"]:
+            self_offer = None
 
         # 真机手牌语义：权威快照 my_hand 恒为「不含刚摸牌」的 13-3e-g 张，
         # 本人摸牌只经 tile_drawn 事件（tile 仅对自己可见）传达 → 把最近一次
