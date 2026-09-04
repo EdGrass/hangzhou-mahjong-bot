@@ -28,7 +28,8 @@ def _end_reason(res, snap):
 def play_game(client, gid, strategy):
     """打一场：返回该场结束时快照（含 scores），或 None（异常中止由调用方决定）。"""
     seq = 0
-    decided_sig = None          # 最近一次已决策的 (phase, seq) —— 窗口去重
+    last_window_key = None      # 最近已响应的窗口键 (phase, turn)
+    decided_seq_sig = None      # 非窗口最近已决策的 (phase, seq) —— 防 409 死循环
     tracker = MeldTracker()     # 本人副露跟踪（真机快照无 melds，本地累计）
     while True:
         res = client.game_state(gid, seq)
@@ -61,13 +62,23 @@ def play_game(client, gid, strategy):
         if view["seat"] < 0:
             continue            # 观赛视角无动作权
 
-        # 窗口去重：同一 (phase, seq) 局面已决策过（含提交失败=已响应），不再重复提交
-        sig = (view["phase"], seq)
+        # 窗口去重（真机语义）：同一窗口（phase+弃牌者 turn）只响应一次；
+        # 窗口内其他玩家的响应会推进 seq 但窗口未关——重复 pass/claim 会 409，
+        # 故以 (phase, turn) 为窗口键幂等跳过（新窗口 = 新 turn 或新 phase）。
+        phase = view["phase"]
+        window_key = (phase, view["turn"])
+        if phase.startswith("response_"):
+            if window_key == last_window_key:
+                continue
+        # 非窗口（draw/deal 等）：同 (phase, seq) 局面不重复决策，防 409 死循环
+        sig = (phase, seq)
+        if not phase.startswith("response_") and sig == decided_seq_sig:
+            continue
         act = strategy.decide(view)
-        if act is None or sig == decided_sig:
+        if act is None:
             continue
 
-        log("提交:", act, "phase=%s turn=%s" % (view["phase"], view["turn"]))
+        log("提交:", act, "phase=%s turn=%s" % (phase, view["turn"]))
         try:
             client.game_action(gid, act)
         except ApiError as e:
@@ -82,5 +93,8 @@ def play_game(client, gid, strategy):
                 raise
         else:
             tracker.record_action(act)      # 提交成功 → 副露本地累计
-        decided_sig = sig       # 本局面已决策（无论成败）
+        if phase.startswith("response_"):
+            last_window_key = window_key    # 本窗口已响应（无论成败）
+        else:
+            decided_seq_sig = sig
         seq = 0                 # 动作后重建权威快照，避免状态漂移
