@@ -1,12 +1,13 @@
-"""arena —— SpeedA 评估台（本地自对弈跑分，精简版）。
+"""arena —— Speed 族评估台（本地自对弈跑分）。
 
-策略注册表当前仅 SpeedA 及其实战/开发变体；评估组合语法见 parse_combo。
-数据：var/arena/{metrics.json, history.jsonl, games.jsonl} + FastAPI 面板
-（arena.dashboard，localhost:8088）只读展示。
+策略注册表：speedB（副露收益）/ speedE（孤字优先）/ speedF（ukeire 最大化）。
+开发标准同桌测试场景：speedEx2 + speedB + speedF（默认 --combo）。
+组合语法见 parse_combo。数据：var/arena/{metrics.json, history.jsonl,
+games.jsonl} + FastAPI 面板（arena.dashboard，localhost:8088）只读展示。
 
 用法：
-    python -m arena.runner --combo "speedAx4" --games 200 --rounds 8   # 单批
-    python -m arena.runner --combo "speedBx2+speedAx2" --games 300 ...  # 变体对决
+    python -m arena.runner --combo "speedEx2+speedB+speedF" --games 300 --rounds 8
+    python -m arena.runner --combo "speedEx4" --games 200 ...
 """
 from __future__ import annotations
 
@@ -34,31 +35,25 @@ def _reg(name):
     return deco
 
 
-@_reg("speedA")
-def _speed():
-    from bot.speed import SpeedA
-    return SpeedA()
-
-
 @_reg("speedB")
 def _speedb():
-    """SpeedA 变体：副露收益判定（碰/杠/吃仅在更快成型时响应）。"""
+    """副露收益判定变体（碰/杠/吃仅在更快成型时响应）。"""
     from bot.speedb import SpeedB
     return SpeedB()
 
 
-@_reg("speedC")
-def _speedc():
-    """SpeedB 变体：+自杠收益判定（暗杠/补杠仅在更快成型时执行）。"""
-    from bot.speedc import SpeedC
-    return SpeedC()
-
-
 @_reg("speedE")
 def _speede():
-    """SpeedB 变体：同向听 tie 内「孤张字牌优先」（复盘证据驱动）。"""
+    """孤张字牌优先变体（tie 内近似 ukeire，复盘证据驱动）。"""
     from bot.speede import SpeedE
     return SpeedE()
+
+
+@_reg("speedF")
+def _speedf():
+    """tie 内完整 ukeire 进张最大化变体（精确进张计数）。"""
+    from bot.speedf import SpeedF
+    return SpeedF()
 
 
 def parse_combo(combo):
@@ -199,7 +194,7 @@ class Arena:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--combo", default="speedAx4")
+    ap.add_argument("--combo", default="speedEx2+speedB+speedF")
     ap.add_argument("--games", type=int, default=200)
     ap.add_argument("--rounds", type=int, default=8)
     ap.add_argument("--every", type=float, default=0, help="循环间隔秒（0=单批退出）")

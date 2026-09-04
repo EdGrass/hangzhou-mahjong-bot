@@ -1,12 +1,12 @@
-﻿"""本地模拟器单测（SpeedA 全席）：不变量 + 确定性 + 非法动作兜底。"""
+﻿"""本地模拟器单测（SpeedBase 全席）：不变量 + 确定性 + 非法动作兜底。"""
 import unittest
 
-from bot.speed import SpeedA
+from bot.speed import SpeedBase
 from mahjong.sim import SimGame
 
 
 def _speed4():
-    return [SpeedA()] * 4
+    return [SpeedBase()] * 4
 
 
 class TestSimInvariants(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestSimInvariants(unittest.TestCase):
         for seed in (1, 2, 3):
             res = SimGame(_speed4(), rounds=8, seed=seed).run()
             self._check(res, 8)
-            self.assertEqual(res["stats"]["violations"], 0, "speedA 不应违规")
+            self.assertEqual(res["stats"]["violations"], 0, "speedBase 不应违规")
             self.assertEqual(res["stats"]["fallbacks"], 0)
 
     def test_deterministic(self):
@@ -32,7 +32,7 @@ class TestSimInvariants(unittest.TestCase):
         self.assertEqual(a, b)
 
     def test_illegal_hu_counted_and_game_finishes(self):
-        class Bad(SpeedA):
+        class Bad(SpeedBase):
             def decide(self, view):
                 from bot.model import my_turn
                 if my_turn(view):

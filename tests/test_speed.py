@@ -1,21 +1,21 @@
-﻿"""SpeedA（向听数驱动速度基线）冒烟与稳定性测试。"""
+﻿"""SpeedBase（速度引擎基类）冒烟与稳定性测试。"""
 import unittest
 
-from bot.speed import SpeedA
+from bot.speed import SpeedBase
 from mahjong.sim import SimGame
 
 
-class TestSpeedA(unittest.TestCase):
+class TestSpeedBase(unittest.TestCase):
     def test_zero_violation_conservation(self):
         for seed in (1, 9):
-            r = SimGame([SpeedA()] * 4, rounds=8, seed=seed).run()
+            r = SimGame([SpeedBase()] * 4, rounds=8, seed=seed).run()
             st = r["stats"]
             self.assertEqual(st["violations"], 0, "seed=%d" % seed)
             self.assertEqual(sum(r["totals"]), 0)
             self.assertEqual(st["rounds_played"], 8)
 
     def test_speed_high_hu_rate(self):
-        res = SimGame([SpeedA()] * 4, rounds=16, seed=11).run()
+        res = SimGame([SpeedBase()] * 4, rounds=16, seed=11).run()
         st = res["stats"]
         self.assertGreater(sum(st["hu_count"]), 16 * 0.5,
                            "32 局至少一半以上有人胡")
@@ -23,7 +23,7 @@ class TestSpeedA(unittest.TestCase):
 
     def test_discard_legal(self):
         from bot.model import my_turn
-        s = SpeedA()
+        s = SpeedBase()
         hand14 = ["1w", "2w", "3w", "4w", "5w", "6w", "7w", "8w", "9w",
                   "1b", "2b", "3b", "东", "东"]
         view = {"seat": 0, "phase": "draw", "turn": 0, "responding_seats": [],

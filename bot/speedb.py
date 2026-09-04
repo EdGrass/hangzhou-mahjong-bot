@@ -1,10 +1,10 @@
-"""SpeedB —— SpeedA 增强变体（V1：副露收益判定）。
+"""SpeedB —— SpeedBase 增强变体（V1：副露收益判定）。
 
-在 SpeedA（可胡即胡 + 向听数弃牌）基础上，窗口不再无条件碰/杠：
+在 SpeedBase（可胡即胡 + 向听数弃牌）基础上，窗口不再无条件碰/杠：
 仅在【副露后最优弃牌的精确向听 < 不副露的当前向听】时才碰/直杠/吃
 （更快成型）；已听（before==0）不碰，保留听形与等待。
 
-其余决策继承 SpeedA。判据阈值后续由 Arena 对决数据调参（-1/0/+1 档）。
+其余决策继承 SpeedBase。判据阈值后续由 Arena 对决数据调参（-1/0/+1 档）。
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from mahjong.hu import is_win
 from mahjong.shanten_exact import shanten as exact_shanten
 
 from .model import window_pending
-from .speed import SpeedA, _best_discard, _melds_info
+from .speed import SpeedBase, _best_discard, _melds_info
 from .util import log
 
 W = "白"
@@ -114,7 +114,7 @@ def _want_claim(view, kind):
     return v < before
 
 
-class SpeedB(SpeedA):
+class SpeedB(SpeedBase):
     def __init__(self, name="speedB"):
         super().__init__(name)
 
@@ -133,5 +133,5 @@ class SpeedB(SpeedA):
                     _want_claim(view, "chi"):
                 return {"action": "chi", "tile": offer}
             return {"action": "pass", "tile": ""}
-        # 非窗口决策完全继承 SpeedA
+        # 非窗口决策完全继承 SpeedBase
         return super().decide(view)

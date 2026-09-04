@@ -18,15 +18,15 @@ import bot  # noqa: F401  （触发 __init__，含版本常量）
 from bot.api import ApiError, Client
 from bot.protocol import run_tournament
 from bot.smoke import run_smoke
-from bot.speed import SpeedA
+from bot.speed import SpeedBase  # noqa: F401（引擎基类）
 from bot.util import ensure_utf8, log, server_from_env
 
-# 实盘策略：SpeedA（默认）与增强变体 SpeedB（副露收益）。新变体在此注册。
+# 实盘策略：SpeedE（默认，孤字优先/ukeire）与 SpeedF（完整 ukeire）及
+# SpeedB（副露收益）——三者共享 SpeedBase 引擎。
 STRATEGY_FACTORIES = {
-    "speedA": SpeedA,
-    "speed": SpeedA,           # 别名
     "speedB": lambda: __import__("bot.speedb", fromlist=["SpeedB"]).SpeedB(),
-    "speedC": lambda: __import__("bot.speedc", fromlist=["SpeedC"]).SpeedC(),
+    "speedE": lambda: __import__("bot.speede", fromlist=["SpeedE"]).SpeedE(),
+    "speedF": lambda: __import__("bot.speedf", fromlist=["SpeedF"]).SpeedF(),
 }
 
 

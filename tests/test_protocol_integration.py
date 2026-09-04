@@ -10,7 +10,7 @@ import unittest
 
 from bot.api import ApiError
 from bot.protocol import run_tournament
-from bot.speed import SpeedA
+from bot.speed import SpeedBase
 
 
 class FakeClient:
@@ -71,7 +71,7 @@ class TestTournamentIntegration(unittest.TestCase):
         res = {}
 
         def runner():
-            res["result"] = run_tournament(fc, "t_test", SpeedA(), scoped=True)
+            res["result"] = run_tournament(fc, "t_test", SpeedBase(), scoped=True)
 
         th = threading.Thread(target=runner, daemon=True)
         th.start()
