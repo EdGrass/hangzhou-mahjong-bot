@@ -49,7 +49,11 @@ def main():
             proc.terminate()
             return 130
         out.close()
-        log("bot 子进程退出 code=%s，5s 后自动重启（幂等进场安全）", code)
+        if code == 0:
+            # 自然结束（锦标赛 finished/closed/void、未晋级退出等）→ 不再重启
+            log("bot 自然结束（exit 0）——看门狗停止（锦标赛终态/未晋级）")
+            return 0
+        log("bot 异常退出 code=%s，5s 后自动重启（幂等进场安全）", code)
         time.sleep(5)
 
 
