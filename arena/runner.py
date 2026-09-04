@@ -47,6 +47,13 @@ def _speedb():
     return SpeedB()
 
 
+@_reg("speedC")
+def _speedc():
+    """SpeedB 变体：+自杠收益判定（暗杠/补杠仅在更快成型时执行）。"""
+    from bot.speedc import SpeedC
+    return SpeedC()
+
+
 def parse_combo(combo):
     """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []
