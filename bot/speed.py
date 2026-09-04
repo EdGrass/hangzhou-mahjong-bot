@@ -44,6 +44,20 @@ def _best_discard(hand, drawn, exposed, gangs):
     return best_tile if best_tile is not None else hand[0]
 
 
+def _safe_discard(hand, drawn):
+    """异常兜底弃牌：孤张字牌优先 → 首张（绝不抛）。"""
+    for d in sorted(set(hand)):
+        if d in HONOR:
+            return d
+    for d in hand:
+        if d != drawn:
+            return d
+    return hand[0]
+
+
+HONOR = set("东南西北中发白")
+
+
 class SpeedA(Strategy):
     def __init__(self, name="speedA"):
         self.name = name
@@ -74,7 +88,11 @@ class SpeedA(Strategy):
             if hand:
                 if view.get("god", {}).get("catch_play") and drawn:
                     return {"action": "discard", "tile": drawn}
-                return {"action": "discard",
-                        "tile": _best_discard(hand, drawn, exposed, gangs)}
+                try:
+                    tile = _best_discard(hand, drawn, exposed, gangs)
+                except ValueError:
+                    # 防御：手牌形态与副露口径不一致（真机边缘）→ 安全弃牌
+                    tile = _safe_discard(hand, drawn)
+                return {"action": "discard", "tile": tile}
             return None
         return None

@@ -103,10 +103,19 @@ def play_game(client, gid, strategy):
         if drawn_tile and view["phase"] == "draw" and \
                 view["turn"] == view["seat"]:
             hand = list(view["my_hand"])
-            if drawn_tile not in hand:
-                hand.append(drawn_tile)
-                view["my_hand"] = hand
-                view["drawn_tile"] = drawn_tile
+            melds = view.get("melds") or []
+            exposed = len(melds)
+            gangs = sum(1 for m in melds if m["type"] == "gang")
+            expect_hold = 14 - 3 * exposed - gangs      # 摸后应有张数
+            # 服务器快照语义：多数为不含刚摸（expect-1），但实测副露后部分
+            # 路径快照已含刚摸（=expect）——按张数判断，避免重复注入
+            if len(hand) == expect_hold - 1 and drawn_tile not in hand:
+                hand.append(drawn_tile)      # 不含 → 补第 N 张
+            elif len(hand) != expect_hold:
+                # 防御：形态异常时不改写，仅设字段
+                pass
+            view["my_hand"] = hand
+            view["drawn_tile"] = drawn_tile
 
         # 窗口去重（真机语义）：同一窗口（phase+弃牌者 turn）只响应一次；
         # 窗口内其他玩家的响应会推进 seq 但窗口未关——重复 pass/claim 会 409，

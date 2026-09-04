@@ -54,6 +54,13 @@ def _speedc():
     return SpeedC()
 
 
+@_reg("speedE")
+def _speede():
+    """SpeedB 变体：同向听 tie 内「孤张字牌优先」（复盘证据驱动）。"""
+    from bot.speede import SpeedE
+    return SpeedE()
+
+
 def parse_combo(combo):
     """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []
