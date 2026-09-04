@@ -97,7 +97,7 @@ class Arena:
                           seed=seed0 * 100000 + g).run()
             st = res["stats"]
             for i in range(4):
-                e = ids.setdefault(seat_names[i], [0, 0, 0, 0])
+                e = ids.setdefault(seat_names[i], [0, 0, 0])
                 e[0] += res["totals"][i]
                 e[1] += st["hu_count"][i]
                 e[2] += 1
