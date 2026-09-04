@@ -30,6 +30,7 @@ def play_game(client, gid, strategy):
     seq = 0
     last_window_key = None      # 最近已响应的窗口键 (phase, turn)
     decided_seq_sig = None      # 非窗口最近已决策的 (phase, seq) —— 防 409 死循环
+    self_drawn = ""             # 最近一次本人摸牌（tile_drawn 事件，tile 仅自己可见）
     tracker = MeldTracker()     # 本人副露跟踪（真机快照无 melds，本地累计）
     while True:
         res = client.game_state(gid, seq)
@@ -46,9 +47,12 @@ def play_game(client, gid, strategy):
             continue            # 30s 内无新事件：继续挂起
 
         if snap is None:
-            # 增量事件：推进 seq 后重建权威快照再决策
+            # 增量事件：解析本人摸牌（tile_drawn 事件 tile 仅对自己可见，
+            # 他人恒空），推进 seq 后重建权威快照再决策。
             for ev in res.get("events") or []:
                 seq = max(seq, int(ev.get("seq", seq)))
+                if ev.get("type") == "tile_drawn" and ev.get("tile"):
+                    self_drawn = ev["tile"]     # 非空 tile = 本人刚摸
             auth = client.game_state(gid, 0)
             snap = auth.get("snapshot")
             if snap is None:
@@ -61,6 +65,20 @@ def play_game(client, gid, strategy):
         view.update(tracker.view_extra())   # 注入本人副露（策略 view 扩展键）
         if view["seat"] < 0:
             continue            # 观赛视角无动作权
+
+        # 真机手牌语义：权威快照 my_hand 恒为「不含刚摸牌」的 13-3e-g 张，
+        # 本人摸牌只经 tile_drawn 事件（tile 仅对自己可见）传达 → 把最近一次
+        # 本人摸牌并入 view，策略才能判胡/算向听（引擎视角 = 摸后 14 张）。
+        drawn_tile = view.get("drawn_tile") or ""
+        if not drawn_tile and self_drawn:
+            drawn_tile = self_drawn
+        if drawn_tile and view["phase"] == "draw" and \
+                view["turn"] == view["seat"]:
+            hand = list(view["my_hand"])
+            if drawn_tile not in hand:
+                hand.append(drawn_tile)
+                view["my_hand"] = hand
+                view["drawn_tile"] = drawn_tile
 
         # 窗口去重（真机语义）：同一窗口（phase+弃牌者 turn）只响应一次；
         # 窗口内其他玩家的响应会推进 seq 但窗口未关——重复 pass/claim 会 409，
@@ -93,6 +111,8 @@ def play_game(client, gid, strategy):
                 raise
         else:
             tracker.record_action(act)      # 提交成功 → 副露本地累计
+            if act.get("action") == "discard":
+                self_drawn = ""             # 已打出刚摸牌，防残留
         if phase.startswith("response_"):
             last_window_key = window_key    # 本窗口已响应（无论成败）
         else:
