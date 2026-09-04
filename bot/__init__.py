@@ -8,5 +8,5 @@
 __version__ = "1.0.0"
 
 # 本 bot 开发时对应的服务器接入指南版本（用于版本自检，见 bot/smoke.py）
-# v11（2026-09-03）：state 轮询限速 8/s→16/s（放宽，无破坏）
-GUIDE_VERSION_KNOWN = 11
+# v12（2026-09-04）：新增可选 SSE notify 端点（added，非破坏）
+GUIDE_VERSION_KNOWN = 12

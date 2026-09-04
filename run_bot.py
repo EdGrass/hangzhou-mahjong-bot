@@ -94,10 +94,14 @@ def _warn_if_version_mismatch(client):
     ver = meta.get("version")
     log("服务器接入指南版本: v%s（本 bot 按 v%s 开发）" % (ver, bot.GUIDE_VERSION_KNOWN))
     if isinstance(ver, int) and ver > bot.GUIDE_VERSION_KNOWN:
-        for c in meta.get("changes") or []:
-            if c.get("type") == "breaking" and c.get("version", 0) > bot.GUIDE_VERSION_KNOWN:
-                log("⚠ BREAKING v%s（%s）: %s", c.get("version"), c.get("date"), c.get("summary"))
-        log("⚠ 发现更新的 BREAKING 变更 —— 建议人工核对 bot/protocol 语义后升级")
+        brk = [c for c in meta.get("changes") or []
+               if c.get("type") == "breaking" and c.get("version", 0) > bot.GUIDE_VERSION_KNOWN]
+        for c in brk:
+            log("⚠ BREAKING v%s（%s）: %s", c.get("version"), c.get("date"), c.get("summary"))
+        if brk:
+            log("⚠ 发现更新的 BREAKING 变更 —— 建议人工核对 bot/protocol 语义后升级")
+        else:
+            log("服务器有更新（无 BREAKING，兼容新增/放宽）——按需升级版本常量")
     elif isinstance(ver, int) and ver < bot.GUIDE_VERSION_KNOWN:
         log("⚠ 服务器版本低于本 bot 已知版本（可能指向了旧环境？）")
 
