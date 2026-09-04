@@ -8,6 +8,7 @@ import threading
 import time
 import unittest
 
+from bot.api import ApiError
 from bot.protocol import run_tournament
 from bot.speed import SpeedA
 
@@ -44,6 +45,9 @@ class FakeClient:
 
     def ready(self, tid):
         self.ready_calls += 1
+        if self._now()[0] in ("finished", "closed", "void"):
+            # 终态后 ready：正式锦标赛 409（测试房跨轮待机则不应走到终态剧本）
+            raise ApiError(409, "TOURNAMENT_CLOSED")
         return {}
 
     def game_state(self, gid, seq=0):

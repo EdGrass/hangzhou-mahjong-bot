@@ -157,16 +157,20 @@ def run_tournament(client, tid, strategy, scoped=True):
             log("⚠ stage_crashed=true：中断待重赛，继续轮询直至重赛场次出现")
 
         if intent == "exit":
-            if t.get("kind") == "test" and t.get("status") == "finished":
-                # 测试房间跨轮复用：finished 后周期 ready（幂等累积），
-                # 4 令牌齐备自动开新一轮；空闲超时房间 auto close → 退出
-                log("测试房间 finished：跨轮待机（每 5s ready，等待新一轮）…")
-                time.sleep(5)
+            if t.get("status") == "finished":
+                # 终态兜底判定：测试房间跨轮复用（finished 后 ready 幂等累积，
+                # 4 令牌齐备自动开新一轮）；正式锦标赛 finished 后 ready 409 → 退出
                 try:
                     client.ready(tid)
+                except ApiError as e:
+                    if e.status == 409:
+                        summary(client, tid, t)
+                        return t
+                    time.sleep(5)
                     continue
-                except ApiError:
-                    continue
+                log("测试房间 finished：跨轮待机（每 5s ready，等待新一轮）…")
+                time.sleep(5)
+                continue
             summary(client, tid, t)
             return t
         if intent == "register":
