@@ -21,10 +21,12 @@ from bot.smoke import run_smoke
 from bot.speed import SpeedA
 from bot.util import ensure_utf8, log, server_from_env
 
-# 实盘策略：当前唯一参赛策略 SpeedA（向听数速度）。新变体在此注册。
+# 实盘策略：SpeedA（默认）与增强变体 SpeedB（副露收益）。新变体在此注册。
 STRATEGY_FACTORIES = {
     "speedA": SpeedA,
     "speed": SpeedA,           # 别名
+    "speedB": lambda: __import__("bot.speedb", fromlist=["SpeedB"]).SpeedB(),
+    "speedC": lambda: __import__("bot.speedc", fromlist=["SpeedC"]).SpeedC(),
 }
 
 
