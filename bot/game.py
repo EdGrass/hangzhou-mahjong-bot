@@ -129,13 +129,23 @@ def play_game(client, gid, strategy):
         sig = (phase, seq)
         if not phase.startswith("response_") and sig == decided_seq_sig:
             continue
-        act = strategy.decide(view)
+        try:
+            act = strategy.decide(view)
+        except Exception as e:
+            # 策略异常（真机边缘局面）→ 窗口 pass / 非窗口不动作（等超时兜底）
+            log("策略异常(%s: %s)——按 pass/等待处理" % (type(e).__name__,
+                                                    str(e)[:100]))
+            if phase.startswith("response_"):
+                act = {"action": "pass", "tile": ""}
+            else:
+                last_window_key = window_key if phase.startswith(
+                    "response_") else last_window_key
+                continue
         if act is None:
             continue
 
         log("提交:", act, "phase=%s turn=%s" % (phase, view["turn"]))
-        if os.environ.get("HM_AUDIT") and act is not None and \
-                act.get("action") != "pass":
+        if os.environ.get("HM_AUDIT") and act.get("action") != "pass":
             # 决策审计行：局面摘要 + 动作（离线重放 oracle 对比用）
             melds = tracker.view_extra().get("melds") or []
             log("[audit] gid=%s seat=%d phase=%s turn=%d hand=%s drawn=%s "

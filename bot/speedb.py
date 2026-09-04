@@ -26,8 +26,11 @@ def _min_shanten_after_discard(hand, exposed, gangs):
     for d in sorted(set(hand)):
         rem = list(hand)
         rem.remove(d)
-        s = exact_shanten(rem, qidui=(exposed == 0 and gangs == 0),
-                          exposed_melds=exposed, gangs=gangs)
+        try:
+            s = exact_shanten(rem, qidui=(exposed == 0 and gangs == 0),
+                              exposed_melds=exposed, gangs=gangs)
+        except ValueError:
+            continue            # 长度与副露基准不匹配（真机边缘）→ 跳过
         if s < best:
             best = s
             if best == 0:
@@ -83,6 +86,10 @@ def _want_claim(view, kind):
         return False
     hand = list(view["my_hand"])
     exposed, gangs = _melds_info(view)
+    # 长度与副露基准校验：窗口手牌应为 13-3e-g；真机偶发计数不同步
+    # （本地 e 落后/超前服务器）→ 保守跳过 claim，绝不误评估
+    if len(hand) != 13 - 3 * exposed - gangs:
+        return False
     # 不副露基线：当前等待摸牌态的向听（摸牌前 concealed）
     try:
         before = exact_shanten(hand, qidui=(exposed == 0 and gangs == 0),
