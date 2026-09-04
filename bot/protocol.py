@@ -113,6 +113,7 @@ def _play_concurrent(client, gids, strategy):
 def run_tournament(client, tid, strategy, scoped=True):
     """锦标赛主循环（阻塞直到 finished/closed/void 或确定与我无关）。"""
     registered_in_period = False    # 是否已成功报名+到位（幂等；报名期成功一次即可，也用于 403 未入场判定）
+    last_ready_at = 0.0             # 注册期周期 ready（测试房跨轮维持用）
     last_confirm_at = 0.0           # 上次出席确认时间 —— 确认幂等(200)，仅做节流防每秒刷
     give_up_at = time.time() + JOIN_GIVE_UP_SEC
     last_state = (None, None, None)     # 上次 (status, 阶段名, crashed)——状态变化才打印
@@ -177,6 +178,15 @@ def run_tournament(client, tid, strategy, scoped=True):
             if not registered_in_period:
                 # 报名+到位幂等：本报名期成功一次即可，之后纯轮询等开赛
                 registered_in_period = _register(client, tid)
+            # 测试房跨轮：registering 期需周期 ready 维持（30 分钟无动作会被
+            # 判定空闲 void）；ready 幂等无害，正式锦标赛同款安全
+            now_r = time.time()
+            if registered_in_period and now_r - last_ready_at > 30:
+                try:
+                    client.ready(tid)
+                except ApiError:
+                    pass
+                last_ready_at = now_r
             time.sleep(REGISTER_POLL)   # 报名期稳态轮询（低频率）
         elif intent == "confirm":
             # 出席确认幂等(200)，10s 节流即可；即使中途崩溃重赛回同一阶段也会重新确认

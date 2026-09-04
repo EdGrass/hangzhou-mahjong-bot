@@ -160,8 +160,8 @@ def play_game(client, gid, strategy):
                 # 动作已失效（竞态 / 窗口已响应 / 自判失误）：全量重建状态
                 log("动作 409（已失效）:", e.code or e.body[:120])
                 seq = 0
-            elif e.status == 0 or e.status >= 500:
-                # 网络瞬断 / 服务端暂错：稍候重试（水位不变，继续挂起）
+            elif e.status in (0, 429) or e.status >= 500:
+                # 网络瞬断 / 限速 / 服务端暂错：稍候重试（水位不变，继续挂起）
                 log("瞬时故障(%s)，1s 后继续" % (e.code or e.status))
                 time.sleep(1.0)
             else:

@@ -5,15 +5,42 @@
 """
 import json
 import ssl
+import threading
 import time
 import urllib.error
 import urllib.request
 
 DEFAULT_TIMEOUT = 35      # state 长轮询最长挂起 30s，留 5s 余量
-RATE_LIMIT_RETRIES = 5    # 429 最大退避重试次数
-RATE_LIMIT_BACKOFF = 2.0  # 429 初始退避秒数
+RATE_LIMIT_RETRIES = 2    # 429 退避重试次数（节流后极少触发）
+RATE_LIMIT_BACKOFF = 1.0
 NETWORK_RETRIES = 3       # 网络瞬断（URLError/超时）重试次数
 NETWORK_BACKOFF = 1.0
+
+
+class _Throttle:
+    """进程级令牌桶：多桌并发共享同一 /state 16/s 上限（实测 429 风暴源）。"""
+
+    def __init__(self, rate=12.0, burst=3):
+        self.rate = rate
+        self.burst = float(burst)
+        self.tokens = float(burst)
+        self.last = time.monotonic()
+        self.lock = threading.Lock()
+
+    def acquire(self):
+        with self.lock:
+            while self.tokens < 1.0:
+                now = time.monotonic()
+                self.tokens = min(self.burst,
+                                  self.tokens + (now - self.last) * self.rate)
+                self.last = now
+                if self.tokens < 1.0:
+                    time.sleep((1.0 - self.tokens) / self.rate)
+            self.tokens -= 1.0
+            self.last = time.monotonic()
+
+
+THROTTLE = _Throttle()
 
 
 class ApiError(Exception):
@@ -54,7 +81,8 @@ class Client:
 
     # -- 底层请求 ------------------------------------------------------------
     def request(self, method, path, body=None, timeout=DEFAULT_TIMEOUT):
-        """发一次请求；429 退避重试，其余 HTTP 错误抛 ApiError。返回已解析 JSON。"""
+        """发一次请求；全局节流 + 429 退避重试，其余 HTTP 错误抛 ApiError。"""
+        THROTTLE.acquire()
         data = json.dumps(body).encode("utf-8") if body is not None else None
         req = urllib.request.Request(self.server + path, data=data, method=method)
         req.add_header("Content-Type", "application/json")
