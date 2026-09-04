@@ -28,6 +28,7 @@ def _end_reason(res, snap):
 def play_game(client, gid, strategy):
     """打一场：返回该场结束时快照（含 scores），或 None（异常中止由调用方决定）。"""
     seq = 0
+    pending_count = 0           # 连续长挂起计数（防漏窗口兜底）
     last_window_key = None      # 最近已响应的窗口键 (phase, turn)
     decided_seq_sig = None      # 非窗口最近已决策的 (phase, seq) —— 防 409 死循环
     self_drawn = ""             # 最近一次本人摸牌（tile_drawn 事件，tile 仅自己可见）
@@ -44,7 +45,13 @@ def play_game(client, gid, strategy):
             return snap
 
         if res.get("pending"):
-            continue            # 30s 内无新事件：继续挂起
+            # 30s 内无新事件：继续挂起；连续两次 pending 做一次全量重建兜底
+            # （防「只更新快照不发事件」的窗口/换庄等被挂起错过）
+            pending_count += 1
+            if pending_count >= 2:
+                pending_count = 0
+                seq = 0
+            continue
 
         if snap is None:
             # 增量事件：解析本人摸牌（tile_drawn 事件 tile 仅对自己可见，
@@ -101,10 +108,11 @@ def play_game(client, gid, strategy):
             client.game_action(gid, act)
         except ApiError as e:
             if e.status == 409:
-                # 动作已失效（竞态 / 窗口已响应 / 自判失误）：记录后重建快照
+                # 动作已失效（竞态 / 窗口已响应 / 自判失误）：全量重建状态
                 log("动作 409（已失效）:", e.code or e.body[:120])
+                seq = 0
             elif e.status == 0 or e.status >= 500:
-                # 网络瞬断 / 服务端暂错：稍候重试
+                # 网络瞬断 / 服务端暂错：稍候重试（水位不变，继续挂起）
                 log("瞬时故障(%s)，1s 后继续" % (e.code or e.status))
                 time.sleep(1.0)
             else:
@@ -117,4 +125,6 @@ def play_game(client, gid, strategy):
             last_window_key = window_key    # 本窗口已响应（无论成败）
         else:
             decided_seq_sig = sig
-        seq = 0                 # 动作后重建权威快照，避免状态漂移
+        # 注意：动作成功后【不】回退 seq=0 —— 保持当前水位挂起长轮询，
+        # 否则每次全量快照会跳过 tile_drawn 等增量事件（真机摸牌信息只经事件流）
+        continue
