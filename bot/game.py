@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import os
 import time
 
 from .api import ApiError
@@ -41,7 +42,11 @@ def play_game(client, gid, strategy):
         if reason:
             log("本场结束: %s（gid=%s）", reason, gid)
             if snap and snap.get("scores") is not None:
-                log("本场积分:", snap["scores"])
+                seat = snap.get("seat", -1)
+                scores = snap.get("scores")
+                log("本场积分 seat=%d: %s", seat, scores)
+                if seat is not None and 0 <= seat < len(scores):
+                    log("我的本场得分: %s", scores[seat])
             return snap
 
         if res.get("pending"):
@@ -104,6 +109,15 @@ def play_game(client, gid, strategy):
             continue
 
         log("提交:", act, "phase=%s turn=%s" % (phase, view["turn"]))
+        if os.environ.get("HM_AUDIT") and act is not None and \
+                act.get("action") != "pass":
+            # 决策审计行：局面摘要 + 动作（离线重放 oracle 对比用）
+            melds = tracker.view_extra().get("melds") or []
+            log("[audit] gid=%s seat=%d phase=%s turn=%d hand=%s drawn=%s "
+                "melds=%d act=%s", gid, view["seat"], phase, view["turn"],
+                ",".join(sorted(view["my_hand"])), view.get("drawn_tile") or "",
+                len(melds), act.get("action") +
+                (":" + act.get("tile", "") if act.get("action") != "pass" else ""))
         try:
             client.game_action(gid, act)
         except ApiError as e:
