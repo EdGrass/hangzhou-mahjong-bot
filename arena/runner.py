@@ -40,6 +40,13 @@ def _speed():
     return SpeedA()
 
 
+@_reg("speedB")
+def _speedb():
+    """SpeedA 变体：副露收益判定（碰/杠/吃仅在更快成型时响应）。"""
+    from bot.speedb import SpeedB
+    return SpeedB()
+
+
 def parse_combo(combo):
     """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []
