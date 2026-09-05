@@ -132,11 +132,12 @@ def play_game(client, gid, strategy):
                     last_window_key = (view["phase"], view["turn"])
                 continue
 
-        # 窗口去重（真机语义）：同一窗口（phase+弃牌者 turn）只响应一次；
-        # 窗口内其他玩家的响应会推进 seq 但窗口未关——重复 pass/claim 会 409，
-        # 故以 (phase, turn) 为窗口键幂等跳过（新窗口 = 新 turn 或新 phase）。
+        # 窗口去重（真机语义）：同一窗口（phase+弃牌者 turn+弃牌牌面）只响应
+        # 一次；窗口内其他玩家的响应会推进 seq 但窗口未关——重复 pass/claim
+        # 会 409。弃牌牌面精确标识窗口（同一弃牌者多窗口不混淆）。
         phase = view["phase"]
-        window_key = (phase, view["turn"])
+        offer_t = view.get("offer_tile") or ""
+        window_key = (phase, view["turn"], offer_t)
         if phase.startswith("response_"):
             if window_key == last_window_key:
                 continue
