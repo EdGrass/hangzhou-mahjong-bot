@@ -56,6 +56,13 @@ def _speedf():
     return SpeedF()
 
 
+@_reg("speedG")
+def _speedg():
+    """SpeedF + 已见牌扣减（等待/进张按 4-手牌-牌河 修正）。"""
+    from bot.speedg import SpeedG
+    return SpeedG()
+
+
 def parse_combo(combo):
     """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []

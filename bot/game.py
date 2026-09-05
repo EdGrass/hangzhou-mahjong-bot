@@ -34,6 +34,7 @@ def play_game(client, gid, strategy):
     decided_seq_sig = None      # 非窗口最近已决策的 (phase, seq) —— 防 409 死循环
     self_drawn = ""             # 最近一次本人摸牌（tile_drawn 事件，tile 仅自己可见）
     self_offer = None           # 最近弃牌 (tile, seat)（tile_discarded 事件，公开）
+    river = []                  # 当前局公开弃牌河（round_ended 清空）
     tracker = MeldTracker()     # 本人副露跟踪（真机快照无 melds，本地累计）
     while True:
         res = client.game_state(gid, seq)
@@ -60,15 +61,19 @@ def play_game(client, gid, strategy):
             continue
 
         if snap is None:
-            # 增量事件：解析本人摸牌与弃牌 offer（快照不含敏感牌面：
+            # 增量事件：解析本人摸牌与弃牌 offer/river（快照不含敏感牌面：
             # tile_drawn 仅自己可见；窗口 offer = 最近 tile_discarded.tile），
             # 推进 seq 后重建权威快照再决策。
             for ev in res.get("events") or []:
                 seq = max(seq, int(ev.get("seq", seq)))
-                if ev.get("type") == "tile_drawn" and ev.get("tile"):
+                etype = ev.get("type")
+                if etype == "round_ended":
+                    river = []          # 新局开始：弃牌河清空
+                elif etype == "tile_drawn" and ev.get("tile"):
                     self_drawn = ev["tile"]     # 非空 tile = 本人刚摸
-                elif ev.get("type") == "tile_discarded" and ev.get("tile"):
+                elif etype == "tile_discarded" and ev.get("tile"):
                     self_offer = (ev["tile"], ev.get("seat"))   # 弃牌牌面（公开）
+                    river.append(ev["tile"])
             auth = client.game_state(gid, 0)
             snap = auth.get("snapshot")
             if snap is None:
@@ -79,6 +84,7 @@ def play_game(client, gid, strategy):
 
         view = snap_view(snap)
         view.update(tracker.view_extra())   # 注入本人副露（策略 view 扩展键）
+        view["river"] = list(river)         # 注入公开弃牌河（SpeedG 已见扣减用）
         if view["seat"] < 0:
             continue            # 观赛视角无动作权
 
