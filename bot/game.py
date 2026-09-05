@@ -69,6 +69,9 @@ def play_game(client, gid, strategy):
                 etype = ev.get("type")
                 if etype == "round_ended":
                     river = []          # 新局开始：弃牌河清空
+                    tracker.reset()     # 新局：副露清零（跨局残留曾致整局误判）
+                    self_drawn = ""
+                    self_offer = None
                 elif etype == "tile_drawn" and ev.get("tile"):
                     self_drawn = ev["tile"]     # 非空 tile = 本人刚摸
                 elif etype == "tile_discarded" and ev.get("tile"):
