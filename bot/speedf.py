@@ -63,7 +63,9 @@ def _candidate_tiles(rem):
 
 
 def _ukeire(rem, exposed, gangs):
-    """弃后 rem（13-3e-g 张）的进张数：摸 1 张存在弃牌使向听下降的牌种数。"""
+    """弃后 rem（13-3e-g 张）的进张数：摸 1 张存在弃牌使向听下降的牌种数。
+    快速剪枝：花色牌 t 需与手牌邻接（t±1/±2 在手或 t 有对）才有改善可能；
+    字牌 t 需手牌已有同字（对/刻潜力）。大幅减少 exact_shanten 调用。"""
     rem_t = tuple(sorted(rem))
     try:
         cur = _cur_shanten(rem_t, exposed, gangs)
@@ -72,9 +74,26 @@ def _ukeire(rem, exposed, gangs):
     if cur <= 0:
         return 0
     cnt = 0
+    have = {}
+    for x in rem:
+        have[x] = have.get(x, 0) + 1
     for t in _candidate_tiles(rem):
-        if rem.count(t) >= 4:
+        if have.get(t, 0) >= 4:
             continue            # 该牌 4 张全在自己手
+        # ---- 快速剪枝：无任何改善可能的 t 直接跳过 ----
+        if t in "东南西北中发白":
+            if have.get(t, 0) == 0:
+                continue        # 字牌孤张：摸同字也需已有对才谈得上改善
+        else:
+            n, suit = int(t[0]), t[1]
+            has_neighbor = have.get(t, 0) >= 1
+            if not has_neighbor:
+                for m in (n - 2, n - 1, n + 1, n + 2):
+                    if 1 <= m <= 9 and have.get("%d%s" % (m, suit), 0):
+                        has_neighbor = True
+                        break
+            if not has_neighbor:
+                continue        # 花色孤立张：摸 t 无法成搭/补刻
         nt_t = tuple(sorted(rem_t + (t,)))
         if _can_improve(nt_t, exposed, gangs, cur):
             cnt += 1
