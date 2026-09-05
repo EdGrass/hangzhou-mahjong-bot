@@ -173,8 +173,11 @@ def play_game(client, gid, strategy):
             client.game_action(gid, act)
         except ApiError as e:
             if e.status == 409:
-                # 动作已失效（竞态 / 窗口已响应 / 自判失误）：全量重建状态
+                # 动作已失效（竞态 / 窗口已响应 / 自判失误）：全量重建状态；
+                # 窗口期 409 = 本窗口已死（服务器已代处理），标记不再重试
                 log("动作 409（已失效）:", e.code or e.body[:120])
+                if phase.startswith("response_"):
+                    last_window_key = window_key
                 seq = 0
             elif e.status in (0, 429) or e.status >= 500:
                 # 网络瞬断 / 限速 / 服务端暂错：稍候重试（水位不变，继续挂起）
