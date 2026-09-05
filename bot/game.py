@@ -123,10 +123,13 @@ def play_game(client, gid, strategy):
                 view["my_hand"] = hand
                 view["drawn_tile"] = drawn_tile
             elif len(hand) != expect_hold:
-                # claim 成功后服务器瞬时仍回「扣减前」旧手牌（len 偏大、
-                # 与已 +1 的副露数冲突）→ 本轮放弃出牌，等事件推进同步
+                # claim 后服务器瞬时仍回「扣减前」旧手牌（len 偏大、
+                # 与已 +1 的副露数冲突）→ 本轮放弃出牌，等事件推进同步；
+                # 若正处于窗口期，先标记已响应防重复提交（409 风暴源）
                 log("手牌形态暂不一致 len=%d expect=%d e=%d g=%d —— 跳过本轮",
                     len(hand), expect_hold, exposed, gangs)
+                if view["phase"].startswith("response_"):
+                    last_window_key = (view["phase"], view["turn"])
                 continue
 
         # 窗口去重（真机语义）：同一窗口（phase+弃牌者 turn）只响应一次；

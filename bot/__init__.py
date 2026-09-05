@@ -8,5 +8,6 @@
 __version__ = "1.0.0"
 
 # 本 bot 开发时对应的服务器接入指南版本（用于版本自检，见 bot/smoke.py）
-# v12（2026-09-04）：新增可选 SSE notify 端点（added，非破坏）
-GUIDE_VERSION_KNOWN = 12
+# v13（BREAKING，仅新锦标赛）：分桌实到=ready∧开赛前90s在线（本 bot 轮询/ready
+#   节奏均满足）；v14（added）：/portal/api/guide 全文免认证
+GUIDE_VERSION_KNOWN = 14

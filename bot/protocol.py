@@ -114,6 +114,7 @@ def run_tournament(client, tid, strategy, scoped=True):
     """锦标赛主循环（阻塞直到 finished/closed/void 或确定与我无关）。"""
     registered_in_period = False    # 是否已成功报名+到位（幂等；报名期成功一次即可，也用于 403 未入场判定）
     last_ready_at = 0.0             # 注册期周期 ready（测试房跨轮维持用）
+    last_404_at = 0.0               # 服务器重启瞬态 404 计时（>120s 视为房间真删）
     last_confirm_at = 0.0           # 上次出席确认时间 —— 确认幂等(200)，仅做节流防每秒刷
     give_up_at = time.time() + JOIN_GIVE_UP_SEC
     last_state = (None, None, None)     # 上次 (status, 阶段名, crashed)——状态变化才打印
@@ -142,6 +143,18 @@ def run_tournament(client, tid, strategy, scoped=True):
                     log("长时间无法入场（报名已截止/名额已满），退出")
                     return None
                 time.sleep(POLL_INTERVAL)
+                continue
+            if e.status == 404:
+                # 服务器重启瞬态（实测每 ~70 分钟一次 502→404 风暴）：
+                # 重试 2 分钟，房间若恢复（running/registering）则继续
+                now404 = time.time()
+                if now404 - last_404_at > 120:
+                    log("锦标赛详情 404 持续（>2min）—— 房间已删除/清理，退出")
+                    raise
+                if last_404_at == 0:
+                    last_404_at = now404
+                log("锦标赛详情 404（服务器重启瞬态），2s 后重试…")
+                time.sleep(2)
                 continue
             raise
 
