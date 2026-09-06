@@ -35,32 +35,11 @@ def _reg(name):
     return deco
 
 
-@_reg("speedB")
-def _speedb():
-    """副露收益判定变体（碰/杠/吃仅在更快成型时响应）。"""
-    from bot.speedb import SpeedB
-    return SpeedB()
-
-
 @_reg("speedE")
 def _speede():
-    """孤张字牌优先变体（tie 内近似 ukeire，复盘证据驱动）。"""
+    """当前唯一竞技策略（孤字优先/副露收益，见 bot/speede.py）。"""
     from bot.speede import SpeedE
     return SpeedE()
-
-
-@_reg("speedF")
-def _speedf():
-    """tie 内完整 ukeire 进张最大化变体（精确进张计数）。"""
-    from bot.speedf import SpeedF
-    return SpeedF()
-
-
-@_reg("speedG")
-def _speedg():
-    """SpeedF + 已见牌扣减（等待/进张按 4-手牌-牌河 修正）。"""
-    from bot.speedg import SpeedG
-    return SpeedG()
 
 
 def parse_combo(combo):

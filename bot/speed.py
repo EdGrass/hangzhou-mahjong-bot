@@ -59,6 +59,93 @@ def _safe_discard(hand, drawn):
 HONOR = set("东南西北中发白")
 
 
+
+def _min_shanten_after_discard(hand, exposed, gangs):
+    """弃 1 张后能达到的最小向听；长度不匹配（真机边缘）→ 99。"""
+    best = 99
+    for d in sorted(set(hand)):
+        rem = list(hand)
+        rem.remove(d)
+        try:
+            sv = exact_shanten(rem, qidui=(exposed == 0 and gangs == 0),
+                               exposed_melds=exposed, gangs=gangs)
+        except ValueError:
+            continue
+        if sv < best:
+            best = sv
+            if best == 0:
+                break
+    return best
+
+
+def _claim_value(hand, offer, kind, exposed, gangs, chi_pair=None):
+    h = list(hand)
+    if kind == "peng":
+        if h.count(offer) < 2:
+            return 99
+        for _ in range(2):
+            h.remove(offer)
+        return _min_shanten_after_discard(h, exposed + 1, gangs)
+    if kind == "gang_ming":
+        if h.count(offer) < 3:
+            return 99
+        for _ in range(3):
+            h.remove(offer)
+        return _min_shanten_after_discard(h, exposed + 1, gangs + 1)
+    if kind == "chi":
+        if not chi_pair:
+            return 99
+        for t in chi_pair:
+            if t not in h:
+                return 99
+            h.remove(t)
+        return _min_shanten_after_discard(h, exposed + 1, gangs)
+    return 99
+
+
+def _chi_pairs(hand, offer):
+    """吃牌可用组合（与引擎口径一致：同花差1/差2邻接）。"""
+    if offer == W or offer[-1] not in "wbt":
+        return []
+    n = int(offer[0])
+    suit = offer[1]
+    hset = set(hand)
+    out = []
+    for a, b in ((n - 2, n - 1), (n - 1, n + 1), (n + 1, n + 2)):
+        ta, tb = "%d%s" % (a, suit), "%d%s" % (b, suit)
+        if 1 <= a <= 9 and 1 <= b <= 9 and ta in hset and tb in hset:
+            out.append([ta, tb])
+    return out
+
+
+def _want_claim(view, kind):
+    """副露收益判据：副露后成型是否更快（after < before）。真机长度不匹配
+    时保守跳过（返回 False）。"""
+    offer = view.get("offer_tile")
+    if not offer:
+        return False
+    hand = list(view["my_hand"])
+    exposed, gangs = _melds_info(view)
+    if len(hand) != 13 - 3 * exposed - gangs:
+        return False            # 副露计数与快照不同步（真机边缘）→ 不副露
+    try:
+        before = exact_shanten(hand, qidui=(exposed == 0 and gangs == 0),
+                               exposed_melds=exposed, gangs=gangs)
+    except ValueError:
+        before = 99
+    if before == 0:
+        return False            # 已听：保留听形
+    if kind == "chi":
+        best = 99
+        for pair in _chi_pairs(hand, offer):
+            v = _claim_value(hand, offer, "chi", exposed, gangs, pair)
+            if v < best:
+                best = v
+        return best < before
+    v = _claim_value(hand, offer, kind, exposed, gangs)
+    return v < before
+
+
 class SpeedBase(Strategy):
     def __init__(self, name="speedBase"):
         self.name = name
@@ -97,3 +184,21 @@ class SpeedBase(Strategy):
                 return {"action": "discard", "tile": tile}
             return None
         return None
+
+class SpeedCore(SpeedBase):
+    """SpeedBase + 副露收益判定（碰/杠/吃仅在更快成型时响应）。"""
+
+    def decide(self, view):
+        offer = view.get("offer_tile")
+        if window_pending(view) and offer:
+            cnt = view["my_hand"].count(offer)
+            if view["phase"] == "response_peng":
+                if cnt >= 3 and _want_claim(view, "gang_ming"):
+                    return {"action": "gang", "tile": offer}
+                if cnt >= 2 and _want_claim(view, "peng"):
+                    return {"action": "peng", "tile": offer}
+                return {"action": "pass", "tile": ""}
+            if view["phase"] == "response_chi" and _want_claim(view, "chi"):
+                return {"action": "chi", "tile": offer}
+            return {"action": "pass", "tile": ""}
+        return super().decide(view)
