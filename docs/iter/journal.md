@@ -14,4 +14,11 @@
   - **裁决 WIN**：delta +2.17/场（CI [+0.33,+4.02]，σ=32.6）→ 送 L2，等 cookie；
   - 清理 9/3 遗留 heuristicAx4 无限循环僵尸进程（39460，污染 var/arena 数据源）；
   - 报告卡 docs/iter/reports/C001.md；台账 var/iter/ab_runs.jsonl（gitignore）。
-  - 下一轮：C002（speedx2 已见牌扣减，蓝图 git 3c269fd）或 C003（短局口径）。
+- [R2 | 2026-09-06] C001 L2 启动 + C002 实现：
+  - 用户提供 cookie（有效至 10-05）→ 建房 t_fb08f23caa81（M=1 rounds=1）：
+    speedx1×2(青龙/白虎) + speedE×2(朱雀/玄武) 真机同桌，tools/l2_watch.py
+    看门狗托管，tools/l2_audit.py 逐场审计（~1.5min/局 → 200 局 ~5h 后台）；
+  - **fix(run_bot)**：c602d33 误删 bot.util 导入 → 真机入口 NameError；
+    教训：run_bot 入口改动必须过 --smoke（已恢复导入）；
+  - C002 speedx2 实现（SpeedG 思路重建于 E：听牌等待扣已见；sim 注入 river），
+    单测 3 项 + 全量 83 OK + stability ALL PASS；6 批 A/B（seed 21-26）并行中。
