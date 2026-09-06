@@ -59,9 +59,10 @@ def combo_avg(batches):
             "games": n,
             "rounds": rnd,
             "identities": sorted(
-                {"name": k, "avg_tot": round(v[0] / v[2], 3),
-                 "hu_rate": round(v[1] / v[2] / rnd, 4)}
-                for k, v in ids.items(), key=lambda d: d["name"]),
+                ({"name": k, "avg_tot": round(v[0] / v[2], 3),
+                  "hu_rate": round(v[1] / v[2] / rnd, 4)}
+                 for k, v in ids.items()),
+                key=lambda d: d["name"]),
         }
     return res
 
