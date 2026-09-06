@@ -21,7 +21,7 @@
 | C001 | PROJECT.md §7.1 / 复盘差异#2 | tie 内弃刚摸优先（TOP 打新张 vs 我们留新张） | strategy | in-l2 | **L1 WIN**（1387 局 +2.3/场 CI 排除 0），等 HM_PORTAL_COOKIE 上真机；报告 docs/iter/reports/C001.md |
 | C002 | PROJECT.md §7.5 | 已见牌扣减重试（SpeedG 思路，曾就绪被清） | strategy | dead-end | **L1 DRAW**：1200 局 +0.19/场 CI 含 0（报告 C002.md）；sim river 注入保留给 C004 |
 | C003 | PROJECT.md §7.4 | 短局口径参数化（WALL_RESERVE） | eval | paused | **参数化已完成**（sim/runner --wall-reserve + 测试）；**默认口径不翻 60**：reserve60 本地流局 71% 失真、旧复盘被 timeout 污染非干净源 → 待 L2 真机 n≥200 的流局/局长统计校准后落定 |
-| C004 | PROJECT.md §7.2 | 防守 v0：弃牌河危险度回避（安全牌序） | strategy | queued | 需 view 注入 river → 协议侧冒烟 |
+| C004 | PROJECT.md §7.2 | 防守 v0：弃牌河危险度回避（安全牌序） | strategy | queued | 设计要点：危险度=他家弃牌河热度（他家过/勿打他家近旁张）+ 追听读牌；改动=弃牌 tie 内优先安全牌（听牌后仍抢速度，不牺牲向听）；view.river 已就绪（C002 基建）；先做"仅 tie 内安全排序"最小版 |
 | C005 | PROJECT.md §7.3 | 打点 EV 分支（4 白/爆头/财飘取舍） | strategy | queued | 复用 fan-calc 黄金集 |
 | C006 | MCTS | 搜索型决策 | strategy | queued | 远期，队列空后议 |
 
