@@ -38,7 +38,8 @@ def _minus(hand, tile, k=1):
 
 
 def make_view(seat, phase, turn, hand, drawn=None, melds=None, offer=None,
-              responding=None, god=None, scores=None, can_gang=True):
+              responding=None, god=None, scores=None, can_gang=True,
+              river=None):
     """与协议层 snap_view 同构的本人视角（模拟器扩展键仅本地填充）。"""
     melds = melds or []
     god = dict(god or {"baotou": False, "chain_count": 0, "catch_play": False,
@@ -55,6 +56,7 @@ def make_view(seat, phase, turn, hand, drawn=None, melds=None, offer=None,
         "melds": list(melds),
         "offer_tile": offer,
         "can_gang": can_gang,
+        "river": list(river or []),     # 当前局公开弃牌河（真机 game.py 同口径）
     }
 
 
@@ -91,6 +93,7 @@ class SimGame:
         self.chain = [0] * 4
         self.piao = [0] * 4
         self.catch_at = None
+        self.river = []                     # 当前局公开弃牌河（新局清空）
 
     def _e(self, s):
         return len(self.melds[s])
@@ -120,7 +123,7 @@ class SimGame:
                               "catch_play": (self.catch_at is not None
                                              and seat != self.catch_at),
                               "piao_count": self.piao[seat]},
-                         can_gang=self._gang_ok())
+                         can_gang=self._gang_ok(), river=self.river)
 
     # ---------- 决策 ----------
     def _decide(self, seat, view):
@@ -308,6 +311,7 @@ class SimGame:
                 self.chain[seat] = 0
                 self.piao[seat] = 0
             hand.remove(tile)
+            self.river.append(tile)         # 弃牌公开入河（含被碰/吃走者，与真机事件同口径）
             # --- 窗口 ---
             claim = self._respond_windows(seat, tile)
             if claim is None:
