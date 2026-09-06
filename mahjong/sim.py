@@ -61,12 +61,18 @@ def make_view(seat, phase, turn, hand, drawn=None, melds=None, offer=None,
 
 
 class SimGame:
-    def __init__(self, strategies, rounds=1, base=1, seed=0, deck=None):
+    def __init__(self, strategies, rounds=1, base=1, seed=0, deck=None,
+                 wall_reserve=None):
         if len(strategies) != 4:
             raise ValueError("需要恰好 4 个策略，实际 %d" % len(strategies))
         self.strategies = list(strategies)
         self.rounds = rounds
         self.base = base
+        # 牌墙保留量（评估口径参数，C003）：None→模块默认 20；真机短局
+        # 校准经验值 60（见 docs/iter/queue.md 口径表与 C003 报告卡）
+        self.wall_reserve = WALL_RESERVE if wall_reserve is None \
+            else int(wall_reserve)
+        self.gang_min = self.wall_reserve + 2
         self.rng = random.Random(seed)
         self.fixed_deck = list(deck) if deck else None   # 测试注入：完整 136 张
         self.totals = [0, 0, 0, 0]
@@ -105,10 +111,10 @@ class SimGame:
         return sum(1 for m in self.melds[s] if m["type"] == "chi")
 
     def _draw_ok(self):
-        return len(self.wall) > WALL_RESERVE
+        return len(self.wall) > self.wall_reserve
 
     def _gang_ok(self):
-        return len(self.wall) >= GANG_MIN
+        return len(self.wall) >= self.gang_min
 
     def _hu_check(self, s):
         return is_win(self.hands[s], exposed_melds=self._e(s), gangs=self._g(s))

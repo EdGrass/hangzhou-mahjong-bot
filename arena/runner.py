@@ -87,8 +87,10 @@ def make_seats(combo, rng):
 
 
 class Arena:
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, wall_reserve=None):
         self.out_dir = out_dir
+        # 评估口径参数（C003）：None→sim 默认；短局校准传 60
+        self.wall_reserve = wall_reserve
         os.makedirs(out_dir, exist_ok=True)
         self.history_path = os.path.join(out_dir, "history.jsonl")
         self.games_path = os.path.join(out_dir, "games.jsonl")
@@ -103,7 +105,8 @@ class Arena:
         for g in range(games):
             strategies, seat_names = make_seats(combo, rng)
             res = SimGame(strategies, rounds=rounds, base=1,
-                          seed=seed0 * 100000 + g).run()
+                          seed=seed0 * 100000 + g,
+                          wall_reserve=self.wall_reserve).run()
             st = res["stats"]
             for i in range(4):
                 e = ids.setdefault(seat_names[i], [0, 0, 0])
@@ -200,9 +203,12 @@ def main():
     ap.add_argument("--every", type=float, default=0, help="循环间隔秒（0=单批退出）")
     ap.add_argument("--out", default=os.path.join("var", "arena"))
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--wall-reserve", type=int, default=0,
+                    help="牌墙保留量（0=sim 默认 20；真机短局校准 60，C003）")
     args = ap.parse_args()
 
-    arena = Arena(args.out)
+    arena = Arena(args.out,
+                  wall_reserve=args.wall_reserve or None)
     seed = args.seed
     while True:
         try:
