@@ -1,9 +1,12 @@
 """tools/ab_gate —— L1 门禁的 A/B 统计判定（SpeedE 系同桌面 A/B）。
 
 从 var/arena/history.jsonl 读取 combo 匹配的历史批，输出候选 vs 基准(E)的
-场均 delta、95% CI 与裁决。口径对齐 docs/自迭代方案.md §6 与 PROJECT.md §6：
-单场分差 std≈10 → SE(delta) ≈ 10/√N（N=同桌场数，零和配对使同场两席取均值后
-std 仍≈10；E/F 真机 408 局 SE≈0.5 与此一致）。
+场均 delta、95% CI 与裁决。口径对齐 docs/自迭代方案.md §6 与 PROJECT.md §6。
+
+校准（2026-09-06，C001 本地 8 巡实测 587 局）：同桌面单场配对差
+σ_d≈33.7/场（逐座每场 σ≈29），远大于旧假设 10 → 按 δ=2/场 判定需
+N≈1100+ 局。--sigma 默认 10 仅为向后兼容；实证值优先（per-game 分析见
+var/iter/ab_analysis.py 或 docs/iter/reports/C001.md）。
 
 用法：
     python tools/ab_gate.py --combo "speedx1x2+speedEx2" [--delta-min 2.0]
@@ -63,7 +66,7 @@ def combo_avg(batches):
     return res
 
 
-def judge(combo, combos, delta_min):
+def judge(combo, combos, delta_min, sigma=10.0):
     """返回 (verdict, dict)。verdict: WIN/LOSE/DRAW/WEAK/NO_DATA。"""
     if combo not in combos:
         return "NO_DATA", {}
@@ -79,7 +82,7 @@ def judge(combo, combos, delta_min):
     cname = cand[0]
     d = ids[cname]["avg_tot"] - ids[base[0]]["avg_tot"]
     n = c["games"]
-    se = 10.0 / (n ** 0.5)
+    se = sigma / (n ** 0.5)
     z = 1.96
     ci = (d - z * se, d + z * se)
     if d >= delta_min and ci[0] > 0:
@@ -97,7 +100,8 @@ def judge(combo, combos, delta_min):
     info = {"combo": combo, "candidate": cname, "baseline": "speedE",
             "batches": c["batches"], "games": n, "rounds": c["rounds"],
             "delta": round(d, 3), "ci95": [round(ci[0], 3), round(ci[1], 3)],
-            "se": round(se, 4), "delta_min": delta_min, "verdict": verdict,
+            "se": round(se, 4), "sigma": sigma, "delta_min": delta_min,
+            "verdict": verdict,
             "cand_avg": ids[cname]["avg_tot"], "base_avg": ids[base[0]]["avg_tot"],
             "cand_hu": ids[cname]["hu_rate"], "base_hu": ids[base[0]]["hu_rate"]}
     return verdict, info
@@ -109,6 +113,8 @@ def main():
     ap.add_argument("--fuzzy", action="store_true",
                     help="模糊模式：列出含 --combo 子串的全部可比组合")
     ap.add_argument("--delta-min", type=float, default=2.0)
+    ap.add_argument("--sigma", type=float, default=10.0,
+                    help="同桌面单场配对差标准差（实证 σ≈33.7，8巡本地）")
     ap.add_argument("--history", default=os.path.join("var", "arena", "history.jsonl"))
     args = ap.parse_args()
 
@@ -120,7 +126,7 @@ def main():
                                  for i in c["identities"])
                 print("%-28s games=%-6d [%s]" % (name, c["games"], names))
         return 0
-    verdict, info = judge(args.combo, combos, args.delta_min)
+    verdict, info = judge(args.combo, combos, args.delta_min, args.sigma)
     if verdict == "NO_DATA":
         print("无数据: combo=%s（history=%s；试试 --fuzzy 看现有组合）"
               % (args.combo, args.history))
