@@ -42,20 +42,6 @@ def _speede():
     return SpeedE()
 
 
-@_reg("speedx1")
-def _speedx1():
-    """自迭代候选 C001（tie 内弃刚摸优先，见 bot/speedx1.py + docs/iter/）。"""
-    from bot.speedx1 import SpeedX1
-    return SpeedX1()
-
-
-@_reg("speedx2")
-def _speedx2():
-    """自迭代候选 C002（听牌等待扣已见，见 bot/speedx2.py + docs/iter/）。"""
-    from bot.speedx2 import SpeedX2
-    return SpeedX2()
-
-
 def parse_combo(combo):
     """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []

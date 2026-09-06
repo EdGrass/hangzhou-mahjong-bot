@@ -21,12 +21,10 @@ from bot.smoke import run_smoke
 from bot.speed import SpeedBase, SpeedCore  # noqa: F401（引擎父类）
 from bot.util import ensure_utf8, log, server_from_env  # noqa: F401
 
-# 实盘策略：竞技默认 SpeedE（孤字优先/副露收益，见 bot/speede.py）。
-# speedx1/x2 = 自迭代候选实验变体（真机对照/评估用，非默认；见 docs/iter/）。
+# 实盘策略：唯一竞技策略 SpeedE（孤字优先/副露收益，见 bot/speede.py）。
+# 自迭代实验变体（speedx*）经 L1/L2 判定后随清理轮移除，见 docs/iter/。
 STRATEGY_FACTORIES = {
     "speedE": lambda: __import__("bot.speede", fromlist=["SpeedE"]).SpeedE(),
-    "speedx1": lambda: __import__("bot.speedx1", fromlist=["SpeedX1"]).SpeedX1(),
-    "speedx2": lambda: __import__("bot.speedx2", fromlist=["SpeedX2"]).SpeedX2(),
 }
 
 
