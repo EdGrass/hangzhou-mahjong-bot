@@ -25,6 +25,7 @@ from bot.util import ensure_utf8, log, server_from_env  # noqa: F401
 # 自迭代实验变体（speedx*）经 L1/L2 判定后随清理轮移除，见 docs/iter/。
 STRATEGY_FACTORIES = {
     "speedE": lambda: __import__("bot.speede", fromlist=["SpeedE"]).SpeedE(),
+    "speedh": lambda: __import__("bot.speedh", fromlist=["SpeedH"]).SpeedH(),
     "probe_gang": lambda: __import__("bot.speedprobe", fromlist=["ProbeGang"]).ProbeGang(),
     "probe_hupass": lambda: __import__("bot.speedprobe", fromlist=["ProbeHuPass"]).ProbeHuPass(),
 }
