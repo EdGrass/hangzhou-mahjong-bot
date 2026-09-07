@@ -30,15 +30,37 @@ PIDS_FILE = os.path.join(STATE, "pids.json")
 SESSIONS_FILE = os.path.join(STATE, "sessions.jsonl")
 BASE = "https://10.240.169.190:18080"
 CTX = ssl._create_unverified_context()
-# 青龙/白虎 → 候选 speedx1；朱雀/玄武 → 基准 speedE（对照两两对称）
-X1_NAMES = ("青龙", "白虎")
 # 服务器返回中文席位名 → 拼音日志名（与 l2_audit 的 l2x1_*.log glob 一致）
 PINYIN = {"青龙": "qinglong", "白虎": "baihu",
           "朱雀": "zhuque", "玄武": "xuanwu"}
+# 席位 → 策略 的默认硬编码映射（未设 HM_SEAT_STRATEGIES 时向后兼容回退）：
+# 注意 speedx1/speedx2 已随清理轮删除——默认改为全 speedE（安全对称基线），
+# A/B 会话一律通过 HM_SEAT_STRATEGIES 显式指定（如 speedh×2 + speedE×2）。
+DEFAULT_SEAT_STRATEGY = {"青龙": "speedE", "白虎": "speedE",
+                         "朱雀": "speedE", "玄武": "speedE"}
 
 
 def ts():
     return time.strftime("%H:%M:%S")
+
+
+def seat_strategy_map():
+    """席位 → 策略 映射：优先读环境变量 HM_SEAT_STRATEGIES（JSON），
+    未设置则回退默认硬编码（向后兼容）。"""
+    raw = os.environ.get("HM_SEAT_STRATEGIES")
+    if not raw:
+        return dict(DEFAULT_SEAT_STRATEGY)
+    try:
+        m = json.loads(raw)
+        return {str(k): str(v) for k, v in m.items()}
+    except (ValueError, TypeError):
+        # 环境变量非法 → 回退默认，不炸房
+        return dict(DEFAULT_SEAT_STRATEGY)
+
+
+def seat_strategy(seat):
+    """按席位名返回策略；未知席位/未配置时兜底 speedE。"""
+    return seat_strategy_map().get(seat, "speedE")
 
 
 def alive(pid):
@@ -66,10 +88,11 @@ def create_room():
     with urllib.request.urlopen(req, timeout=20, context=CTX) as r:
         d = json.loads(r.read().decode("utf-8"))
     specs = []
+    strat = seat_strategy_map()
     for p in d.get("players", []):
         n = p.get("name", "")
         specs.append({"name": PINYIN.get(n, n), "tok": p["token"],
-                      "s": "speedx1" if n in X1_NAMES else "speedE"})
+                      "s": strat.get(n, "speedE")})
     if len(specs) != 4:
         raise RuntimeError("建房玩家数异常: %s" % (specs,))
     return d["room_id"], specs
