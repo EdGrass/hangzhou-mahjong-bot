@@ -1065,7 +1065,9 @@ git commit -m "feat(tools): replay 采集——事件记录器(保底) + replay_
 7. 席位健康：grep 409|Traceback 计数 + 场次完成率
 8. replay_fetch <tid> 拉复盘 → var/replays/<tid>/
 9. 填裁决卡 → 晋级（合入 run_bot 默认+演进史）或 负结果登记（docs/iter/queue.md）
-门槛：n≥200（same-table 配对，可跨窗口累积于同一裁决卡）；异常场次 <5%
+门槛：两段式（快筛 n40-60 → 终裁累计 n≈150；δ≥2/场 且 95%CI 排除 0 才 WIN；
+详见 docs/iter/window-A-B运行手册.md，2026-09-07 修订，取代旧 n≥200 文案）；
+异常场次 <5%
 ```
 
 - [ ] **Step 2: 提交**

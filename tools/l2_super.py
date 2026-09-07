@@ -33,9 +33,10 @@ CTX = ssl._create_unverified_context()
 # 服务器返回中文席位名 → 拼音日志名（与 l2_audit 的 l2x1_*.log glob 一致）
 PINYIN = {"青龙": "qinglong", "白虎": "baihu",
           "朱雀": "zhuque", "玄武": "xuanwu"}
-# 席位 → 策略 的默认硬编码映射（未设 HM_SEAT_STRATEGIES 时的向后兼容回退）：
-# 青龙/白虎 → speedx1；朱雀/玄武 → speedE
-DEFAULT_SEAT_STRATEGY = {"青龙": "speedx1", "白虎": "speedx1",
+# 席位 → 策略 的默认硬编码映射（未设 HM_SEAT_STRATEGIES 时向后兼容回退）：
+# 注意 speedx1/speedx2 已随清理轮删除——默认改为全 speedE（安全对称基线），
+# A/B 会话一律通过 HM_SEAT_STRATEGIES 显式指定（如 speedh×2 + speedE×2）。
+DEFAULT_SEAT_STRATEGY = {"青龙": "speedE", "白虎": "speedE",
                          "朱雀": "speedE", "玄武": "speedE"}
 
 
