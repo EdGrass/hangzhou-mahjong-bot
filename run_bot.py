@@ -22,12 +22,10 @@ from bot.speed import SpeedBase, SpeedCore  # noqa: F401（引擎父类）
 from bot.util import ensure_utf8, log, server_from_env  # noqa: F401
 
 # 实盘策略：唯一竞技策略 SpeedE（孤字优先/副露收益，见 bot/speede.py）。
-# 自迭代实验变体（speedx*）经 L1/L2 判定后随清理轮移除，见 docs/iter/。
+# 实验变体（speedx*/speedh/probe*）经 L1/L2/窗口 A/B 判定后移除（防重登记见
+# docs/iter/queue.md + reports/）；协议层自杠机器与窗口审计工具链保留。
 STRATEGY_FACTORIES = {
     "speedE": lambda: __import__("bot.speede", fromlist=["SpeedE"]).SpeedE(),
-    "speedh": lambda: __import__("bot.speedh", fromlist=["SpeedH"]).SpeedH(),
-    "probe_gang": lambda: __import__("bot.speedprobe", fromlist=["ProbeGang"]).ProbeGang(),
-    "probe_hupass": lambda: __import__("bot.speedprobe", fromlist=["ProbeHuPass"]).ProbeHuPass(),
 }
 
 
