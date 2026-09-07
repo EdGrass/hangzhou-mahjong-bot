@@ -66,6 +66,33 @@ def _finish(ds, mode, delta_min):
             "delta_min": delta_min, "verdict": verdict, "mode": mode}
 
 
+def _collect_blocks(per, strat_of):
+    """逐日志独立收集（容忍缺场）：block = gid 前缀 t_xxx_rNNN，无匹配用 gid 自身。
+
+    该路径不受 same-table 完整性门槛约束：任一日志缺某 gid 只让该块少贡献
+    一席，不整体丢弃。返回每块候选均值 - 基准均值差值的列表。
+    """
+    blocks = {}
+    for name, recs in per.items():
+        st = strat_of.get(name)
+        if not st:
+            continue
+        for gid, (seat, scores) in recs.items():
+            m = GID_BLOCK.match(gid)
+            key = m.group(0) if m else gid
+            b = blocks.setdefault(key, {"cand": [], "base": []})
+            if st == "speedE":
+                b["base"].append(scores[seat])
+            else:
+                b["cand"].append(scores[seat])
+    ds = []
+    for b in blocks.values():
+        if b["cand"] and b["base"]:
+            ds.append(sum(b["cand"]) / len(b["cand"])
+                      - sum(b["base"]) / len(b["base"]))
+    return ds
+
+
 def audit_logs(specs, mode="same-table", delta_min=2.0):
     """specs: [{"name": .., "path": ..}]。候选 = 日志内策略标签非 speedE 者。"""
     per = {}
@@ -76,7 +103,7 @@ def audit_logs(specs, mode="same-table", delta_min=2.0):
         strat_of[s["name"]] = strat
     gids = set().union(*[set(r) for r in per.values()]) if per else set()
     same_ds = []
-    blocks = {}
+    # same-table：同桌对照，要求该场对所有日志同刻在场且 seat 不冲突。
     for gid in sorted(gids):
         seatmap = {}
         scores = None
@@ -101,23 +128,9 @@ def audit_logs(specs, mode="same-table", delta_min=2.0):
                 if strat_of.get(n) == "speedE"]
         if cand and base:
             same_ds.append((sum(cand) / len(cand)) - (sum(base) / len(base)))
-        m = GID_BLOCK.match(gid)
-        key = m.group(0) if m else gid
-        b = blocks.setdefault(key, {"cand": [], "base": []})
-        for s, n in seatmap.items():
-            st = strat_of.get(n)
-            if st == "speedE":
-                b["base"].append(scores[s])
-            elif st:
-                b["cand"].append(scores[s])
     if mode == "same-table":
         return _finish(same_ds, mode, delta_min)
-    ds = []
-    for b in blocks.values():
-        if b["cand"] and b["base"]:
-            ds.append(sum(b["cand"]) / len(b["cand"])
-                      - sum(b["base"]) / len(b["base"]))
-    return _finish(ds, "block", delta_min)
+    return _finish(_collect_blocks(per, strat_of), "block", delta_min)
 
 
 def main():
