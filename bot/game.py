@@ -184,6 +184,9 @@ def play_game(client, gid, strategy, recorder=None):
                 # 若正处于窗口期，先标记已响应防重复提交（409 风暴源）
                 log("手牌形态暂不一致 len=%d expect=%d e=%d g=%d —— 跳过本轮",
                     len(hand), expect_hold, exposed, gangs)
+                log("  [debug] snap_hand=%s drawn=%r self_gang_tiles=%s self_replenish=%r",
+                    ",".join(sorted(hand)), drawn_tile, self_gang_tiles,
+                    locals().get("self_replenish", None))
                 if view["phase"].startswith("response_"):
                     last_window_key = (view["phase"], view["turn"])
                 continue
