@@ -62,10 +62,24 @@ def main():
     os.makedirs(out, exist_ok=True)
     if isinstance(d, dict):
         blocks = d.get("blocks", [])
-        with open(os.path.join(out, args.tid + "_full.json"), "w",
-                  encoding="utf-8") as f:
+        p = os.path.join(out, args.tid + "_full.json")
+        with open(p, "w", encoding="utf-8") as f:
             json.dump(d, f, ensure_ascii=False)
-        print("已落盘 blocks=%d → %s" % (len(blocks), out))
+        print("已落盘 blocks=%d → %s" % (len(blocks), p))
+    elif isinstance(d, list):
+        # fetch 返回 list（逐元素含 'blocks'）：每个元素单独落盘
+        n = 0
+        for i, item in enumerate(d):
+            p = os.path.join(out, "%s_part%d.json" % (args.tid, i))
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(item, f, ensure_ascii=False)
+            n += 1
+            blocks = item.get("blocks", []) if isinstance(item, dict) else []
+            print("part%d blocks=%d → %s" % (i, len(blocks), p))
+        print("已落盘 %d 份复盘 → %s" % (n, out))
+    else:
+        print("未知响应形态：%r" % (type(d).__name__,))
+        return 1
     return 0
 
 

@@ -94,7 +94,13 @@ def _play_concurrent(client, gids, strategy, recorder=None):
 
     def worker(gid):
         try:
-            play_game(client, gid, strategy, recorder=recorder)
+            try:
+                play_game(client, gid, strategy, recorder=recorder)
+            finally:
+                if recorder:
+                    # 正常结束 close 幂等无副作用；异常路径兜底落盘
+                    # （同 gid 重播因 buffered seq 去重不会污染本场文件）
+                    recorder.close_game(gid)
         except ApiError as e:
             with lock:
                 errors.append((gid, e))
