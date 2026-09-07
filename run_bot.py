@@ -40,6 +40,8 @@ def main(argv=None):
     ap.add_argument("--strategy", default="speedE",
                     help="策略名（%s）" % "/".join(sorted(set(STRATEGY_FACTORIES))))
     ap.add_argument("--log", default="", help="日志双写文件（多实例分析用）")
+    ap.add_argument("--record-replays", default="",
+                    help="逐场事件流复盘落盘目录（启用后每场写 <gid>.jsonl，窗口赛后审计用）")
     args = ap.parse_args(argv)
 
     if args.log:
@@ -79,7 +81,8 @@ def main(argv=None):
 
     # 3) 主循环（阻塞至终态）
     try:
-        run_tournament(client, tid, strategy, scoped=scoped)
+        run_tournament(client, tid, strategy, scoped=scoped,
+                       record_dir=args.record_replays or None)
     except ApiError as e:
         log("主循环终止于 API 错误: %s %s", e.status, e.code or e.body[:200])
         sys.exit(2)

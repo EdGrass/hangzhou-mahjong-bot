@@ -26,8 +26,11 @@ def _end_reason(res, snap):
     return None
 
 
-def play_game(client, gid, strategy):
-    """打一场：返回该场结束时快照（含 scores），或 None（异常中止由调用方决定）。"""
+def play_game(client, gid, strategy, recorder=None):
+    """打一场：返回该场结束时快照（含 scores），或 None（异常中止由调用方决定）。
+
+    recorder（可选 ReplayRecorder）：每批增量事件回调 on_event(gid, ev)，
+    场次结束回调 close_game(gid) 落盘该场事件流。"""
     seq = 0
     pending_count = 0           # 连续长挂起计数（防漏窗口兜底）
     last_window_key = None      # 最近已响应的窗口键 (phase, turn)
@@ -43,6 +46,8 @@ def play_game(client, gid, strategy):
         reason = _end_reason(res, snap)
         if reason:
             log("本场结束: %s（gid=%s）", reason, gid)
+            if recorder:
+                recorder.close_game(gid)
             if snap and snap.get("scores") is not None:
                 seat = snap.get("seat", -1)
                 scores = snap.get("scores")
@@ -65,6 +70,8 @@ def play_game(client, gid, strategy):
             # tile_drawn 仅自己可见；窗口 offer = 最近 tile_discarded.tile），
             # 推进 seq 后重建权威快照再决策。
             for ev in res.get("events") or []:
+                if recorder:
+                    recorder.on_event(gid, ev)
                 seq = max(seq, int(ev.get("seq", seq)))
                 etype = ev.get("type")
                 if etype == "round_ended":

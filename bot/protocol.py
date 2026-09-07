@@ -82,18 +82,19 @@ def active_game_ids(client, tid, t):
     return act
 
 
-def _play_concurrent(client, gids, strategy):
+def _play_concurrent(client, gids, strategy, recorder=None):
     """并发打多场（M 上限内 active_games 同时多场：长轮询各自推进，防超时代打）。
 
-    每场一个 daemon 线程跑 play_game；瞬断类错误在线程内已自愈，
-    其它异常收集后由主线程记录（不阻断其余场次）。返回异常列表。
+    每场一个 daemon 线程跑 play_game（recorder 逐场透传：场次结束自动落盘）；
+    瞬断类错误在线程内已自愈，其它异常收集后由主线程记录（不阻断其余场次）。
+    返回异常列表。
     """
     errors = []
     lock = threading.Lock()
 
     def worker(gid):
         try:
-            play_game(client, gid, strategy)
+            play_game(client, gid, strategy, recorder=recorder)
         except ApiError as e:
             with lock:
                 errors.append((gid, e))
@@ -110,8 +111,17 @@ def _play_concurrent(client, gids, strategy):
     return errors
 
 
-def run_tournament(client, tid, strategy, scoped=True):
-    """锦标赛主循环（阻塞直到 finished/closed/void 或确定与我无关）。"""
+def run_tournament(client, tid, strategy, scoped=True, record_dir=None):
+    """锦标赛主循环（阻塞直到 finished/closed/void 或确定与我无关）。
+
+    record_dir（可选目录）：非空则启用 ReplayRecorder，逐场事件流落盘
+    <record_dir>/<gid>.jsonl（场次结束自动写入）。
+    """
+    recorder = None
+    if record_dir:
+        from .replay_rec import ReplayRecorder   # 惰性导入，未开启零开销
+        recorder = ReplayRecorder(record_dir)
+        log("replay 采集已启用: %s", record_dir)
     registered_in_period = False    # 是否已成功报名+到位（幂等；报名期成功一次即可，也用于 403 未入场判定）
     last_ready_at = 0.0             # 注册期周期 ready（测试房跨轮维持用）
     last_404_at = 0.0               # 服务器重启瞬态 404 计时（>120s 视为房间真删）
@@ -226,7 +236,7 @@ def run_tournament(client, tid, strategy, scoped=True):
                 raise
             if acts:
                 # 多场并发（同一桌位事件驱动互不阻塞），全部结束后立刻复查
-                _play_concurrent(client, acts, strategy)
+                _play_concurrent(client, acts, strategy, recorder=recorder)
                 continue        # 同批余场/决赛加赛新场可能刚出现
             time.sleep(POLL_INTERVAL)
         elif intent == "wait":
