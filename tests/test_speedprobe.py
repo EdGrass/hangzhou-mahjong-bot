@@ -50,6 +50,27 @@ class TestProbeGang(unittest.TestCase):
         act = ProbeGang().decide(_view(hand, drawn="5b", melds=melds))
         self.assertEqual(act, {"action": "gang", "tile": "5b"})
 
+    def test_window_peng_when_pair_offer(self):
+        # 窗口 phase=response_peng：手牌对 offer 满 2（非白）→ 无条件碰，制造补杠机会。
+        hand = ["5b"] * 2 + ["1w", "2w", "3w", "4w", "6w", "7w", "8w", "9w",
+                "南", "北", "中", "发"]
+        act = ProbeGang().decide({
+            "seat": 0, "phase": "response_peng", "turn": 1,
+            "responding_seats": [0], "offer_tile": "5b",
+            "my_hand": hand, "god": {}, "scores": None,
+            "melds": [], "river": []})
+        self.assertEqual(act, {"action": "peng", "tile": "5b"})
+
+    def test_window_white_offer_always_pass(self):
+        # offer 为白 → 一律 pass（白板弃出无人可吃碰杠）
+        act = ProbeGang().decide({
+            "seat": 0, "phase": "response_peng", "turn": 1,
+            "responding_seats": [0], "offer_tile": "白",
+            "my_hand": ["白"] * 3 + ["1w", "2w", "3w", "4w", "5w",
+                                     "9b", "东", "东", "北", "中", "发"],
+            "god": {}, "scores": None, "melds": [], "river": []})
+        self.assertEqual(act, {"action": "pass", "tile": ""})
+
 
 class TestProbeHuPass(unittest.TestCase):
     def test_hu_pass_discards_instead_of_hu(self):

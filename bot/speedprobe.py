@@ -26,6 +26,21 @@ class ProbeGang(SpeedE):
         super().__init__(name)
 
     def decide(self, view):
+        phase = view.get("phase") or ""
+        # 窗口覆盖：响应他人弃牌（碰/吃窗口），无条件造碰/杠机会以加速补杠/直杠观测。
+        # 白板弃出无人可吃碰杠（sim.py L10/173）→ offer 为白一律 pass。
+        offer = view.get("offer_tile")
+        if phase == "response_peng" and offer and view.get("seat", -1) in (
+                view.get("responding_seats") or []):
+            if offer == "白":
+                return {"action": "pass", "tile": ""}
+            cnt = view["my_hand"].count(offer)
+            if cnt >= 3:
+                return {"action": "gang", "tile": offer}   # 直杠也观测
+            if cnt >= 2:
+                return {"action": "peng", "tile": offer}   # 无条件碰：制造补杠机会
+            return {"action": "pass", "tile": ""}
+        # 原 my_turn 杠逻辑：可在 my_turn（有 drawn_tile）提交暗杠/补杠
         if my_turn(view) and view.get("drawn_tile"):
             hand = view["my_hand"]
             melds = view.get("melds") or []
