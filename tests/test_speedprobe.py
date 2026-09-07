@@ -16,9 +16,23 @@ def _view(hand, drawn, god=None, melds=None, can_gang=True):
 
 class TestProbeGang(unittest.TestCase):
     def test_angang_when_quad_in_hand(self):
-        hand = ["1w"] * 4 + ["2w", "3w", "4w", "5w", "6w", "7w", "8w", "9w",
-                "东", "东"]
+        # 注：旧例 4w 连顺 123..9w+東東 恰为自摸胡形——修复后 hu 优先守卫会先
+        # 交还 SpeedE(→hu) 而非 gang；改用【非胡形】的 1w×4 钉暗杠-探针语义：
+        # 其余 10 张全为互不重复散牌（无对子/无法成面），is_win=False。
+        hand = ["1w"] * 4 + ["8b", "9b", "1t", "2t", "东", "南", "中", "发",
+                "3w", "5w"]
         act = ProbeGang().decide(_view(hand, drawn="1w", can_gang=True))
+        self.assertEqual(act, {"action": "gang", "tile": "1w"})
+
+    def test_gang_without_can_gang_key(self):
+        # 真机 snap_view 从不产出 can_gang 键 → view 不含该键时仍须直接上杠：
+        # 探针不以客户端预测为门，交由服务器裁决（409 也是观测信号）。
+        hand = ["1w"] * 4 + ["8b", "9b", "1t", "2t", "东", "南", "中", "发",
+                "3w", "5w"]
+        v = _view(hand, drawn="1w")          # _view 默认 can_gang=True
+        v.pop("can_gang", None)               # 移除，模拟真机视图（无此键）
+        self.assertNotIn("can_gang", v)
+        act = ProbeGang().decide(v)
         self.assertEqual(act, {"action": "gang", "tile": "1w"})
 
     def test_white_never_gang(self):
