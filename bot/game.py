@@ -38,6 +38,9 @@ def play_game(client, gid, strategy, recorder=None):
     self_drawn = ""             # 最近一次本人摸牌（tile_drawn 事件，tile 仅自己可见）
     self_replenish = False      # 该次本人摸牌是否为自杠后补牌（gang_replenish
                                 # ——服务器已将该补牌并入快照 my_hand）
+    self_gang_tile = None       # 本人在 draw 回合自杠的牌（暗杠/补杠）——该当局
+                                # 服务器 my_hand 恒多计杠组第 4 张（round 级幻影），
+                                # round_ended 清除（T6 P0 实测：不只补牌即刻）
     self_offer = None           # 最近弃牌 (tile, seat)（tile_discarded 事件，公开）
     river = []                  # 当前局公开弃牌河（round_ended 清空）
     tracker = MeldTracker()     # 本人副露跟踪（真机快照无 melds，本地累计）
@@ -81,6 +84,7 @@ def play_game(client, gid, strategy, recorder=None):
                     tracker.reset()     # 新局：副露清零（跨局残留曾致整局误判）
                     self_drawn = ""
                     self_replenish = False
+                    self_gang_tile = None   # 新局：自杠 round 级幻影标记清空
                     self_offer = None
                 elif etype == "tile_drawn" and ev.get("tile"):
                     self_drawn = ev["tile"]     # 非空 tile = 本人刚摸
@@ -131,17 +135,26 @@ def play_game(client, gid, strategy, recorder=None):
             expect_hold = 14 - 3 * exposed - gangs      # 摸后应有张数
             # 服务器快照语义：普通摸牌为不含刚摸，张数 = expect-1，判胡前补回
             # 刚摸变 expect；副露后部分路径快照已含刚摸（=expect）直接可用。
-            # 但自杠（暗杠/补杠）后不同：杠补牌已并入快照 my_hand，张数 =
-            # expect+1（真机实测 len=expect 恒 +1，补杠在响应窗提交亦是）。
-            # → 须先去掉该补牌回 expect-形状，再交给策略正常决策（弃补牌/胡）。
-            if len(hand) == expect_hold - 1 and drawn_tile not in hand:
+            # 自杠（暗杠/补杠）当局特殊：杠组第 4 张在快照私有张内恒多计一次，
+            # len = expect 恒 +1（不只补牌即刻，之后整个 round 的摸牌回合皆然，
+            # 真机/探针 p0g 同签名）。此 round 级幻影须每回合抽掉，否则误走
+            # 下方仅治 claim 瞬态的「跳过」守卫（once 两轮后 len=11 expect=10
+            # ×2 直接终局之根因）。
+            if self_gang_tile and self_gang_tile in hand and \
+                    len(hand) == expect_hold + 1:
+                # 抽掉【1 个】杠牌实例 → 长度回 expect，与已算入 e/g 的杠组对齐，
+                # 交策略正常决策（仍留 drawn_tile 供判杠上/弃牌定价）。
+                hand.remove(self_gang_tile)
+                view["my_hand"] = hand
+                log("自杠当局核对: 抽杠牌 %s 后 len=%d expect=%d e=%d g=%d —— 继续决策",
+                    self_gang_tile, len(hand), expect_hold, exposed, gangs)
+            elif len(hand) == expect_hold - 1 and drawn_tile not in hand:
                 hand.append(drawn_tile)      # 不含 → 补第 N 张
                 view["my_hand"] = hand
                 view["drawn_tile"] = drawn_tile
             elif self_replenish and len(hand) == expect_hold + 1:
-                # 自杠补牌已含在张数内：普通注入路径不适用，反其道退掉补牌，
-                # 使长度回 expect。补牌不在列表时退任意一张（长度恢复为准，
-                # 出牌由策略再定价）；仍留 drawn_tile 供判杠上/弃补牌。
+                # 杠补牌即刻且杠牌实例已不在手（刚补完快照误并）→ 退掉补牌回
+                # expect（旧 T5b 逻辑兜底）；仍留 drawn_tile 供判杠上/弃补牌。
                 if drawn_tile and drawn_tile in hand:
                     hand.remove(drawn_tile)
                 else:
@@ -151,7 +164,7 @@ def play_game(client, gid, strategy, recorder=None):
                 log("自杠补牌核对: 退补牌后 len=%d expect=%d e=%d g=%d —— 继续决策",
                     len(hand), expect_hold, exposed, gangs)
             elif len(hand) != expect_hold:
-                # claim 后服务器瞬时仍回「扣减前」旧手牌（len 偏大、
+                # claim 后（非自杠局面）服务器瞬时仍回「扣减前」旧手牌（len 偏大、
                 # 与已 +1 的副露数冲突）→ 本轮放弃出牌，等事件推进同步；
                 # 若正处于窗口期，先标记已响应防重复提交（409 风暴源）
                 log("手牌形态暂不一致 len=%d expect=%d e=%d g=%d —— 跳过本轮",
@@ -218,6 +231,10 @@ def play_game(client, gid, strategy, recorder=None):
             if act.get("action") in ("discard", "hu"):
                 self_drawn = ""             # 已打出/胡掉的刚摸牌，防残留
                 self_replenish = False      # 杠补牌已被处置，杠形态标记清空
+            if act.get("action") == "gang" and phase == "draw":
+                # 本人在摸牌回合自杠（暗杠/补杠）成功：此后整个 round 服务器
+                # my_hand 恒多计杠组第 4 张，置 round 级旗供后续每回合抽掉。
+                self_gang_tile = act.get("tile") or None
         if phase.startswith("response_"):
             last_window_key = window_key    # 本窗口已响应（无论成败）
         else:
