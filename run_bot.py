@@ -35,7 +35,7 @@ def main(argv=None):
     ap.add_argument("tid", nargs="?", default="", help="锦标赛 id（仅全局令牌自测需显式指定）")
     ap.add_argument("--server", default=server_from_env(), help="服务器地址")
     ap.add_argument("--smoke", action="store_true", help="免认证冒烟自检（不参赛）")
-    ap.add_argument("--strategy", default="speedA",
+    ap.add_argument("--strategy", default="speedE",
                     help="策略名（%s）" % "/".join(sorted(set(STRATEGY_FACTORIES))))
     ap.add_argument("--log", default="", help="日志双写文件（多实例分析用）")
     args = ap.parse_args(argv)
