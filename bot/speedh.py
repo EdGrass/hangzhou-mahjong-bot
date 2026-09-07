@@ -121,10 +121,11 @@ class SpeedH(SpeedE):
               通过 → 提交 {"action":"gang","tile":<碰码>}；
             - 否则暗杠：safe_gang(core, meld_4th=None) 通过 → 提交 quad tile
               （sorted 序首个非白 quad）；
-         d) **409 节流**：实例记录最近一次杠提交 (phase,turn)；若同一
-            (phase,turn) 的 draw 再次进入 decide 且上次恰为杠提交 → 本轮放弃杠
-            （走 SpeedE 弃牌），防服务器 409 重建后杠-409 死循环。成功路径由
-            game.py 状态推进（turn/phase 变化）自然清除节流键。
+         d) **指纹节流**：实例记录最近一次实际提交杠时的局面指纹
+            fp = (tuple(sorted(整手含刚摸)), exposed, gangs)；若再次进入 decide 且
+            fp 与记录相同（= 409 后同局面重建重放）→ 放弃杠（走 SpeedE 弃牌），
+            防服务器 409 重建后杠-409 死循环；fp 不同（= 同 (phase,turn) 内新的
+            合法局面，如杠后补牌链杠）仍正常尝试杠并更新指纹，不吞跨局面合法杠。
 
     sim 无法建模杠后补牌（sim v2 不补牌）→ 强度判据交给真机；本类只做结构
     门控与 409 兜底，不触碰弃牌/胡/窗口选择（全继承 SpeedE）。
@@ -132,7 +133,7 @@ class SpeedH(SpeedE):
 
     def __init__(self, name="speed_h"):
         super().__init__(name)
-        self._gang_key = None        # 最近一次杠提交的 (phase, turn)
+        self._gang_fp = None         # 最近一次实际提交杠时的局面指纹
 
     def decide(self, view):
         if not (my_turn(view) and view.get("drawn_tile")):
@@ -156,9 +157,10 @@ class SpeedH(SpeedE):
         if view.get("god", {}).get("catch_play"):
             return super().decide(view)
 
-        # 409 节流：同一 (phase, turn) 的 draw 再次出现且上次恰为杠提交 → 弃杠。
-        key = (view.get("phase"), view.get("turn"))
-        if self._gang_key == key:
+        # 指纹节流：同一局面 fp 再次出现且上次恰为杠提交 → 视为 409 重建重放，弃杠。
+        # （fp 由整手含刚摸 + 副露/杠数刻画；局面不同（如杠后补牌链杠）照常尝试杠。）
+        fp = (tuple(sorted(view["my_hand"])), exposed, gangs)
+        if self._gang_fp == fp:
             return super().decide(view)
 
         # (c) 杠决策，输入核心手牌（不含刚摸）。形状非法（drawn 缺/长度不符）
@@ -170,11 +172,11 @@ class SpeedH(SpeedE):
         for m in melds:
             if m.get("type") == "peng" and safe_gang(
                     core, e, g, meld_4th=m.get("tile")):
-                self._gang_key = key
+                self._gang_fp = fp
                 return {"action": "gang", "tile": m["tile"]}
         # 否则暗杠
         quad = _dark_quad(core)
         if quad is not None and safe_gang(core, e, g, meld_4th=None):
-            self._gang_key = key
+            self._gang_fp = fp
             return {"action": "gang", "tile": quad}
         return super().decide(view)

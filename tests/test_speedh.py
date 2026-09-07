@@ -119,7 +119,7 @@ class TestSpeedHDecide(unittest.TestCase):
         self.assertEqual(act["tile"], "南")   # 强制弃刚摸
 
     def test_throttle_repeats_turns_gang_into_discard(self):
-        # 同一 view（同 phase/draw）连续 decide：首轮 gang、次轮丢弃（防 409 死循环）
+        # 同一 view（同 fp 重建）连续 decide：首轮 gang、次轮丢弃（防 409 重建死循环）
         melds = [{"type": "peng", "tile": "5b"}]
         core = ["5b", "1w", "2w", "3w", "4w", "5w", "6w", "7w", "8w", "9w"]
         h = SpeedH()
@@ -128,6 +128,23 @@ class TestSpeedHDecide(unittest.TestCase):
         second = h.decide(v)
         self.assertEqual(second["action"], "discard")
         self.assertNotEqual(second.get("tile"), "5b")
+
+    def test_throttle_releases_when_hand_changes_new_gang(self):
+        # 同实例（同 phase/turn=0）：A 手牌杠后，换一副不同却仍合法杠的 B 手牌
+        # → 指纹不同，节流不再吞跨局面合法杠，B 应再次 gang（旧 409 键实现会误吞）。
+        melds_a = [{"type": "peng", "tile": "5b"}]
+        core_a = ["5b", "1w", "2w", "3w", "4w", "5w", "6w", "7w", "8w", "9w"]
+        # B：暗杠成型（1w×4 quad + 两顺 + 东东对），drawn=北，e=0,g=0
+        core_b = ["1w"] * 4 + ["2w", "3w", "4w", "5w", "6w", "7w",
+                               "东", "东", "南"]
+        h = SpeedH()
+        self.assertEqual(h.decide(_draw_view(core_a + ["南"], melds=melds_a)),
+                         {"action": "gang", "tile": "5b"})
+        # 手牌完整不同（含 drawn、副露结构均异）→ 指纹应释放节流。
+        self.assertNotEqual(
+            tuple(sorted(core_a + ["南"])), tuple(sorted(core_b + ["北"])))
+        act = h.decide(_draw_view(core_b + ["北"]))
+        self.assertEqual(act, {"action": "gang", "tile": "1w"})
 
     def test_no_gang_falls_back_to_speedE(self):
         # 无 quad / 无第 4 张 → 与 SpeedE 一致（discard）
