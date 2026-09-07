@@ -38,9 +38,11 @@ def play_game(client, gid, strategy, recorder=None):
     self_drawn = ""             # 最近一次本人摸牌（tile_drawn 事件，tile 仅自己可见）
     self_replenish = False      # 该次本人摸牌是否为自杠后补牌（gang_replenish
                                 # ——服务器已将该补牌并入快照 my_hand）
-    self_gang_tile = None       # 本人在 draw 回合自杠的牌（暗杠/补杠）——该当局
-                                # 服务器 my_hand 恒多计杠组第 4 张（round 级幻影），
-                                # round_ended 清除（T6 P0 实测：不只补牌即刻）
+    self_gang_tiles = []        # 本局在 draw 回合自杠的牌面集合（暗杠/补杠）——
+                                # 每次成功自杠后整个 round 服务器 my_hand 恒多计该杠组
+                                # 第 4 张（round 级幻影），逐张抽掉；下局 round_ended 清空。
+                                # 同局多次不同自杠各自 +1，故用集合+逐个移除（非单标量）。
+                                # （T6 P0 实测：不只补牌即刻，整个 round 摸牌回合皆然）
     self_offer = None           # 最近弃牌 (tile, seat)（tile_discarded 事件，公开）
     river = []                  # 当前局公开弃牌河（round_ended 清空）
     tracker = MeldTracker()     # 本人副露跟踪（真机快照无 melds，本地累计）
@@ -84,7 +86,7 @@ def play_game(client, gid, strategy, recorder=None):
                     tracker.reset()     # 新局：副露清零（跨局残留曾致整局误判）
                     self_drawn = ""
                     self_replenish = False
-                    self_gang_tile = None   # 新局：自杠 round 级幻影标记清空
+                    self_gang_tiles = []    # 新局：自杠 round 级幻影集合清空
                     self_offer = None
                 elif etype == "tile_drawn" and ev.get("tile"):
                     self_drawn = ev["tile"]     # 非空 tile = 本人刚摸
@@ -135,19 +137,32 @@ def play_game(client, gid, strategy, recorder=None):
             expect_hold = 14 - 3 * exposed - gangs      # 摸后应有张数
             # 服务器快照语义：普通摸牌为不含刚摸，张数 = expect-1，判胡前补回
             # 刚摸变 expect；副露后部分路径快照已含刚摸（=expect）直接可用。
-            # 自杠（暗杠/补杠）当局特殊：杠组第 4 张在快照私有张内恒多计一次，
-            # len = expect 恒 +1（不只补牌即刻，之后整个 round 的摸牌回合皆然，
-            # 真机/探针 p0g 同签名）。此 round 级幻影须每回合抽掉，否则误走
-            # 下方仅治 claim 瞬态的「跳过」守卫（once 两轮后 len=11 expect=10
-            # ×2 直接终局之根因）。
-            if self_gang_tile and self_gang_tile in hand and \
-                    len(hand) == expect_hold + 1:
-                # 抽掉【1 个】杠牌实例 → 长度回 expect，与已算入 e/g 的杠组对齐，
-                # 交策略正常决策（仍留 drawn_tile 供判杠上/弃牌定价）。
-                hand.remove(self_gang_tile)
+            # 自杠（暗杠/补杠）当局特殊：每次成功自杠后，该杠组第 4 张在快照
+            # 私有张内恒多计一次（round 级幻影，不只补牌即刻，整个 round 摸牌
+            # 回合皆然——真机/探针 p0g 同签名），同局多杠各自 +1。此幻影须每
+            # 回合按「本局自杠牌面集合」逐张抽掉（多杠逐张抽幻影）；集合内无一
+            # 在手仍超长则落下方跳过守卫（once 旧标量实现两轮后 len 恒 >expect
+            # 直接终局之根因，改集合式修复自杠静默停摆）。
+            while len(hand) > expect_hold and self_gang_tiles:
+                # 自杠幻影优先治：本局有挂过自杠且手牌仍超 expect → 尝试找仍在
+                # hand 的本局自杠牌面（按集合序）逐个移除，退回合法长度。
+                found = False
+                for t in self_gang_tiles:
+                    if t in hand:
+                        hand.remove(t)      # 抽掉 1 个该杠牌实例
+                        found = True
+                        log("自杠当局核对: 抽杠牌 %s 后 len=%d expect=%d e=%d g=%d",
+                            t, len(hand), expect_hold, exposed, gangs)
+                        break
+                if not found:
+                    break       # 无任何杠面在手仍超 → 无可抽，交下方守卫
+            if len(hand) == expect_hold:
+                # 长度已对齐 expect（可能经自杠逐张抽除，或原本就含刚摸）：与已
+                # 计入 e/g 的杠组一致，交策略正常决策（仍留 drawn_tile 供判杠上/弃牌）。
                 view["my_hand"] = hand
-                log("自杠当局核对: 抽杠牌 %s 后 len=%d expect=%d e=%d g=%d —— 继续决策",
-                    self_gang_tile, len(hand), expect_hold, exposed, gangs)
+                if self_gang_tiles:
+                    log("自杠当局核对完成: len=%d expect=%d —— 继续决策",
+                        len(hand), expect_hold)
             elif len(hand) == expect_hold - 1 and drawn_tile not in hand:
                 hand.append(drawn_tile)      # 不含 → 补第 N 张
                 view["my_hand"] = hand
@@ -233,8 +248,11 @@ def play_game(client, gid, strategy, recorder=None):
                 self_replenish = False      # 杠补牌已被处置，杠形态标记清空
             if act.get("action") == "gang" and phase == "draw":
                 # 本人在摸牌回合自杠（暗杠/补杠）成功：此后整个 round 服务器
-                # my_hand 恒多计杠组第 4 张，置 round 级旗供后续每回合抽掉。
-                self_gang_tile = act.get("tile") or None
+                # my_hand 恒多计该杠组第 4 张，记入本局自杠集合，供后续每回合
+                # 按集合逐个抽掉。同局不同牌面各自 +1，集合逐个移除防标量覆盖。
+                t = act.get("tile") or None
+                if t and t not in self_gang_tiles:
+                    self_gang_tiles.append(t)
         if phase.startswith("response_"):
             last_window_key = window_key    # 本窗口已响应（无论成败）
         else:
