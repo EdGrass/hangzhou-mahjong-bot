@@ -39,6 +39,10 @@ DEFAULT_SEAT_STRATEGY = {"青龙": "speedx1", "白虎": "speedx1",
                          "朱雀": "speedE", "玄武": "speedE"}
 
 
+def ts():
+    return time.strftime("%H:%M:%S")
+
+
 def seat_strategy_map():
     """席位 → 策略 映射：优先读环境变量 HM_SEAT_STRATEGIES（JSON），
     未设置则回退默认硬编码（向后兼容）。"""
