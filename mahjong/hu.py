@@ -172,7 +172,8 @@ def is_baotou(hand_pre, allow_qidui=True, exposed_melds=0, gangs=0):
     """爆头判定（摸牌前暗牌）：摸任意 1 张牌上来都能胡。
 
     接入指南 §1.2：「听牌态摸任意 1 张牌上来即胡」（财神数不限，支持副露）。
-    边界（正好 4 张白板不视为爆头）经 fan-calc 实测确认。
+    v21 修订（2026-09-07）：正好 4 张白板的听任意形同样按爆头计，并与
+    「4 个白板 ×2」叠加——旧"4 白不视为爆头"裁已撤销（fan-calc 实测确认）。
     """
     validate_hand(hand_pre)
     e, g = int(exposed_melds or 0), int(gangs or 0)
@@ -180,8 +181,6 @@ def is_baotou(hand_pre, allow_qidui=True, exposed_melds=0, gangs=0):
     if len(hand_pre) != need:
         raise ValueError("爆头判定需要摸牌前暗牌 %d 张（副露 %d 杠 %d），实际 %d" % (
             need, e, g, len(hand_pre)))
-    if hand_pre.count("白") == 4:
-        return False
     for t in FULL_TILES:                 # 34 种摸牌（含摸白）
         if not is_win(hand_pre + [t], allow_qidui=allow_qidui,
                       exposed_melds=e, gangs=g):

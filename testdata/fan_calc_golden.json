@@ -399,11 +399,12 @@
   },
   "resp": {
    "hu": true,
-   "baotou": false,
+   "baotou": true,
    "fan": 16,
    "detail": [
-    "豪华七对×2",
-    "4个白板"
+    "豪华七对×1",
+    "4个白板",
+    "爆头"
    ],
    "scores": {
     "dealer_hu": {
@@ -5245,6 +5246,407 @@
     "nondealer_hu": {
      "win": 0,
      "lose": null
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "1w",
+   "1w",
+   "1w",
+   "2b",
+   "2b",
+   "2b",
+   "3t",
+   "3t",
+   "3t",
+   "白",
+   "白",
+   "白",
+   "白"
+  ],
+  "draw": "1b",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": true,
+   "baotou": true,
+   "fan": 8,
+   "detail": [
+    "七对",
+    "4个白板",
+    "爆头"
+   ],
+   "scores": {
+    "dealer_hu": {
+     "win": 192,
+     "lose": [
+      64,
+      64,
+      64
+     ]
+    },
+    "nondealer_hu": {
+     "win": 80,
+     "lose": [
+      64,
+      8,
+      8
+     ]
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "1w",
+   "1w",
+   "5b",
+   "5b",
+   "9t",
+   "9t",
+   "东",
+   "南",
+   "中",
+   "白",
+   "白",
+   "白",
+   "白"
+  ],
+  "draw": "北",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": true,
+   "baotou": true,
+   "fan": 8,
+   "detail": [
+    "七对",
+    "4个白板",
+    "爆头"
+   ],
+   "scores": {
+    "dealer_hu": {
+     "win": 192,
+     "lose": [
+      64,
+      64,
+      64
+     ]
+    },
+    "nondealer_hu": {
+     "win": 80,
+     "lose": [
+      64,
+      8,
+      8
+     ]
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "1w",
+   "1w",
+   "5b",
+   "5b",
+   "9t",
+   "9t",
+   "东",
+   "南",
+   "中",
+   "白",
+   "白",
+   "白",
+   "白"
+  ],
+  "draw": "1w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": true,
+   "baotou": true,
+   "fan": 8,
+   "detail": [
+    "七对",
+    "4个白板",
+    "爆头"
+   ],
+   "scores": {
+    "dealer_hu": {
+     "win": 192,
+     "lose": [
+      64,
+      64,
+      64
+     ]
+    },
+    "nondealer_hu": {
+     "win": 80,
+     "lose": [
+      64,
+      8,
+      8
+     ]
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "1w",
+   "1w",
+   "1w",
+   "2b",
+   "2b",
+   "2b",
+   "3t",
+   "3t",
+   "3t",
+   "白",
+   "白",
+   "白",
+   "东"
+  ],
+  "draw": "1w",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": true,
+   "baotou": true,
+   "fan": 8,
+   "detail": [
+    "豪华七对×1",
+    "爆头"
+   ],
+   "scores": {
+    "dealer_hu": {
+     "win": 192,
+     "lose": [
+      64,
+      64,
+      64
+     ]
+    },
+    "nondealer_hu": {
+     "win": 80,
+     "lose": [
+      64,
+      8,
+      8
+     ]
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "1w",
+   "1w",
+   "1w",
+   "2b",
+   "2b",
+   "2b",
+   "3t",
+   "3t",
+   "3t",
+   "白",
+   "白",
+   "白",
+   "东"
+  ],
+  "draw": "1w",
+  "chain": {
+   "count": 1,
+   "piao": 1
+  },
+  "resp": {
+   "hu": true,
+   "baotou": true,
+   "fan": 32,
+   "detail": [
+    "豪华七对×1",
+    "财飘",
+    "4个白板",
+    "爆头"
+   ],
+   "scores": {
+    "dealer_hu": {
+     "win": 768,
+     "lose": [
+      256,
+      256,
+      256
+     ]
+    },
+    "nondealer_hu": {
+     "win": 320,
+     "lose": [
+      256,
+      32,
+      32
+     ]
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "1w",
+   "1w",
+   "1w",
+   "2b",
+   "2b",
+   "2b",
+   "3t",
+   "3t",
+   "3t",
+   "白",
+   "白",
+   "白",
+   "东"
+  ],
+  "draw": "东",
+  "chain": {
+   "count": 1,
+   "piao": 1
+  },
+  "resp": {
+   "hu": true,
+   "baotou": true,
+   "fan": 16,
+   "detail": [
+    "七对",
+    "财飘",
+    "4个白板",
+    "爆头"
+   ],
+   "scores": {
+    "dealer_hu": {
+     "win": 384,
+     "lose": [
+      128,
+      128,
+      128
+     ]
+    },
+    "nondealer_hu": {
+     "win": 160,
+     "lose": [
+      128,
+      16,
+      16
+     ]
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "1w",
+   "1w",
+   "1w",
+   "1w",
+   "2b",
+   "2b",
+   "2b",
+   "2b",
+   "3t",
+   "白",
+   "白",
+   "白",
+   "白"
+  ],
+  "draw": "3t",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": true,
+   "baotou": true,
+   "fan": 64,
+   "detail": [
+    "豪华七对×3",
+    "4个白板",
+    "爆头"
+   ],
+   "scores": {
+    "dealer_hu": {
+     "win": 1536,
+     "lose": [
+      512,
+      512,
+      512
+     ]
+    },
+    "nondealer_hu": {
+     "win": 640,
+     "lose": [
+      512,
+      64,
+      64
+     ]
+    }
+   }
+  }
+ },
+ {
+  "hand": [
+   "1w",
+   "1w",
+   "1w",
+   "1w",
+   "2b",
+   "2b",
+   "2b",
+   "2b",
+   "3t",
+   "白",
+   "白",
+   "白",
+   "白"
+  ],
+  "draw": "东",
+  "chain": {
+   "count": 0,
+   "piao": 0
+  },
+  "resp": {
+   "hu": true,
+   "baotou": true,
+   "fan": 32,
+   "detail": [
+    "豪华七对×2",
+    "4个白板",
+    "爆头"
+   ],
+   "scores": {
+    "dealer_hu": {
+     "win": 768,
+     "lose": [
+      256,
+      256,
+      256
+     ]
+    },
+    "nondealer_hu": {
+     "win": 320,
+     "lose": [
+      256,
+      32,
+      32
+     ]
     }
    }
   }
