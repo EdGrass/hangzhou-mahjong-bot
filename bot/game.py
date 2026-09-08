@@ -28,6 +28,7 @@ def _dr_payload(gid, view, seq, river, ms, act):
     god = view.get("god") or {}
     return {"k": "d", "g": gid, "s": view.get("seat"), "p": view.get("phase"),
             "t": view.get("turn"), "q": int(seq or 0),
+            "rs": list(view.get("responding_seats") or []),
             "h": list(view.get("my_hand") or []),
             "d": view.get("drawn_tile"), "o": view.get("offer_tile"),
             "m": [[x.get("type"), x.get("tile")] for x in melds],
@@ -242,18 +243,16 @@ def play_game(client, gid, strategy, recorder=None):
                 dec_ms, phase, view.get("turn"),
                 len(view.get("my_hand") or []),
                 (act or {}).get("action") if act else None)
-        # 决策记录（执行验证底座）：真动作 / 本人可行动局面 / 慢决策 / 异常
-        # 才落盘——纯观赛空轮询（decide=None 且非我可行动）不产生数据。
+        # 决策记录（执行验证底座）：真动作待提交后统一登记（避免同对象双写）；
+        # act=None 仅在【本人可行动/慢决策/异常】时落 noop 行——纯观赛空轮询不产生数据。
         dr = None
-        if recorder:
+        if recorder and act is not None:
             dr = _dr_payload(gid, view, seq, river, dec_ms, act)
-            actionable = my_turn(view) or window_pending(view)
-            if (act is not None) or actionable or dec_ms > 100 or dr_exc:
-                if act is None:
-                    dr["sub"] = "noop"
-                recorder.on_decision(gid, dr)
-            else:
-                dr = None
+        elif recorder:
+            if my_turn(view) or window_pending(view) or dec_ms > 100 or dr_exc:
+                drp = _dr_payload(gid, view, seq, river, dec_ms, None)
+                drp["sub"] = "noop"
+                recorder.on_decision(gid, drp)
         # 通用分歧探针（HM_XLOG=1 且非基准策略）：同局面基准重决策，
         # 动作不同即记 [xlog]——执行验证：候选差异是否真实发生（离线可数）。
         if act is not None and os.environ.get("HM_XLOG") == "1" and \
