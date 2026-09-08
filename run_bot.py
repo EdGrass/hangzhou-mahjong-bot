@@ -26,6 +26,7 @@ from bot.util import ensure_utf8, log, server_from_env  # noqa: F401
 # docs/iter/queue.md + reports/）；协议层自杠机器与窗口审计工具链保留。
 STRATEGY_FACTORIES = {
     "speedE": lambda: __import__("bot.speede", fromlist=["SpeedE"]).SpeedE(),
+    "speedk": lambda: __import__("bot.speedk", fromlist=["SpeedK"]).SpeedK(),
 }
 
 
