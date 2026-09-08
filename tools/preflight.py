@@ -28,6 +28,17 @@ PROBES = [
     (["1w", "2w", "3w", "4w", "5w", "6w", "7w", "8w", "9w", "1b", "1b", "1b", "白"], "东"),
 ]
 
+# v21 边界探针（2026-09-07 服务器修订，防静默漂移）：比较服务器响应与本地引擎的
+# 全字段（hu/baotou/fan/detail）——4白听任意=爆头、白×4 无落单才计豪华组。
+V21_PROBES = [
+    # A: 3 刻 + 4 白 摸 1w → server: 豪华七对×1+4白板+爆头 fan=16
+    (["1w", "1w", "1w", "2b", "2b", "2b", "3t", "3t", "3t", "白", "白", "白", "白"], "1w"),
+    # B: 3 对+3 单+4 白 摸北 → server: 七对+4白板+爆头 fan=8
+    (["1w", "1w", "5b", "5b", "9t", "9t", "东", "南", "中", "白", "白", "白", "白"], "北"),
+    # D: 双实四张+3t+4 白 摸3t → server: 豪华七对×3+4白板+爆头 fan=64
+    (["1w", "1w", "1w", "1w", "2b", "2b", "2b", "2b", "3t", "白", "白", "白", "白"], "3t"),
+]
+
 
 def main():
     ensure_utf8()
@@ -57,7 +68,7 @@ def main():
         ok = False
         log("✗ 服务器不可达: %s %s", e.status, e.code or e.body[:100])
 
-    # 2) fan-calc 抽样一致
+    # 2) fan-calc 抽样一致（判定 + v21 边界全字段对拍）
     try:
         bad = 0
         for hand, draw in PROBES:
@@ -66,11 +77,25 @@ def main():
             mine_hu = is_win(hand + [draw])
             if bool(r.get("hu")) != mine_hu:
                 bad += 1
+        from mahjong.fan import calc as local_calc
+        for hand, draw in V21_PROBES:
+            r = client.fan_calc({"hand": hand, "draw": draw,
+                                 "chain": {"count": 0, "piao": 0}, "base": 1})
+            mine = local_calc(hand, draw)
+            srv = (bool(r.get("hu")), bool(r.get("baotou")), r.get("fan"),
+                   r.get("detail"))
+            my = (mine["hu"], mine["baotou"], mine["fan"], mine["detail"])
+            if srv != my:
+                bad += 1
+                log("✗ v21 边界漂移: hand=%s draw=%s server=%s mine=%s",
+                    hand, draw, srv, my)
         if bad:
             ok = False
-            log("✗ fan-calc 抽样 %d/%d 不一致", bad, len(PROBES))
+            log("✗ fan-calc 抽样 %d/%d 不一致", bad,
+                len(PROBES) + len(V21_PROBES))
         else:
-            log("✓ fan-calc 抽样 %d 例全部一致", len(PROBES))
+            log("✓ fan-calc 抽样 %d 例全部一致（含 %d 例 v21 边界）",
+                len(PROBES) + len(V21_PROBES), len(V21_PROBES))
     except ApiError as e:
         ok = False
         log("✗ fan-calc 调用失败: %s %s", e.status, e.code or e.body[:100])

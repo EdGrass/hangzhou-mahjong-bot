@@ -5,7 +5,7 @@
     python run_bot.py <参赛令牌> [锦标赛id] [--server URL]   完整协议循环
 
 - 报名令牌（门户「报名」/「测试房间」派发）：自动发现锦标赛，无需锦标赛 id；
-- 全局令牌（POST /api/users 自测注册所得）：必须显式带锦标赛 id。
+- 全局令牌（门户「我的 AI 身份」签发，v24 起须门户绑定）：必须显式带锦标赛 id。
 - 服务器地址：默认 https://10.240.169.190:18080；可用 --server 或环境变量 HM_SERVER 覆盖。
 """
 from __future__ import annotations
