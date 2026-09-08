@@ -41,5 +41,7 @@
 
 ## 防重注记
 
+- 财神(白) offer 拒副露：白板弃出不可吃碰（sim 同口径）——`want_claim_k`(offer=="白"→False)
+  与 `decide`(window 白 offer→pass) 双层拦截、单测钉住；真机窗口若出现白 offer 一律 pass。
 - SpeedF 已测 s==1 ukeire null：K1 的增量= s≥2 覆盖 + 与孤字键的交互，不重复 F；
 - 不触碰打点/财飘（C005 范畴）与防守（C004 方法论受限）。

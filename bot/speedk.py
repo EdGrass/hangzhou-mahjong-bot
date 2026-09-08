@@ -19,6 +19,9 @@
 """
 from __future__ import annotations
 
+import random
+import time
+
 from mahjong.shanten import waits
 from mahjong.shanten_exact import shanten as exact_shanten
 
@@ -166,6 +169,7 @@ def _min_after(overfull, exposed, gangs):
         except ValueError:
             continue
         w = _before_w(rem, s, exposed, gangs)
+        # −w 即取 w 最大：同 s 组里比较 waits/ukeire 谁更高
         if best is None or (s, -w) < (best[1], -best[2]):
             best = ((s, -w), s, w, rem)
     if best is None:
@@ -275,6 +279,53 @@ def _best_discard_k(hand, drawn, exposed, gangs):
 # ===========================================================================
 # 类
 # ===========================================================================
+_WARMUP_BUDGET_S = 0.6        # 整段预热总墙钟上限（避免冷进程首拆解巨慢时拖垮构造）
+
+
+def _warmup(decider, n=30):
+    """构造至多 n 手随机合法 14 张暗牌各跑一次弃牌决策，预热引擎计数缓存。
+
+    SpeedK 冷启动首决策 84ms–1s+（真机窗口 1s 有超时风险）源于引擎 _shanten_counts
+    @lru_cache 空转：新进程下各手拆解 _iter_decompositions 需递归全量枚举。这里用
+    确定性随机源 random.Random(0xC007) 摊开不同计数向量、兼覆数牌/白(财神)万能路径，
+    尽早把向听与 waits 判定写进 lru，命中后首决策压回暖态（4–10ms）。
+
+    用真实 decide 的本人回合弃牌支（含 ukeire 计算，与首决策同路径）。逐手手牌是
+    全 range 随机合法 14 张（各牌 ≤4，可含白）；随机向听偏高手牌的 cold 拆解可到数百
+    ms/手 —— 若 30 手全做会在冷构造里烧数十秒（比要规避的首决策超时更糟），故加
+    _WARMUP_BUDGET_S 总墙钟护栏：预算耗尽即停，构造开销总被压在亚秒量级（尽力而为、
+    预算内能预热多少算多少）。异常一律静默吞掉。仅 SpeedK 实例构造时调用。
+    """
+    pool = (["%d%s" % (num, s) for s in "wbt" for num in range(1, 10)]
+            + list("东南西北中发白"))
+    r = random.Random(0xC007)
+    deadline = time.monotonic() + _WARMUP_BUDGET_S
+    for _ in range(max(0, int(n or 0))):
+        if time.monotonic() >= deadline:      # 预算用尽：停（构造不能被拖垮）
+            break
+        try:
+            h = []
+            while len(h) < 14:
+                t = r.choice(pool)
+                if h.count(t) < 4:            # 各牌 ≤4（物理可持上限）
+                    h.append(t)
+            view = {
+                "seat": 0, "phase": "draw", "turn": 0,
+                "responding_seats": [],
+                "drawn_tile": h[-1],          # 末张视为刚摸
+                "my_hand": list(h),
+                "melds": [],
+                "offer_tile": None,
+                "god": {},                    # 无抓打
+                "river": [],
+                "can_gang": False,
+                "scores": None,
+            }
+            decider.decide(view)
+        except Exception:
+            pass
+
+
 def _best_chi_pair(hand, offer, exposed, gangs):
     """从 hand 可得吃组合里选出副露后最优（向听最小、same 取进张大）。
 
@@ -299,6 +350,7 @@ def _best_chi_pair(hand, offer, exposed, gangs):
         sa, wa, _ = _min_after(rem, ne, ng)
         if sa is None:
             continue
+        # −wa 即取 wa 最大：同向听组里挑进张更大的 chi 组合
         if best is None or (sa, -wa) < (best[0], -best[1]):
             best = (sa, wa, pair)
     return best[2] if best else None
@@ -309,6 +361,11 @@ class SpeedK(SpeedE):
 
     def __init__(self, name="speedK"):
         super().__init__(name)
+        # 构造即预热引擎计数缓存（尽力压低冷启动首决策，见 _warmup docstring）
+        try:
+            _warmup(self)
+        except Exception:
+            pass
 
     def decide(self, view):
         offer = view.get("offer_tile")
