@@ -52,7 +52,12 @@ def play_game(client, gid, strategy, recorder=None):
     """打一场：返回该场结束时快照（含 scores），或 None（异常中止由调用方决定）。
 
     recorder（可选 ReplayRecorder）：每批增量事件回调 on_event(gid, ev)，
-    场次结束回调 close_game(gid) 落盘该场事件流。"""
+    场次结束回调 close_game(gid) 落盘该场事件流。
+
+    事件等待：优先 /api/games/{id}/notify SSE（v12+，不占 /state 额度——
+    M 并发下长轮询会撞 16/s 聚合限速致窗口 409 风暴）；notify 断连/禁用
+    （HM_NO_NOTIFY=1）时回退传统 30s 长轮询（语义完全同旧版）。
+    """
     seq = 0
     pending_count = 0           # 连续长挂起计数（防漏窗口兜底）
     last_window_key = None      # 最近已响应的窗口键 (phase, turn)
@@ -68,8 +73,28 @@ def play_game(client, gid, strategy, recorder=None):
     self_offer = None           # 最近弃牌 (tile, seat)（tile_discarded 事件，公开）
     river = []                  # 当前局公开弃牌河（round_ended 清空）
     tracker = MeldTracker()     # 本人副露跟踪（真机快照无 melds，本地累计）
+    notifier = None
+    if os.environ.get("HM_NO_NOTIFY") != "1":
+        try:
+            from .notify import NotifyLine
+            notifier = NotifyLine(client, gid)
+            notifier.start()
+        except Exception:
+            notifier = None     # 构造失败 → 长轮询
     while True:
-        res = client.game_state(gid, seq)
+        if notifier is not None and not notifier.down:
+            ev = notifier.wait_event(timeout=33.0)
+            if ev == "down":
+                # notify 断连：该场回退传统长轮询（语义与旧版一致）
+                res = client.game_state(gid, seq)
+            elif ev == "event":
+                res = client.game_state(gid, seq)   # 帧后拉增量（本地水位）
+            else:
+                # keepalive/timeout：30s 无新事件 → 与旧版 pending 等价的空转，
+                # 保留下方 pending_count 的跨局/换庄 seq=0 兜底节奏（~60s 一次）
+                res = {"pending": True}
+        else:
+            res = client.game_state(gid, seq)
         snap = res.get("snapshot")
 
         reason = _end_reason(res, snap)

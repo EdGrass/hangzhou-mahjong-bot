@@ -152,6 +152,23 @@ class Client:
         返回 {room_id, config, ...}——room_id 即锦标赛 id（kind=auto）。"""
         return self.post("/api/match", {})
 
+    def open_notify(self, gid, timeout=65):
+        """GET /api/games/{id}/notify：SSE 通知流（v12+；不占 /state 的 16/s 额度，
+        每用户 32 并发连接）。返回可逐行 readline 的响应对象（调用方负责 close）。
+        帧形如 data:{"seq":N}（任意状态变更推帧）；30s keepalive 空行/注释行。
+        失败抛 ApiError（429/404/网络）。"""
+        THROTTLE.acquire()
+        req = urllib.request.Request(
+            self.server + "/api/games/%s/notify" % gid, method="GET")
+        if self.token:
+            req.add_header("Authorization", "Bearer " + self.token)
+        try:
+            return urllib.request.urlopen(req, timeout=timeout, context=self._ctx)
+        except urllib.error.HTTPError as e:
+            raise ApiError(e.code, e.read().decode("utf-8", errors="replace"))
+        except urllib.error.URLError as e:
+            raise ApiError(0, "network error: %s" % (e,))
+
     # -- 免认证门户端点 -------------------------------------------------------
     def guide_version(self):
         """GET /portal/api/guide/version：指南版本与变更日志（免认证，5/s）。"""
