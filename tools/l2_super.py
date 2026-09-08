@@ -38,6 +38,8 @@ PINYIN = {"青龙": "qinglong", "白虎": "baihu",
 # A/B 会话一律通过 HM_SEAT_STRATEGIES 显式指定（如 speedh×2 + speedE×2）。
 DEFAULT_SEAT_STRATEGY = {"青龙": "speedE", "白虎": "speedE",
                          "朱雀": "speedE", "玄武": "speedE"}
+# 日志前缀（半程/会话隔离用）：HM_LOG_PREFIX 覆盖，默认 l2x1
+LOG_PREFIX = os.environ.get("HM_LOG_PREFIX", "l2x1")
 
 
 def ts():
@@ -99,11 +101,13 @@ def create_room():
 
 
 def spawn(spec):
-    logf = open(os.path.join(ROOT, "logs", "l2x1_%s.log" % spec["name"]),
-                "a", encoding="utf-8")
+    logf = open(os.path.join(ROOT, "logs", "%s_%s.log"
+                             % (LOG_PREFIX, spec["name"])), "a",
+                encoding="utf-8")
     child = subprocess.Popen(
         [sys.executable, "-X", "utf8", "run_bot.py", spec["tok"],
-         "--strategy", spec["s"], "--log", "logs/l2x1_%s.log" % spec["name"]],
+         "--strategy", spec["s"], "--log", "logs/%s_%s.log"
+         % (LOG_PREFIX, spec["name"])],
         cwd=ROOT, stdout=logf, stderr=subprocess.STDOUT)
     spec["pid"] = child.pid
     return spec
