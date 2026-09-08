@@ -26,6 +26,7 @@
 | C007 | 牌效理论吸收（用户提案，K1+K2） | 全向听级一步有效牌 tie（K1）+ 副露 ukeire 判据（K2） | strategy | 封存待复核 | K1/K2 族快筛负结果受座对/占位污染（±5-11/场未控，health-audit-2026-09-08）；若 oracle 重放显示分歧有正代理价值再平衡设计复核 |
 | C008 | 指南 §1.2 弃胡/财飘设计（P4 线） | 爆头态摸白弃胡打白飘：每飘链 ×2（手留白+飘出=4 再 ×2），弃刚摸白恒回爆头态、每飘只赌一个对手回合圈 | strategy | paused | **v0 频率裁决（2026-09-08，sim+oracle 分钟级证伪，未耗真机）**：240 sim 巡 0 次爆头摸白局面；e4a 真机 36 胡 0 爆头胡（爆头胡 ≤3% 实盘占比）→ 飘入口被频率钉死（SpeedH/杠同族教训重现）；机制本身端到端验证过（双飘三胡 fan8 sim 0 违规）。代码保留 opt-in；仅在 YouCaiBiKao=true 类配置或"白保留策略 v2"下重开 |
 | C006 | MCTS | 搜索型决策 | strategy | queued | 远期，队列空后议 |
+| C009 | 危机处置（P2b/P3b 收官） | 座位偏倚标定 + 真异构决策 oracle | eval | **merged(知识)** | E×4 双房 n83：座名对无结构偏倚（T=−0.52 CI 含 0，seat-bias-calibration 卡）；09-04 真人对局 oracle：候选执行面 ≤5.3%、speedp 0 触发（oracle-v2 卡）；平台收敛性收官（PROJECT §9） |
 
 ## dead-end / converged 登记（防重，先看这里）
 
