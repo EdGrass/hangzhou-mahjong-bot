@@ -162,6 +162,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--logs", nargs="+", required=True)
     ap.add_argument("--roles", default="", help="JSON: 文件名子串→A/B（E×4 标定用）")
+    ap.add_argument("--roles-file", default="", help="同上，从 UTF-8 JSON 文件读")
     ap.add_argument("--json", action="store_true", help="纯 JSON 输出")
     args = ap.parse_args()
     paths = []
@@ -173,8 +174,12 @@ def main():
         return 3
     specs = [{"name": os.path.basename(p), "path": p} for p in paths]
     roles = None
-    if args.roles:
-        m = json.loads(args.roles)
+    raw_roles = args.roles
+    if args.roles_file:
+        with open(args.roles_file, encoding="utf-8") as f:
+            raw_roles = f.read()
+    if raw_roles:
+        m = json.loads(raw_roles)
         roles = {}
         for sub, side in m.items():
             for s in specs:

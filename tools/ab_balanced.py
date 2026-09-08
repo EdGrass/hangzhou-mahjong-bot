@@ -48,6 +48,8 @@ def main():
     ap.add_argument("--half2", nargs="+", required=True)
     ap.add_argument("--roles1", default="")
     ap.add_argument("--roles2", default="")
+    ap.add_argument("--roles-file1", default="")
+    ap.add_argument("--roles-file2", default="")
     args = ap.parse_args()
 
     def paths_of(globs):
@@ -56,7 +58,10 @@ def main():
             out += glob.glob(p) if glob.has_magic(p) else [p]
         return sorted(set(out))
 
-    def roles_of(specs, raw):
+    def roles_of(specs, raw, raw_file):
+        if raw_file:
+            with open(raw_file, encoding="utf-8") as f:
+                raw = f.read()
         if not raw:
             return None
         m = json.loads(raw)
@@ -70,8 +75,8 @@ def main():
     p1, p2 = paths_of(args.half1), paths_of(args.half2)
     s1 = [{"name": os.path.basename(p), "path": p} for p in p1]
     s2 = [{"name": os.path.basename(p), "path": p} for p in p2]
-    d1, h1 = _half(s1, roles_of(s1, args.roles1))
-    d2, h2 = _half(s2, roles_of(s2, args.roles2))
+    d1, h1 = _half(s1, roles_of(s1, args.roles1, args.roles_file1))
+    d2, h2 = _half(s2, roles_of(s2, args.roles2, args.roles_file2))
     res = {"half1": d1, "half2": d2}
     if not d1 or not d2:
         print(json.dumps(res, ensure_ascii=False, indent=1))
