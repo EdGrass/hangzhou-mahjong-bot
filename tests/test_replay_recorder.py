@@ -50,6 +50,33 @@ class TestReplayRecorder(unittest.TestCase):
                 lines = [json.loads(l) for l in fh]
             self.assertEqual(len(lines), 1)
 
+    def test_decisions_flush_to_separate_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            rec = ReplayRecorder(td)
+            rec.on_decision("g3", {"k": "d", "s": 0, "p": "draw", "a": "discard",
+                                   "h": ["1w", "2w"], "sub": "ok"})
+            rec.on_decision("g3", {"k": "d", "s": 0, "p": "response_peng",
+                                   "a": "pass", "sub": "ok"})
+            rec.close_game("g3")
+            p = os.path.join(td, "g3.dec.jsonl")
+            self.assertTrue(os.path.exists(p))
+            with open(p, encoding="utf-8") as fh:
+                lines = [json.loads(l) for l in fh]
+            self.assertEqual([e["a"] for e in lines], ["discard", "pass"])
+            # 事件文件独立存在
+            self.assertTrue(os.path.exists(os.path.join(td, "g3.jsonl")))
+
+    def test_decision_close_idempotent_no_dupes(self):
+        with tempfile.TemporaryDirectory() as td:
+            rec = ReplayRecorder(td)
+            rec.on_decision("g4", {"k": "d", "a": "hu", "sub": "ok"})
+            rec.close_game("g4")
+            rec.close_game("g4")
+            p = os.path.join(td, "g4.dec.jsonl")
+            with open(p, encoding="utf-8") as fh:
+                lines = [json.loads(l) for l in fh]
+            self.assertEqual(len(lines), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

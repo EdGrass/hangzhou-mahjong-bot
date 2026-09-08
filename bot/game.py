@@ -13,8 +13,29 @@ import time
 
 from .api import ApiError
 from .meldtrack import MeldTracker
-from .model import snap_view
+from .model import my_turn, snap_view, window_pending
 from .util import log
+
+
+def _dr_payload(gid, view, seq, river, ms, act):
+    """决策记录载荷（紧凑键）：完整信息局面 + 动作 + 决策耗时。
+
+    k=d 决策行；s/p/t/q=seat/phase/turn/seq；h=决策手牌（含刚摸）；d/o=刚摸/
+    offer；m=副露[(type,tile)]；god=爆头/链/飘/抓打；r=当局公开河；a=动作；
+    ms=decide 耗时(ms)；sub/sm=提交结果/耗时（game.py 提交后补填）。
+    """
+    melds = view.get("melds") or []
+    god = view.get("god") or {}
+    return {"k": "d", "g": gid, "s": view.get("seat"), "p": view.get("phase"),
+            "t": view.get("turn"), "q": int(seq or 0),
+            "h": list(view.get("my_hand") or []),
+            "d": view.get("drawn_tile"), "o": view.get("offer_tile"),
+            "m": [[x.get("type"), x.get("tile")] for x in melds],
+            "god": {"b": bool(god.get("baotou")),
+                    "cc": int(god.get("chain_count") or 0),
+                    "piao": int(god.get("piao_count") or 0),
+                    "cp": bool(god.get("catch_play"))},
+            "r": list(river or []), "a": act, "ms": round(float(ms or 0), 1)}
 
 
 def _end_reason(res, snap):
@@ -204,18 +225,47 @@ def play_game(client, gid, strategy, recorder=None):
         sig = (phase, seq)
         if not phase.startswith("response_") and sig == decided_seq_sig:
             continue
+        t_dec0 = time.perf_counter()
+        dr_exc = False
         try:
             act = strategy.decide(view)
         except Exception as e:
             # 策略异常（真机边缘局面）→ 窗口 pass / 非窗口不动作（等超时兜底）
             log("策略异常(%s: %s)——按 pass/等待处理" % (type(e).__name__,
                                                     str(e)[:100]))
-            if phase.startswith("response_"):
-                act = {"action": "pass", "tile": ""}
+            dr_exc = True
+            act = {"action": "pass", "tile": ""} if phase.startswith(
+                "response_") else None
+        dec_ms = round((time.perf_counter() - t_dec0) * 1000.0, 1)
+        if dec_ms > 300:
+            log("⚠ [dperf] decide %.0fms phase=%s turn=%s hand_len=%d act=%s",
+                dec_ms, phase, view.get("turn"),
+                len(view.get("my_hand") or []),
+                (act or {}).get("action") if act else None)
+        # 决策记录（执行验证底座）：真动作 / 本人可行动局面 / 慢决策 / 异常
+        # 才落盘——纯观赛空轮询（decide=None 且非我可行动）不产生数据。
+        dr = None
+        if recorder:
+            dr = _dr_payload(gid, view, seq, river, dec_ms, act)
+            actionable = my_turn(view) or window_pending(view)
+            if (act is not None) or actionable or dec_ms > 100 or dr_exc:
+                if act is None:
+                    dr["sub"] = "noop"
+                recorder.on_decision(gid, dr)
             else:
-                last_window_key = window_key if phase.startswith(
-                    "response_") else last_window_key
-                continue
+                dr = None
+        # 通用分歧探针（HM_XLOG=1 且非基准策略）：同局面基准重决策，
+        # 动作不同即记 [xlog]——执行验证：候选差异是否真实发生（离线可数）。
+        if act is not None and os.environ.get("HM_XLOG") == "1" and \
+                strategy.__class__.__name__ != "SpeedE":
+            try:
+                from .speede import SpeedE
+                base = SpeedE().decide(view)
+                if base != act:
+                    log("[xlog] base=%s mine=%s phase=%s turn=%s",
+                        base, act, phase, view.get("turn"))
+            except Exception:
+                pass
         if act is None:
             continue
 
@@ -228,23 +278,33 @@ def play_game(client, gid, strategy, recorder=None):
                 ",".join(sorted(view["my_hand"])), view.get("drawn_tile") or "",
                 len(melds), act.get("action") +
                 (":" + act.get("tile", "") if act.get("action") != "pass" else ""))
+        sub = None
+        sub_ms = None
+        t_sub0 = time.perf_counter()
         try:
             client.game_action(gid, act)
         except ApiError as e:
+            sub_ms = round((time.perf_counter() - t_sub0) * 1000.0, 1)
             if e.status == 409:
                 # 动作已失效（竞态 / 窗口已响应 / 自判失误）：全量重建状态；
                 # 窗口期 409 = 本窗口已死（服务器已代处理），标记不再重试
-                log("动作 409（已失效）:", e.code or e.body[:120])
+                log("动作 409（已失效）: %s phase=%s act=%s sub_ms=%s",
+                    e.code or e.body[:120], phase,
+                    (act or {}).get("action"), sub_ms)
+                sub = "409"
                 if phase.startswith("response_"):
                     last_window_key = window_key
                 seq = 0
             elif e.status in (0, 429) or e.status >= 500:
                 # 网络瞬断 / 限速 / 服务端暂错：稍候重试（水位不变，继续挂起）
                 log("瞬时故障(%s)，1s 后继续" % (e.code or e.status))
+                sub = "err"
                 time.sleep(1.0)
             else:
                 raise
         else:
+            sub = "ok"
+            sub_ms = round((time.perf_counter() - t_sub0) * 1000.0, 1)
             tracker.record_action(act)      # 提交成功 → 副露本地累计
             if act.get("action") in ("discard", "hu"):
                 self_drawn = ""             # 已打出/胡掉的刚摸牌，防残留
@@ -260,6 +320,10 @@ def play_game(client, gid, strategy, recorder=None):
             last_window_key = window_key    # 本窗口已响应（无论成败）
         else:
             decided_seq_sig = sig
+        if dr is not None and sub is not None:
+            dr["sub"] = sub
+            dr["sm"] = sub_ms
+            recorder.on_decision(gid, dr)   # 提交结果并入该决策记录（见上 noop 分支）
         # 注意：动作成功后【不】回退 seq=0 —— 保持当前水位挂起长轮询，
         # 否则每次全量快照会跳过 tile_drawn 等增量事件（真机摸牌信息只经事件流）
         continue

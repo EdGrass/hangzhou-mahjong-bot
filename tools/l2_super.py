@@ -104,11 +104,19 @@ def spawn(spec):
     logf = open(os.path.join(ROOT, "logs", "%s_%s.log"
                              % (LOG_PREFIX, spec["name"])), "a",
                 encoding="utf-8")
-    child = subprocess.Popen(
-        [sys.executable, "-X", "utf8", "run_bot.py", spec["tok"],
-         "--strategy", spec["s"], "--log", "logs/%s_%s.log"
-         % (LOG_PREFIX, spec["name"])],
-        cwd=ROOT, stdout=logf, stderr=subprocess.STDOUT)
+    argv = [sys.executable, "-X", "utf8", "run_bot.py", spec["tok"],
+            "--strategy", spec["s"], "--log", "logs/%s_%s.log"
+            % (LOG_PREFIX, spec["name"])]
+    # 决策/事件录制（执行验证底座）：每席独立子目录（同 gid 多席同写会交错）
+    rec_dir = os.path.join(ROOT, "var", "replays", "%s_%s"
+                           % (LOG_PREFIX, spec["name"]))
+    argv += ["--record-replays", rec_dir]
+    env = dict(os.environ)
+    # 通用分歧探针：候选策略（非 speedE）自动开 HM_XLOG（同局面 vs E 差异落日志）
+    if spec["s"] != "speedE":
+        env["HM_XLOG"] = "1"
+    child = subprocess.Popen(argv, cwd=ROOT, stdout=logf,
+                             stderr=subprocess.STDOUT, env=env)
     spec["pid"] = child.pid
     return spec
 
