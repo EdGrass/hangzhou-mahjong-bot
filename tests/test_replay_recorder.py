@@ -63,8 +63,15 @@ class TestReplayRecorder(unittest.TestCase):
             with open(p, encoding="utf-8") as fh:
                 lines = [json.loads(l) for l in fh]
             self.assertEqual([e["a"] for e in lines], ["discard", "pass"])
-            # 事件文件独立存在
-            self.assertTrue(os.path.exists(os.path.join(td, "g3.jsonl")))
+            # 无事件流 → 事件文件不生成（决策与事件双通道独立）
+            self.assertFalse(os.path.exists(os.path.join(td, "g3.jsonl")))
+            # 事件+决策并存时两文件都写
+            rec2 = ReplayRecorder(td)
+            rec2.on_event("g5", {"seq": 1, "type": "tile_discarded", "tile": "3b"})
+            rec2.on_decision("g5", {"k": "d", "a": "pass", "sub": "ok"})
+            rec2.close_game("g5")
+            self.assertTrue(os.path.exists(os.path.join(td, "g5.jsonl")))
+            self.assertTrue(os.path.exists(os.path.join(td, "g5.dec.jsonl")))
 
     def test_decision_close_idempotent_no_dupes(self):
         with tempfile.TemporaryDirectory() as td:
