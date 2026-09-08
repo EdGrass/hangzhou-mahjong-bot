@@ -43,6 +43,8 @@ def main(argv=None):
     ap.add_argument("--strategy", default="speedE",
                     help="策略名（%s）" % "/".join(sorted(set(STRATEGY_FACTORIES))))
     ap.add_argument("--log", default="", help="日志双写文件（多实例分析用）")
+    ap.add_argument("--match", action="store_true",
+                    help="自动匹配房模式：全局令牌 POST /api/match 建房入席后打一房")
     ap.add_argument("--record-replays", default="",
                     help="逐场事件流复盘落盘目录（启用后每场写 <gid>.jsonl，窗口赛后审计用）")
     args = ap.parse_args(argv)
@@ -68,24 +70,47 @@ def main(argv=None):
 
     client = Client(args.server, token)
 
-    # 1) 令牌发现锦标赛（报名令牌作用域直达；全局令牌用 argv tid 显式指定）
-    me = client.me()
-    tid = me.get("tournament_id") or args.tid
-    scoped = bool(me.get("tournament_id"))
-    if not tid:
-        raise SystemExit(
-            "令牌未绑定锦标赛：请用门户「报名」/「测试房间」派发的参赛令牌"
-            "（自测全局令牌请带锦标赛 id：python run_bot.py <token> <锦标赛id>）")
+    # --match 自动房：入席得到 room_id（kind=auto 的锦标赛）后走通用主循环
+    if args.match:
+        import time as _t_mod
+        log("自动匹配房模式：请求入席（POST /api/match）…")
+        m = client.match()
+        room = m.get("room_id") or m.get("tournament_id") or ""
+        if not room:
+            raise SystemExit("match 未返回 room_id: %s" % (str(m)[:300]))
+        tid = room
+        scoped = False       # 全局令牌 + 显式 tid（me.tournament_id 恒空）
+        cfg = m.get("config") or {}
+        log("已入席自动房 room=%s M=%s Rounds=%s base=%s", room,
+            cfg.get("M"), cfg.get("Rounds"), cfg.get("BaseScore"))
+        me = client.me()
+    else:
+        # 1) 令牌发现锦标赛（报名令牌作用域直达；全局令牌用 argv tid 显式指定）
+        me = client.me()
+        tid = me.get("tournament_id") or args.tid
+        scoped = bool(me.get("tournament_id"))
+        if not tid:
+            raise SystemExit(
+                "令牌未绑定锦标赛：请用门户「报名」/「测试房间」派发的参赛令牌"
+                "（自测全局令牌请带锦标赛 id：python run_bot.py <token> <锦标赛id>）")
     log("user_id=%s 锦标赛=%s（%s）" % (me.get("user_id"), tid,
                                         "报名令牌直达" if scoped else "全局令牌+显式 tid"))
 
     # 2) 进场前先确认版本没有 BREAKING 差异（指南推荐做法）
     _warn_if_version_mismatch(client)
 
-    # 3) 主循环（阻塞至终态）
+    # 3) --match 且未显式指定录制目录：自动开启决策/事件录制（执行验证底座）
+    record_dir = args.record_replays or None
+    if args.match and not record_dir:
+        import time as _tm
+        import os as _os
+        record_dir = _os.path.join("var", "replays",
+                                   "match_%s" % _tm.strftime("%Y%m%d_%H%M%S"))
+        log("--match 自动开启录制: %s", record_dir)
+
+    # 4) 主循环（阻塞至终态）
     try:
-        run_tournament(client, tid, strategy, scoped=scoped,
-                       record_dir=args.record_replays or None)
+        run_tournament(client, tid, strategy, scoped=scoped, record_dir=record_dir)
     except ApiError as e:
         log("主循环终止于 API 错误: %s %s", e.status, e.code or e.body[:200])
         sys.exit(2)

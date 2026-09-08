@@ -147,6 +147,11 @@ class Client:
         """POST /api/games/{id}/action：服务端纯验证，非法 409。"""
         return self.post("/api/games/%s/action" % gid, action)
 
+    def match(self):
+        """POST /api/match：自动匹配房建房与入席一体（v13+；仅门户绑定全局令牌）。
+        返回 {room_id, config, ...}——room_id 即锦标赛 id（kind=auto）。"""
+        return self.post("/api/match", {})
+
     # -- 免认证门户端点 -------------------------------------------------------
     def guide_version(self):
         """GET /portal/api/guide/version：指南版本与变更日志（免认证，5/s）。"""
