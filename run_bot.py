@@ -28,6 +28,7 @@ STRATEGY_FACTORIES = {
     "speedE": lambda: __import__("bot.speede", fromlist=["SpeedE"]).SpeedE(),
     "speedk": lambda: __import__("bot.speedk", fromlist=["SpeedK"]).SpeedK(),
     "speedu": lambda: __import__("bot.speedu", fromlist=["SpeedU"]).SpeedU(),
+    "speedv": lambda: __import__("bot.speedv", fromlist=["SpeedV"]).SpeedV(),
 }
 
 
