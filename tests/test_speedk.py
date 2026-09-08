@@ -76,6 +76,18 @@ class TestPure(unittest.TestCase):
         # 副露口径长度不符（如只给 11 张但声 e=1 需 10 张）也安全 0
         self.assertEqual(k.effective_tiles(["1w"] * 11, 1, 0), 0)
 
+    def test_no_white_draw_of_white_counts_as_ukeire(self):
+        # 无白手牌，cur=2。手牌不含白，但白在 exact_shanten 中是财神（万能牌）：
+        # 抽白可与孤张(西/发/中散字)补对/组块而降向听(弃 西→向听 1)。
+        # 旧实现 _plausible_draw 把"抽首张白"预过滤掉 → 有效牌低估 1（8）：
+        # 修正后白无条件列为候选、内层 exact 判定把关，得实测值 9。
+        hand = ["3w", "4w", "5w", "4w", "5w", "6w", "6b", "7b", "8b",
+                "3b", "西", "发", "中"]        # cur=2（含白则 9 类一步有效）
+        self.assertNotIn("白", hand)
+        self.assertEqual(exact_shanten(hand, qidui=True), 2)
+        self.assertTrue(k._plausible_draw(hand)("白"))    # 不再被 gate
+        self.assertEqual(k.effective_tiles(hand, 0, 0), 9)   # 数值固化（曾 8）
+
     def test_ukeire_zero_for_tenpai(self):
         # 已听(tenpai)进程用 waits，effective_tiles 应 0（不做二次筛选）
         tenpai = ["1t", "1w", "1w", "2t", "3t", "3w", "3w", "3w",

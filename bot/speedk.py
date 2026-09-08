@@ -52,6 +52,10 @@ def _plausible_draw(hand13):
     块、或把自己补成对子/与白板组块。若 t 与手牌无任何邻接（±2 内）且自身也不在
     手（无法成对），则无论弃哪张都只能得到一个孤立新张 —— 不可能让完整结构更近，
     直接剔除可大幅省 exact_shanten。该过滤是必要约束，绝不错杀有效进张。
+
+    例外：白板在 exact_shanten 中是财神（万能牌），抽白可与任意孤张/散牌补成对子或
+    组块而降向听，即使手牌本身无白也必须放行（作候选）—— 是否真的有效仍交由后续
+    exact_shanten 判定把关。
     """
     have = set(hand13)
     own_counts = {}
@@ -67,6 +71,8 @@ def _plausible_draw(hand13):
     has_white = "白" in have
 
     def ok(t):
+        if t == "白":                          # 财神万能：无条件放行（内层 exact 把关）
+            return True
         if own_counts.get(t, 0) >= 1:            # 可成对（含白可补）
             return True
         if t in nei:                              # 邻接已有数牌，可补块
