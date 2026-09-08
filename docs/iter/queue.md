@@ -22,7 +22,8 @@
 | C002 | PROJECT.md §7.5 | 已见牌扣减重试（SpeedG 思路，曾就绪被清） | strategy | dead-end | **L1 DRAW**：1200 局 +0.19/场 CI 含 0（报告 C002.md）；sim river 注入保留给 C004 |
 | C003 | PROJECT.md §7.4 | 短局口径参数化（WALL_RESERVE） | eval | paused | **参数化已完成**（sim/runner --wall-reserve + 测试）；**默认口径不翻 60**：reserve60 本地流局 71% 失真、旧复盘被 timeout 污染非干净源 → 待 L2 真机 n≥200 的流局/局长统计校准后落定 |
 | C004 | PROJECT.md §7.2 | 防守 v0：弃牌河危险度回避（安全牌序） | strategy | paused | **方法学限制（分析结论 2026-09-06）**：防守收益只在"对手会听牌/防守互动"时体现；本方案两个门禁的对手=自家 speed 系（L1 sim / L2 真机同桌均无真防守对手）→ 测不出防守价值，本地跑分会假阴性。若要做：只能正式赛参赛窗口实测（人工通道），或先造"会防守的陪练对手"。实现蓝图（river 已就绪 + tie 内安全排序）保留 |
-| C005 | PROJECT.md §7.3 | 打点 EV 分支（4 白/爆头/财飘取舍） | strategy | queued | 复用 fan-calc 黄金集 |
+| C005 | PROJECT.md §7.3 | 打点 EV 分支（4 白/爆头/财飘取舍；过胡合法性已由 P0 证实） | strategy | queued | 复用 fan-calc 黄金集；P0 过胡实测后可行性成立 |
+| C007 | 牌效理论吸收（用户提案，K1+K2） | 全向听级一步有效牌 tie（K1，补 F 只做 s==1 之缺）+ 副露 ukeire 判据（K2，碰/吃/直杠按有效牌而非仅向听快） | strategy | in-dev | speedk（SpeedE 派生，run_bot opt-in）；依据：牌效综述（搭子/复合形/有效牌重复）；预期：小但为 E 系未测行为面（副露效率） |
 | C006 | MCTS | 搜索型决策 | strategy | queued | 远期，队列空后议 |
 
 ## dead-end / converged 登记（防重，先看这里）
