@@ -27,6 +27,7 @@ from bot.util import ensure_utf8, log, server_from_env  # noqa: F401
 STRATEGY_FACTORIES = {
     "speedE": lambda: __import__("bot.speede", fromlist=["SpeedE"]).SpeedE(),
     "speedk": lambda: __import__("bot.speedk", fromlist=["SpeedK"]).SpeedK(),
+    "speedu": lambda: __import__("bot.speedu", fromlist=["SpeedU"]).SpeedU(),
 }
 
 
