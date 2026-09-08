@@ -21,6 +21,8 @@ bot/game.py：game 层已把 tile_discarded 公开牌面 append 进 river）。
 """
 from __future__ import annotations
 
+import os  # noqa: F401（HM_VLOG 执行验证插桩）
+
 from mahjong.hu import is_win  # noqa: F401
 from mahjong.shanten import waits
 from mahjong.shanten_exact import shanten as exact_shanten
