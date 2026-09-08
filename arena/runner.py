@@ -42,6 +42,13 @@ def _speede():
     return SpeedE()
 
 
+@_reg("speedp")
+def _speedp():
+    """打点/弃胡分支候选（SpeedE+爆头摸白财飘，见 bot/speedp.py）。"""
+    from bot.speedp import SpeedP
+    return SpeedP()
+
+
 def parse_combo(combo):
     """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []
