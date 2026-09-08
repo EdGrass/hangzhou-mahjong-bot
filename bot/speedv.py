@@ -191,14 +191,19 @@ class SpeedV(SpeedE):
         except ValueError:
             tile = _best_discard(hand, drawn, exposed, gangs)
         if os.environ.get("HM_VLOG") == "1":
-            # 执行验证插桩：若 river-aware 选择与 raw（无河）K1 选择不同 → 计数
+            # 执行验证插桩：river-aware vs raw-K1 vs SpeedE 三路弃牌差异计数
             try:
                 from .speedk import _best_discard_k as _raw_k1
+                from .speede import _best_discard_honor as _e_raw
                 raw = _raw_k1(hand, drawn, exposed, gangs)
+                eraw = _e_raw(hand, drawn, exposed, gangs)
+                from .util import log as _log
                 if raw is not None and raw != tile:
-                    from .util import log as _log
-                    _log("[vlog] V-diverged live=%s raw=%s river_len=%d",
+                    _log("[vlogV] V!=K1 live=%s raw=%s river_len=%d",
                          tile, raw, len(river))
+                if eraw is not None and eraw != tile:
+                    _log("[vlogE] V!=E live=%s e=%s river_len=%d",
+                         tile, eraw, len(river))
             except Exception:
                 pass
         return {"action": "discard", "tile": tile}
