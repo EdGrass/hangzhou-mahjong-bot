@@ -82,37 +82,52 @@ class SkipRound(Exception):
 # ---------------------------------------------------------------------------
 # 单局事件流重建（只精确维护我方座）
 # ---------------------------------------------------------------------------
-def replay_round(round_ev, my_seat):
-    """重建该局【我方】每摸牌决策局面。返回 (decision_points, end_hand_len)。
+def replay_round(round_ev, target_seat):
+    """重建该局【目标座】每摸牌决策局面 + 副露行为统计。返回
+    (decision_points, end_hand_len, meld_stats)。支持目标座有副露
+    （chi/peng/gang 从手牌扣减并记入 melds，暗牌基准 13-3e-g）。
 
     决策点字段：
-      drawn        刚摸的牌
-      my_hand      决策时刻 14 张（含刚摸）
-      concealed13  摸牌前 13 张（= my_hand[:-1]，供爆头/胡校验）
-      river        决策时刻弃牌河（含此前全部）
-      catch_play   抓打圈激活且我方非弃白者
-      baotou       爆头（摸牌前13任意摸皆胡）
-      actual       我方实际动作 {"action":"discard|hu","tile":...}
-    抛 SkipRound：手牌不变量违例（弃牌不在手、起手张数非法等）。
+      drawn / my_hand(14-3e-g 含刚摸) / concealed(摸前 13-3e-g) / river /
+      catch_play / baotou(is_baotou 带 e,g) / melds / e / g / actual
+    抛 SkipRound：手牌不变量违例（弃牌不在手、claim 扣减失败等）。
 
-    说明（corpus 实测）：非庄起手 13 张；**当我是庄时** start_hands[我方] 已含
-    首摸为 14 张（另三家 13）——庄的首弃发生在无 tile_drawn 事件、也不成"摸后
-    决策局面"，直接以该 14 减一处理。
+    说明（corpus 实测）：非庄起手 13 张；庄家 start_hands 已含首摸为 14 张
+    （另三家 13）——庄的首弃无 tile_drawn 事件，不构成"摸后决策局面"。
+    副露事件形态：chi{tile=被吃张,data:{tiles:[整组3]}}；peng{tile,data:null}；
+    gang{tile,data:{kind:bu|ming|an}}（bu=补杠=碰组升级拿第4张；明/暗杠移除
+    3/4 张，明杠的弃牌 tile 同 tile_discarded 已公开）。
     """
     start_hands = round_ev.get("start_hands")
     if not start_hands or len(start_hands) != 4:
         raise SkipRound("start_hands 非 4 家")
-    hand = [t for t in start_hands[my_seat]]
+    hand = [t for t in start_hands[target_seat]]
     dealer = round_ev.get("dealer")
-    is_dealer = (dealer == my_seat)
+    is_dealer = (dealer == target_seat)
     if len(hand) != 13 and not (is_dealer and len(hand) == 14):
         raise SkipRound("起手张数非法(须13,庄14): %d dealer=%s" %
                         (len(hand), is_dealer))
     river = []
     decision_points = []
-    end_hand_len = len(hand)     # 会随事件变化，default 即最终（非法时抛）
-    open_dec = None            # 当前"摸牌后未动作"的我方决策（候补,未定动作）
+    melds = []                       # [{"type","tile"}]；杠组计入 e 且 g+1
+    meld_stats = {"chi": 0, "peng": 0, "gang": 0, "decline": 0}
+    end_hand_len = len(hand)
+    open_dec = None
     last_white_discarder = None
+
+    def e_g():
+        e = len(melds)
+        g = sum(1 for m in melds if m["type"] == "gang")
+        return e, g
+
+    def _rm(t, k=1):
+        """从手牌移除 k 张 t；不足 → SkipRound。"""
+        nonlocal hand
+        for _ in range(k):
+            if t in hand:
+                hand.remove(t)
+            else:
+                raise SkipRound("扣减失败 %s×%d hand=%s" % (t, k, sorted(hand)))
 
     def clear_catch(seat):
         """弃白者本人下一次摸 → 抓打圈解除。"""
@@ -126,33 +141,36 @@ def replay_round(round_ev, my_seat):
         tile = e.get("tile")
 
         if typ == "tile_drawn":
-            if seat == my_seat:
-                hand.append(tile)                       # 13 -> 14
-                # 抓打圈：若我恰为刚弃白者本人则已解除（一般我在牌河后才摸）
-                clear_catch(my_seat)
+            if seat == target_seat:
+                hand.append(tile)
+                clear_catch(target_seat)
                 catch = (last_white_discarder is not None
-                         and last_white_discarder != my_seat)
+                         and last_white_discarder != target_seat)
                 if open_dec is not None:
-                    raise SkipRound("我方连续摸却未弃（状态错乱）")
+                    raise SkipRound("目标座连续摸却未弃（状态错乱）")
+                e_, g_ = e_g()
+                if len(hand) != 14 - 3 * e_ - g_:
+                    raise SkipRound("摸后长度非法 len=%d e=%d g=%d" %
+                                    (len(hand), e_, g_))
                 try:
                     bao = is_baotou(hand[:-1], allow_qidui=True,
-                                    exposed_melds=0, gangs=0)
+                                    exposed_melds=e_, gangs=g_)
                 except ValueError:
                     bao = False
                 open_dec = {
                     "drawn": tile, "my_hand": list(hand),
-                    "concealed13": list(hand[:-1]), "river": list(river),
+                    "concealed": list(hand[:-1]), "river": list(river),
                     "catch_play": catch, "baotou": bao,
+                    "melds": [dict(m) for m in melds], "e": e_, "g": g_,
                 }
             else:
-                clear_catch(seat)          # 弃白者本人摸牌，抓打圈解除
+                clear_catch(seat)
         elif typ == "tile_discarded":
             river.append(tile)
-            if seat == my_seat:
+            if seat == target_seat:
                 if open_dec is None:
-                    # 我当庄首弃（摸牌前，从起手13里弃一张）：非决策局面
-                    if tile not in hand:
-                        raise SkipRound("首弃 %s 不在手中 hand=%s" %
+                    if tile not in hand:      # 庄首弃（无摸事件）或副露后出牌
+                        raise SkipRound("首弃/出牌 %s 不在手中 hand=%s" %
                                         (tile, sorted(hand)))
                     hand.remove(tile)
                     continue
@@ -166,61 +184,92 @@ def replay_round(round_ev, my_seat):
                 decision_points.append(dp)
             if tile == WHITE:
                 last_white_discarder = seat
-        elif typ == "chi":            # 我方从不（corpus 扫描），防御
-            if seat == my_seat:
-                raise SkipRound("我方吃（未预案,防错）")
+        elif typ == "chi":
+            if seat == target_seat:
+                got = (e.get("data") or {}).get("tiles") or []
+                if len(got) != 3 or tile not in got:
+                    raise SkipRound("chi 结构异常 %s" % json.dumps(e,
+                                    ensure_ascii=False)[:200])
+                for t in got:
+                    if t != tile:
+                        _rm(t)
+                melds.append({"type": "chi", "tile": tile})
+                meld_stats["chi"] += 1
         elif typ == "peng":
-            if seat == my_seat:
-                raise SkipRound("我方碰（未预案,防错）")
+            if seat == target_seat:
+                if not tile:
+                    raise SkipRound("peng 无 tile")
+                _rm(tile, 2)
+                melds.append({"type": "peng", "tile": tile})
+                meld_stats["peng"] += 1
         elif typ == "gang":
-            if seat == my_seat:
-                raise SkipRound("我方杠（未预案,防错）")
+            if seat == target_seat:
+                kind = (e.get("data") or {}).get("kind")
+                if kind == "bu":               # 补杠：碰组 + 手牌第 4 张
+                    _rm(tile, 1)
+                    found = False
+                    for m in melds:
+                        if m["type"] == "peng" and m["tile"] == tile:
+                            m["type"] = "gang"
+                            found = True
+                            break
+                    if not found:
+                        raise SkipRound("补杠无对应碰组 tile=%s" % tile)
+                elif kind == "ming":           # 明杠（抢弃牌）：移除 3 张
+                    _rm(tile, 3)
+                    melds.append({"type": "gang", "tile": tile})
+                else:                          # an/暗杠或缺省：移除 4 张
+                    _rm(tile, 4)
+                    melds.append({"type": "gang", "tile": tile})
+                meld_stats["gang"] += 1
         elif typ == "round_ended":
-            # 我摸后未动作直至局终 → 若我胡该局则 actual=hu
             if open_dec is not None:
-                if e.get("seat") == my_seat:
+                if e.get("seat") == target_seat:
                     dp = open_dec
                     open_dec = None
                     dp["actual"] = {"action": "hu", "tile": ""}
                     decision_points.append(dp)
                     end_hand_len = len(hand)
                 else:
-                    # 局终胜者非我但有我未弃的开决策点：不应出现（我方摸后必弃
-                    # 除非自摸胡）；若非自摸我胡则无 open。保守：跳过该局。
-                    raise SkipRound("局终胜者非我而我方开决策点未动作")
+                    raise SkipRound("局终胜者非目标座而目标座开决策点未动作")
             else:
                 end_hand_len = len(hand)
             break                      # 一局事件到此结束
-        elif typ in ("pass", "timeout", "game_ended"):
-            pass                       # 不改我方牌河
+        elif typ == "pass":
+            if seat == target_seat:
+                meld_stats["decline"] += 1     # 目标座放弃窗口（近似拒绝数）
+        elif typ in ("timeout", "game_ended"):
+            if typ == "timeout" and seat == target_seat and \
+                    (e.get("data") or {}).get("kind") == "response":
+                meld_stats["decline"] += 1
         else:
             pass                       # 未知类型:静默容忍
     else:
-        # for 循环自然结束仍未 round_ended：该局被截断，无法作为完整局使用
         if round_ev.get("truncated"):
             raise SkipRound("局 truncated 缺 round_ended")
         end_hand_len = len(hand)
-    return decision_points, end_hand_len
+    return decision_points, end_hand_len, meld_stats
 
 
 # ---------------------------------------------------------------------------
 # 工具 / 进度代理（本地纯实现，不耦合 tools/oracle_audit）
 # ---------------------------------------------------------------------------
-def _proxy(hand14_with_drawn, river, discard_tile):
+def _proxy(hand_with_drawn, river, discard_tile, e=0, g=0):
     """弃牌后的进度：弃后的 exact_shanten 与活等待数（河见剔除 4 张）。
-    返回 (s, live) 或 None（长度/非法）。exposed/gangs 恒 0。"""
-    if discard_tile not in hand14_with_drawn:
+    返回 (s, live) 或 None（长度/非法）。e/g = 副露组数/杠组数。"""
+    if discard_tile not in hand_with_drawn:
         return None
-    rem = [t for t in hand14_with_drawn]
+    rem = [t for t in hand_with_drawn]
     rem.remove(discard_tile)
     try:
-        s = exact_shanten(rem, qidui=True, exposed_melds=0, gangs=0)
+        s = exact_shanten(rem, qidui=(e == 0 and g == 0),
+                          exposed_melds=e, gangs=g)
     except ValueError:
         return None
     live = 0
     if s == 0:
         try:
-            ws = waits(rem, exposed_melds=0, gangs=0)
+            ws = waits(rem, exposed_melds=e, gangs=g)
         except ValueError:
             ws = []
         seen = {}
@@ -230,13 +279,13 @@ def _proxy(hand14_with_drawn, river, discard_tile):
     return (s, live)
 
 
-def make_view(dp, my_seat):
+def make_view(dp, seat):
     return {
-        "seat": my_seat, "phase": "draw", "turn": my_seat,
+        "seat": seat, "phase": "draw", "turn": seat,
         "responding_seats": [],
         "drawn_tile": dp["drawn"],
         "my_hand": list(dp["my_hand"]),
-        "melds": [],
+        "melds": [dict(m) for m in dp.get("melds") or []],
         "god": {"baotou": dp["baotou"], "chain_count": 0,
                 "piao_count": 0, "catch_play": dp["catch_play"]},
         "offer_tile": None,
@@ -252,6 +301,9 @@ def run(argv=None):
     ap.add_argument("--dir", default="var/replays/t_dee58824c308")
     ap.add_argument("--file", default="")
     ap.add_argument("--strategies", default="speedE")
+    ap.add_argument("--seats", default="", help="分析座位（0-3 逗号分隔；空=全部）")
+    ap.add_argument("--exclude-uid", default=MY_UID,
+                    help="默认排除我方（人类分析）；设空串分析全部")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--json", action="store_true")
     ns = ap.parse_args(argv)
@@ -272,20 +324,24 @@ def run(argv=None):
     if ns.limit:
         files = files[: ns.limit]
 
-    agg = {
-        "files": 0, "rounds": 0, "decision_points": 0,
-        "self_check_fail": 0, "warn": 0,
-        "hand_len_ok": 0, "hand_len_bad": 0,
-        "human_hu": 0, "hu_ok": 0, "baotou": 0, "baotou_white": 0,
-        "rounds_winner_self": 0,
-    }
-    div = {n: {"n": 0, "diff": 0, "by_phase": {}} for n in out_names}
-    vsE = {n: {"n": 0, "diff": 0, "by_phase": {}}
-           for n in out_names if n != "speedE"}
-    discard_white = {n: 0 for n in out_names}
-    proxy = {"n": 0, "agree": 0, "disagree": 0,
-             "human_keeps_tenpai": 0, "E_keeps_tenpai": 0,
-             "both_tenpai_pairs": 0, "sum_a_live": 0.0, "sum_e_live": 0.0}
+    seat_filter = None
+    if ns.seats:
+        seat_filter = set(int(x) for x in ns.seats.split(",") if x.strip() != "")
+
+    # 聚合键 = (user_id, name, seat) —— 同一人类跨场同桌概率低，按 user 即可
+    T = {}       # user_id -> agg
+    skip_rounds = 0
+    files_seen = 0
+
+    def t_of(uid, name):
+        return T.setdefault(uid, {
+            "uid": uid, "name": name, "files": set(), "rounds": 0,
+            "dps": 0, "hu": 0, "hu_ok": 0, "chi": 0, "peng": 0, "gang": 0,
+            "decline": 0, "hand_bad": 0, "warn": 0,
+            "div": {n: {"n": 0, "diff": 0} for n in out_names},
+            "proxy": {"n": 0, "agree": 0, "disagree": 0, "a_tenpai": 0,
+                      "e_tenpai": 0, "both": 0, "sa": 0.0, "se": 0.0},
+        })
 
     for path in files:
         if not os.path.exists(path):
@@ -293,182 +349,165 @@ def run(argv=None):
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
         seats = data.get("seats", [])
-        my_seat = next((i for i, s in enumerate(seats)
-                        if s.get("user_id") == MY_UID), None)
-        if my_seat is None:
-            print("[skip-file] %s: 未找到我方" % os.path.basename(path))
+        if not seats:
             continue
-        agg["files"] += 1
-        # 顶层 rounds 与我方座位对照（hu 局对照）
-        agg["rounds_winner_self"] += sum(
-            1 for r in data.get("rounds", [])
-            if r.get("winner") == my_seat)
-
+        files_seen += 1
         for round_ev in group_blocks_into_rounds(data):
-            try:
-                dps, end_hand_len = replay_round(round_ev, my_seat)
-            except SkipRound as ex:
-                agg["self_check_fail"] += 1
-                print("  [skip-round] %s r%s: %s" %
-                      (os.path.basename(path), round_ev["round_no"], ex))
-                continue
-            # 局终我方手牌长度应合法：普通 13/14（无杠时）或本局已胡我方清下
-            # （本 oracle 不跟踪副露，故只接受 13/14/12 底线以外计为不合法）。
-            if end_hand_len in (13, 14):
-                agg["hand_len_ok"] += 1
-            else:
-                agg["hand_len_bad"] += 1
-            agg["rounds"] += 1
-            agg["decision_points"] += len(dps)
-
-            for dp in dps:
-                act = dp["actual"]
-                # 触发统计 —— 实际 hu
-                if act["action"] == "hu":
-                    agg["human_hu"] += 1
-                    try:
-                        fc = fan_calc(dp["concealed13"], dp["drawn"],
-                                      {"count": 0, "piao": 0})
-                    except ValueError:
-                        fc = {"hu": False}
-                    if fc.get("hu"):
-                        agg["hu_ok"] += 1
-                    else:
-                        agg["warn"] += 1
-                        print("  [warn] human hu 判定失败 r%s hand=" %
-                              round_ev["round_no"],
-                              dp["concealed13"] + [dp["drawn"]], "")
-                    if dp["baotou"]:
-                        agg["baotou"] += 1
-                        if dp["drawn"] == WHITE:
-                            agg["baotou_white"] += 1
-                # 各策略重决策
-                view = make_view(dp, my_seat)
-                decided = {}
-                for st, n in zip(strats, out_names):
-                    try:
-                        a = st.decide(view)
-                    except Exception as e:      # noqa: BLE001
-                        agg["warn"] += 1
-                        a = None
-                    decided[n] = a
-                    if a is None:
-                        continue
-                    d = div[n]
-                    d["n"] += 1
-                    if a != act:
-                        d["diff"] += 1
-                        key = act["action"] if act["action"] in ("hu", "discard") \
-                            else "other"
-                        d["by_phase"][key] = d["by_phase"].get(key, 0) + 1
-                    if a.get("action") == "discard" and a.get("tile") == WHITE:
-                        discard_white[n] += 1
-
-                # E 基准动作（供 vsE 与进度代理共用；decided 已含全部策略）
-                ae = decided.get("speedE") if "speedE" in out_names else None
-
-                # 候选 vs E 配对分歧（同一真机局面上两策略的差异——执行面宽度）
-                if "speedE" in out_names and ae is not None:
+            winner = round_ev.get("_winner")
+            # round_ended 的胜者（=rounds 顶层或事件 seat）由各座 replay 内部处理
+            for seat_idx in range(4):
+                if seat_filter is not None and seat_idx not in seat_filter:
+                    continue
+                s = seats[seat_idx] if seat_idx < len(seats) else {}
+                uid = (s or {}).get("user_id", "?")
+                if ns.exclude_uid and uid == ns.exclude_uid:
+                    continue
+                t = t_of(uid, (s or {}).get("name", "?"))
+                t["files"].add(os.path.basename(path))
+                try:
+                    dps, end_len, ms = replay_round(round_ev, seat_idx)
+                except SkipRound as ex:
+                    skip_rounds += 1
+                    if skip_rounds <= 8:
+                        print("  [skip-round] %s r%s seat%d: %s" %
+                              (os.path.basename(path), round_ev["round_no"],
+                               seat_idx, ex))
+                    continue
+                t["rounds"] += 1
+                t["chi"] += ms["chi"]
+                t["peng"] += ms["peng"]
+                t["gang"] += ms["gang"]
+                t["decline"] += ms["decline"]
+                # 局终手牌合法性：13/14-3e-g 的容差范围 8..14（杠组多时偏小）
+                if not (8 <= end_len <= 14):
+                    t["hand_bad"] += 1
+                t["dps"] += len(dps)
+                for dp in dps:
+                    act = dp["actual"]
+                    if act["action"] == "hu":
+                        t["hu"] += 1
+                        try:
+                            fc = fan_calc(dp["concealed"], dp["drawn"],
+                                          {"count": 0, "piao": 0},
+                                          exposed_melds=dp["e"],
+                                          gangs=dp["g"])
+                        except ValueError:
+                            fc = {"hu": False}
+                        if fc.get("hu"):
+                            t["hu_ok"] += 1
+                        else:
+                            t["warn"] += 1
+                    # E（及多策略）重放
+                    view = make_view(dp, seat_idx)
+                    decided = {}
                     for st, n in zip(strats, out_names):
-                        if n == "speedE":
-                            continue
-                        a = decided.get(n)
+                        try:
+                            a = st.decide(view)
+                        except Exception:      # noqa: BLE001
+                            a = None
+                        decided[n] = a
                         if a is None:
                             continue
-                        ve = vsE[n]
-                        ve["n"] += 1
-                        if a != ae:
-                            ve["diff"] += 1
-                            key = a.get("action", "?") if isinstance(a, dict) \
-                                else "?"
-                            ve["by_phase"][key] = ve["by_phase"].get(key, 0) + 1
-
-                # 进度代理：draw 自由弃牌 && E 也弃 → 比较 (同择 / 异择)
-                # 异择且弃后都进一步到听(向听0)：记活等待差 (E - actual)，
-                # 正=实际保留的更少等待→E 在 ukeire 口径更优。
-                if act["action"] == "discard" and ae is not None and \
-                        ae.get("action") == "discard":
-                    atile, etile = act["tile"], (ae.get("tile") or "")
-                    if atile == etile:
-                        proxy["n"] += 1
-                        proxy["agree"] += 1
-                        continue
-                    pa = _proxy(dp["my_hand"], dp["river"], atile)
-                    pe = _proxy(dp["my_hand"], dp["river"], etile)
-                    proxy["n"] += 1
-                    proxy["disagree"] += 1
-                    if pa and pe:
-                        sa, la = pa
-                        se, le = pe
-                        if sa == 0:
-                            proxy["human_keeps_tenpai"] += 1
-                        if se == 0:
-                            proxy["E_keeps_tenpai"] += 1
-                        if sa == 0 and se == 0:
-                            proxy["both_tenpai_pairs"] += 1
-                            proxy["sum_a_live"] += la
-                            proxy["sum_e_live"] += le
+                        d = t["div"][n]
+                        d["n"] += 1
+                        if a != act:
+                            d["diff"] += 1
+                    ae = decided.get("speedE") if "speedE" in out_names \
+                        else None
+                    # 进度代理：自由弃牌且 E 也弃
+                    if act["action"] == "discard" and ae is not None and \
+                            ae.get("action") == "discard":
+                        atile, etile = act["tile"], (ae.get("tile") or "")
+                        p = t["proxy"]
+                        if atile == etile:
+                            p["n"] += 1
+                            p["agree"] += 1
+                            continue
+                        pa = _proxy(dp["my_hand"], dp["river"], atile,
+                                    dp["e"], dp["g"])
+                        pe = _proxy(dp["my_hand"], dp["river"], etile,
+                                    dp["e"], dp["g"])
+                        p["n"] += 1
+                        p["disagree"] += 1
+                        if pa and pe:
+                            sa, la = pa
+                            se_, le = pe
+                            if sa == 0:
+                                p["a_tenpai"] += 1
+                            if se_ == 0:
+                                p["e_tenpai"] += 1
+                            if sa == 0 and se_ == 0:
+                                p["both"] += 1
+                                p["sa"] += la
+                                p["se"] += le
 
     # ----------------------- 汇总输出 -----------------------
     def pct(a, b):
         return 100.0 * a / b if b else 0.0
 
-    print("=========================================================")
-    print("== 复盘离线 oracle 结论 ==")
-    print("文件数=%d  局数=%d  决策点=%d  自检失败(跳过局)=%d"
-          % (agg["files"], agg["rounds"], agg["decision_points"],
-             agg["self_check_fail"]))
-    print("局终我方手牌长度合法(13/14)=%d  不合法=%d"
-          % (agg["hand_len_ok"], agg["hand_len_bad"]))
-    print("顶层 rounds winner==我 局数=%d" % agg["rounds_winner_self"])
-    print("我方实际动作 hu=%d（其中经 mahjong.fan.calc 判 hu 合法=%d；不合法即"
-          "弃胡/超时自动胡差异告警=%d）"
-          % (agg["human_hu"], agg["hu_ok"], agg["warn"]))
-    print("  hu 中爆头=%d,  爆头且摸白=%d" % (agg["baotou"], agg["baotou_white"]))
-    print("-- 分歧(我方 实际动作 vs 策略重放) --")
-    for n in out_names:
-        d = div[n]
-        print("  %-8s 可比=%d  分歧=%d (%.1f%%)  by_action=%s"
-              % (n, d["n"], d["diff"], pct(d["diff"], d["n"]),
-                 json.dumps(d["by_phase"])))
-    if vsE:
-        print("-- 候选 vs E（同一真机局面重放的策略对差异 = 执行面宽度） --")
-        for n, d in vsE.items():
-            print("  %-8s 可比=%d  差异=%d (%.1f%%)  by_cand_action=%s"
-                  % (n, d["n"], d["diff"], pct(d["diff"], d["n"]),
-                     json.dumps(d["by_phase"])))
-    print("-- 财飘(重放返回 discard 白)触发次数 --")
-    for n in out_names:
-        print("  %-8s discard_white=%d" % (n, discard_white[n]))
-    print("-- 进度代理(实际弃 vs E 弃; free-draw 弃) --")
-    if proxy["n"]:
-        pa_ = proxy
-        if not pa_["disagree"]:
-            m = "无同时弃且异选样本"
-        else:
-            m = ("异选 n=%d: 弃后仍听 人类=%d E=%d | 两者都听的 %d 对平均活等待 "
-                 "人类=%.2f E=%.2f" % (pa_["disagree"],
-                                        pa_.setdefault("human_keeps_tenpai", 0),
-                                        pa_.setdefault("E_keeps_tenpai", 0),
-                                        pa_["both_tenpai_pairs"],
-                                        pa_["sum_a_live"] / pa_["both_tenpai_pairs"]
-                                        if pa_["both_tenpai_pairs"] else 0,
-                                        pa_["sum_e_live"] / pa_["both_tenpai_pairs"]
-                                        if pa_["both_tenpai_pairs"] else 0))
-        print("  比较对=%d  同选=%d  异选=%d | %s"
-              % (pa_["n"], pa_["agree"], pa_["disagree"], m))
-    else:
-        print("  无数据")
-
+    print("=" * 40)
+    print("== 复盘离线 oracle（多目标座 = 人类）==")
+    print("文件=%d  跳过局=%d  目标(用户)=%d" %
+          (files_seen, skip_rounds, len(T)))
+    for uid in sorted(T):
+        t = T[uid]
+        divE = t["div"].get("speedE") or {"n": 0, "diff": 0}
+        p = t["proxy"]
+        pp = "异选%d: 弃后仍听 人%d/E%d 双听%d对活等待 %.2f/%.2f" % (
+            p["disagree"], p["a_tenpai"], p["e_tenpai"], p["both"],
+            p["sa"] / p["both"] if p["both"] else 0,
+            p["se"] / p["both"] if p["both"] else 0) if p["n"] else "无弃牌样本"
+        print("-- %s(%s) 局%d 决策%d 胡%d/%d 吃%d碰%d杠%d 弃窗%d" %
+              (t["name"], uid[:8], t["rounds"], t["dps"], t["hu"], t["hu_ok"],
+               t["chi"], t["peng"], t["gang"], t["decline"]))
+        print("   E分歧 %d/%d (%.1f%%)  | %s" %
+              (divE["diff"], divE["n"], pct(divE["diff"], divE["n"]), pp))
+    # 全体合并
+    A = {"rounds": 0, "dps": 0, "hu": 0, "hu_ok": 0, "chi": 0, "peng": 0,
+         "gang": 0, "decline": 0, "divn": 0, "divd": 0,
+         "pn": 0, "pagree": 0, "pdis": 0, "a_ten": 0, "e_ten": 0,
+         "both": 0, "sa": 0.0, "se": 0.0}
+    for t in T.values():
+        for k in ("rounds", "dps", "hu", "hu_ok", "chi", "peng", "gang",
+                  "decline"):
+            A[k] += t[k]
+        de = t["div"].get("speedE") or {"n": 0, "diff": 0}
+        A["divn"] += de["n"]
+        A["divd"] += de["diff"]
+        p = t["proxy"]
+        A["pn"] += p["n"]
+        A["pagree"] += p["agree"]
+        A["pdis"] += p["disagree"]
+        A["a_ten"] += p["a_tenpai"]
+        A["e_ten"] += p["e_tenpai"]
+        A["both"] += p["both"]
+        A["sa"] += p["sa"]
+        A["se"] += p["se"]
+    print("=" * 40)
+    print("【全体人类合并】局=%d 决策=%d 胡=%d/%d 吃=%d 碰=%d 杠=%d "
+          "窗口拒绝=%d" % (A["rounds"], A["dps"], A["hu"], A["hu_ok"],
+                         A["chi"], A["peng"], A["gang"], A["decline"]))
+    print("E vs 人类弃牌分歧 %d/%d (%.1f%%) | 副露接受率 %.1f%% "
+          "(%d/(%d+%d))" % (A["divd"], A["divn"],
+                           pct(A["divd"], A["divn"]),
+                           pct(A["chi"] + A["peng"] + A["gang"],
+                               A["chi"] + A["peng"] + A["gang"] +
+                               A["decline"]),
+                           A["chi"] + A["peng"] + A["gang"],
+                           A["chi"] + A["peng"] + A["gang"], A["decline"]))
+    if A["pn"]:
+        print("弃牌代理：异选=%d 弃后仍听 人类=%d E=%d | 双听 %d 对平均活等待 "
+              "人类=%.2f E=%.2f" % (A["pdis"], A["a_ten"], A["e_ten"],
+                                    A["both"],
+                                    A["sa"] / A["both"] if A["both"] else 0,
+                                    A["se"] / A["both"] if A["both"] else 0))
     if ns.json:
-        summary = {
-            **agg,
-            "divergence": {k: dict(v) for k, v in div.items()},
-            "vsE": {k: dict(v) for k, v in vsE.items()},
-            "discard_white": {k: v for k, v in discard_white.items()},
-            "proxy_agg": dict(proxy),
-        }
-        print(json.dumps(summary, ensure_ascii=False))
+        out = {}
+        for uid, t in T.items():
+            out[uid] = {k: (sorted(v) if isinstance(v, set) else v)
+                        for k, v in t.items() if k != "div"}
+            out[uid]["div_speedE"] = t["div"].get("speedE")
+        print(json.dumps(out, ensure_ascii=False))
     return 0
 
 
