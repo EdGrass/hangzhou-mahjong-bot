@@ -90,9 +90,10 @@ def play_game(client, gid, strategy, recorder=None):
             elif ev == "event":
                 res = client.game_state(gid, seq)   # 帧后拉增量（本地水位）
             else:
-                # keepalive/timeout：30s 无新事件 → 与旧版 pending 等价的空转，
-                # 保留下方 pending_count 的跨局/换庄 seq=0 兜底节奏（~60s 一次）
-                res = {"pending": True}
+                # keepalive/timeout：30s 无新事件 → 仍按旧版节奏做一次挂起
+                # state（跨局发牌/漏帧等"无事件推进"靠它发现；挂起至多 30s
+                # 返回 pending）。notify 只负责把事件到达提前，不改变兜底语义。
+                res = client.game_state(gid, seq)
         else:
             res = client.game_state(gid, seq)
         snap = res.get("snapshot")
