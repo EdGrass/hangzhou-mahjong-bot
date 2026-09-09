@@ -27,6 +27,7 @@ F16 = {  # 9月4日赛 16 强名单（rank2 李兆坤等在列，含 user_id 前
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--file", default="var/auto_ranking.jsonl")
+    ap.add_argument("--strategy", default="", help="按 strategy 字段过滤（如 speedE/speedm）")
     args = ap.parse_args()
     if not os.path.exists(args.file):
         raise SystemExit("无数据: %s" % args.file)
@@ -34,7 +35,10 @@ def main():
     for line in open(args.file, encoding="utf-8"):
         line = line.strip()
         if line:
-            rooms.append(json.loads(line))
+            rec = json.loads(line)
+            if args.strategy and rec.get("strategy") != args.strategy:
+                continue
+            rooms.append(rec)
     print("已归档房数: %d" % len(rooms))
     me_ranks, me_scores, champ_scores, room_rows = [], [], [], []
     beaten_by = {}
