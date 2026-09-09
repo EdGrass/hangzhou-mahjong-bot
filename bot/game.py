@@ -174,6 +174,14 @@ def play_game(client, gid, strategy, recorder=None):
             if view["phase"].startswith("response_") and \
                     view.get("turn") == offer_seat:
                 view["offer_tile"] = offer_tile
+        # v24 兜底（2026-09-09 实测）：409/重建等路径下 tile_discarded 事件
+        # 可能缺失 → self_offer 注入失效（自动房 61% 窗口 offer 缺失致副露被
+        # 系统性压制）。窗口必由 turn 座弃牌触发 → 快照 last_discard 即该弃牌。
+        if view["phase"].startswith("response_") and \
+                not view.get("offer_tile"):
+            ld = snap.get("last_discard") if snap is not None else None
+            if isinstance(ld, str) and ld:
+                view["offer_tile"] = ld
         # 本人出牌后清掉过期 offer（同弃牌不重复评估）
         if self_offer is not None and view["phase"] == "draw" and \
                 view.get("turn") == view["seat"]:
