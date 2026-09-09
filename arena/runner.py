@@ -70,6 +70,13 @@ def _speedt():
     return SpeedT()
 
 
+@_reg("speedtm")
+def _speedtm():
+    """T+M 组合（tie 偏好 + 副露放宽，见 bot/speedtm.py）。"""
+    from bot.speedtm import SpeedTM
+    return SpeedTM()
+
+
 def parse_combo(combo):
     """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []
