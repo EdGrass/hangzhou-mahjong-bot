@@ -105,6 +105,12 @@ def play_game(client, gid, strategy, recorder=None):
 
         reason = _end_reason(res, snap)
         if reason:
+            # 场终批可能携带 round_ended 等收尾事件——先喂 recorder 再退出
+            # （2026-09-09 实测：此批被短路导致录制事件缺 round_ended，
+            #   逐局结果/语料不完整）
+            for ev in res.get("events") or []:
+                if recorder:
+                    recorder.on_event(gid, ev)
             log("本场结束: %s（gid=%s）", reason, gid)
             if recorder:
                 recorder.close_game(gid)
