@@ -67,6 +67,10 @@ def parse_log(path):
                 code, ph, act = m.group(1), m.group(2), m.group(3)
                 health["inv_phase"][ph] = health["inv_phase"].get(ph, 0) + 1
                 health["inv_act"][act] = health["inv_act"].get(act, 0) + 1
+                if act != "pass":
+                    # harmful 409：非 pass 被拒 = 真实损失（窗口竞争/时机错过）；
+                    # pass 409 在外部快对手房是无害噪音（服务器视同未响应→超时 pass）
+                    health["inv_harmful"] = health.get("inv_harmful", 0) + 1
                 continue
             if INV_RE_OLD.search(line):     # 旧格式日志（无 phase 细目）
                 health["invalid"] += 1
@@ -149,6 +153,7 @@ def audit(specs, roles):
             "strat": strat, "games": h["finished"], "records": len(recs),
             "invalid": h["invalid"], "invalid_per_game":
                 round(h["invalid"] / h["finished"], 2) if h["finished"] else None,
+            "inv_harmful": h.get("inv_harmful", 0),
             "inv_phase": h["inv_phase"], "inv_act": h["inv_act"],
             "xlog": h["xlog"], "slow_decides": h["slow"],
             "slow_max_ms": h["slow_max_ms"], "exc": h["exc"],
