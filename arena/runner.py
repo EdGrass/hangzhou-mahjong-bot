@@ -63,6 +63,13 @@ def _speedu():
     return SpeedU()
 
 
+@_reg("speedt")
+def _speedt():
+    """tie 弃牌偏好候选 C012（E+拆对后置/孤张优先，见 bot/speedt.py）。"""
+    from bot.speedt import SpeedT
+    return SpeedT()
+
+
 def parse_combo(combo):
     """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []
