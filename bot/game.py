@@ -81,6 +81,7 @@ def play_game(client, gid, strategy, recorder=None):
             notifier.start()
         except Exception:
             notifier = None     # 构造失败 → 长轮询
+    last_res_kind = "?"         # 探针：最近一次循环响应的形态
     while True:
         if notifier is not None and not notifier.down:
             ev = notifier.wait_event(timeout=33.0)
@@ -96,6 +97,9 @@ def play_game(client, gid, strategy, recorder=None):
                 res = client.game_state(gid, seq)
         else:
             res = client.game_state(gid, seq)
+        last_res_kind = "events" if res.get("events") else \
+            ("snap" if res.get("snapshot") else
+             ("pend" if res.get("pending") else "fin"))
         snap = res.get("snapshot")
 
         reason = _end_reason(res, snap)
@@ -232,9 +236,10 @@ def play_game(client, gid, strategy, recorder=None):
                 # 若正处于窗口期，先标记已响应防重复提交（409 风暴源）
                 log("手牌形态暂不一致 len=%d expect=%d e=%d g=%d —— 跳过本轮",
                     len(hand), expect_hold, exposed, gangs)
-                log("  [debug] snap_hand=%s drawn=%r self_gang_tiles=%s self_replenish=%r",
-                    ",".join(sorted(hand)), drawn_tile, self_gang_tiles,
-                    locals().get("self_replenish", None))
+                log("  [debug] res=%s seq=%d drawn_tile=%r self_drawn=%r "
+                    "snap_hand=%s", last_res_kind, seq, drawn_tile,
+                    self_drawn, ",".join(sorted(hand)))
+                log("  [debug] self_gang_tiles=%s self_replenish=%r",
                 if view["phase"].startswith("response_"):
                     last_window_key = (view["phase"], view["turn"])
                 continue
