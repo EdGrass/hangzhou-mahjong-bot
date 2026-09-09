@@ -16,4 +16,10 @@ __version__ = "1.0.0"
 #   （c660ccc + tests/test_engine_v21.py + 黄金集 140 例在线刷新）；
 # v24（BREAKING 2026-09-08）：删除 POST /api/users 匿名注册、全局令牌须门户绑定
 #   ——本 bot 令牌来源 = 门户测试房/报名令牌，不受影响（run_bot 注释已更新）。
-GUIDE_VERSION_KNOWN = 24
+# v25（BREAKING 2026-09-08）：服务端补齐「吃最多 2 摊」校验——speed._want_claim
+#   chi 分支已自限（chi_cnt>=2 拒，防 harmful 409）；
+# v26（changed 2026-09-08）：抓打圈豁免方（打财神者本人）可吃碰明杠补杠；快照
+#   god 新增 god_discarder_seat——我方弃白场景极低频（自动房实测 0 弃白），
+#   snap_god 映射字段预留在 model.py，行为适配待真机实测后落地；
+# v27（portal 榜 added/changed）：bot 玩家 API 零影响。
+GUIDE_VERSION_KNOWN = 27

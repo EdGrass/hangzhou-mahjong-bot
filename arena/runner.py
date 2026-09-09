@@ -49,6 +49,13 @@ def _speedp():
     return SpeedP()
 
 
+@_reg("speedm")
+def _speedm():
+    """副露放宽候选 C010（E+after<=before 判据，见 bot/speedm.py）。"""
+    from bot.speedm import SpeedM
+    return SpeedM()
+
+
 def parse_combo(combo):
     """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []

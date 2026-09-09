@@ -136,6 +136,12 @@ def _want_claim(view, kind):
     if before == 0:
         return False            # 已听：保留听形
     if kind == "chi":
+        # v25（2026-09-08）：服务端补齐「吃最多 2 摊」校验——同一局已有 2 组
+        # 吃后第 3 次 chi 被 409；策略层先自限（防 harmful 409）
+        chi_cnt = sum(1 for m in (view.get("melds") or [])
+                      if isinstance(m, dict) and m.get("type") == "chi")
+        if chi_cnt >= 2:
+            return False
         best = 99
         for pair in _chi_pairs(hand, offer):
             v = _claim_value(hand, offer, "chi", exposed, gangs, pair)
