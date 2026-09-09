@@ -56,6 +56,13 @@ def _speedm():
     return SpeedM()
 
 
+@_reg("speedu")
+def _speedu():
+    """K1 有效牌 tie 候选（E 派生，见 bot/speedu.py）。"""
+    from bot.speedu import SpeedU
+    return SpeedU()
+
+
 def parse_combo(combo):
     """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []

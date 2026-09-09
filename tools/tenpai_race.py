@@ -112,8 +112,13 @@ def run_round(start_hands, events, dealer):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--prefix", default="",
+                    help="只分析文件名以此前缀开头的 gid（如 a_6d4b7bf44a20）")
     args = ap.parse_args()
     files = sorted(glob.glob("var/replays/server/*.json"))
+    if args.prefix:
+        files = [f for f in files
+                 if os.path.basename(f).startswith(args.prefix)]
     if args.limit:
         files = files[: args.limit]
     # 聚合键：user_id（seats 映射）；列 = [席局, 胡, 听牌首次巡和, 听牌次数,
