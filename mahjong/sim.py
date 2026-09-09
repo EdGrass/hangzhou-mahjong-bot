@@ -21,6 +21,7 @@ import random
 
 from .fan import calc as calc_fan
 from .hu import is_baotou, is_win
+from .shanten_exact import shanten as _exact_shanten
 from .tiles import GOD_TILE
 
 WALL_RESERVE = 20                            # 最后 20 张保留不摸
@@ -81,7 +82,9 @@ class SimGame:
                       "fan_total": list(z), "draw_count": 0,
                       "violations": 0, "fallbacks": 0,
                       "chi": list(z), "peng": list(z), "gang": list(z),
-                      "chain_hu": 0, "catch_rounds": 0, "viol_sites": []}
+                      "chain_hu": 0, "catch_rounds": 0, "viol_sites": [],
+                      "tenpai_ever": list(z),       # 曾听牌的局数（每座）
+                      "tenpai_at_sum": list(z)}     # 听牌时摸牌序号累计
 
     def _viol(self, seat, site):
         self.stats["violations"] += 1
@@ -256,16 +259,20 @@ class SimGame:
         seat = dealer
         state = "ready"                       # ready: 已摸牌待行动; discard: 副露/杠后出牌
         drawn = None
+        tenpai_seen = [False] * 4             # 本局各座是否已听牌（出牌后判）
+        seat_draws = [0] * 4                  # 本局各座摸牌序号
         while True:
             if state == "ready":
                 if seat == self.catch_at:
                     self.catch_at = None      # 抓打圈随本人摸牌解除
                 if not self._draw_ok():
                     self.stats["draw_count"] += 1
+                    self._tenpai_end(tenpai_seen)
                     return None               # 流局
                 drawn = self.wall.pop(0)
                 self.hands[seat].append(drawn)
                 self.hands[seat].sort()
+                seat_draws[seat] += 1
             # --- 行动：胡 / 自杠（仅 ready）；随后统一出牌 ---
             view = self._view(seat, "draw", drawn=drawn)
             act = self._decide(seat, view)
@@ -273,6 +280,7 @@ class SimGame:
             if state == "ready":
                 if a == "hu" and self._hu_check(seat):
                     self._finish_hu(seat, dealer, drawn)
+                    self._tenpai_end(tenpai_seen)
                     return seat
                 if a == "gang" and self._own_gang(seat):
                     state = "discard"         # 暗杠/补杠后必须出牌（本版不补牌）
@@ -296,6 +304,7 @@ class SimGame:
                 tile = hand[0]
             if tile is None:                  # 防御：无牌可出
                 self.stats["draw_count"] += 1
+                self._tenpai_end(tenpai_seen)
                 return None
             if state == "ready":
                 must = (self.catch_at is not None and seat != self.catch_at)
@@ -318,6 +327,21 @@ class SimGame:
                 self.piao[seat] = 0
             hand.remove(tile)
             self.river.append(tile)         # 弃牌公开入河（含被碰/吃走者，与真机事件同口径）
+            # 听牌统计（2026-09-09）：出牌后 13-3e-g 张存在任何补入即胡 =
+            # 听牌；用 is_win（_core_win lru 缓存）快速判定，避免 exact_shanten
+            # 高成本插桩。每座每局只记首次（摸牌序号 = 听牌速度代理）。
+            if not tenpai_seen[seat]:
+                ee, gg = self._e(seat), self._g(seat)
+                try:
+                    win = any(
+                        is_win(hand + [t], exposed_melds=ee, gangs=gg)
+                        for t in ALL_CODES
+                        if not (t == GOD_TILE and hand.count(t) >= 4))
+                    if win:
+                        tenpai_seen[seat] = True
+                        self.stats["tenpai_at_sum"][seat] += seat_draws[seat]
+                except ValueError:
+                    pass
             # --- 窗口 ---
             claim = self._respond_windows(seat, tile)
             if claim is None:
@@ -330,6 +354,12 @@ class SimGame:
             seat = actor
             state = "discard"
             drawn = None
+
+    def _tenpai_end(self, tenpai_seen):
+        """局终：曾听牌各座累计（供听牌率/听牌速度统计）。"""
+        for s in range(4):
+            if tenpai_seen[s]:
+                self.stats["tenpai_ever"][s] += 1
 
     # ---------- 场次 ----------
     def run(self):
