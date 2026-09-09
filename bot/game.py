@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import json
 import os
 import time
 
@@ -157,7 +158,11 @@ def play_game(client, gid, strategy, recorder=None):
             seq = int(res.get("seq", seq))
 
         view = snap_view(snap)
-        view.update(tracker.view_extra())   # 注入本人副露（策略 view 扩展键）
+        # 副露权威源（v24 适配 2026-09-08）：服务器快照自带 melds 数组时直接
+        # 采用（tracker 与服务器在窗口竞态下会分叉——自动房实测 tracker 多记
+        # 一组致 guard 风暴）；仅字段缺失（旧版/观赛）时退回本地 tracker。
+        if not view.pop("_snap_has_melds", False):
+            view.update(tracker.view_extra())   # 注入本人副露（兜底路径）
         view["river"] = list(river)         # 注入公开弃牌河（SpeedG 已见扣减用）
         if view["seat"] < 0:
             continue            # 观赛视角无动作权
@@ -241,6 +246,18 @@ def play_game(client, gid, strategy, recorder=None):
                     self_drawn, ",".join(sorted(hand)))
                 log("  [debug] self_gang_tiles=%s self_replenish=%r",
                     self_gang_tiles, self_replenish)
+                if os.environ.get("HM_SNAPDEBUG"):
+                    # 根因探针：拉服务器权威快照，对照 melds/长度与本地 tracker
+                    try:
+                        auth = client.game_state(gid, 0)
+                        a_snap = auth.get("snapshot") or {}
+                        log("  [snapdebug] srv_len=%d srv_melds=%s srv_drawn=%r",
+                            len(a_snap.get("my_hand") or []),
+                            json.dumps(a_snap.get("melds") or [],
+                                       ensure_ascii=False)[:200],
+                            a_snap.get("drawn_tile"))
+                    except Exception:
+                        pass
                 if view["phase"].startswith("response_"):
                     last_window_key = (view["phase"], view["turn"])
                 continue

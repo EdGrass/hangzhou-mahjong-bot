@@ -87,18 +87,40 @@ def _int_or(v, default):
 
 
 def snap_view(snap):
-    """从快照提炼本人视角视图（策略层输入），字段缺失时取安全默认。"""
+    """从快照提炼本人视角视图（策略层输入），字段缺失时取安全默认。
+
+    v24 快照语义（2026-09-08 实测校准）：快照自带 melds（四家副露数组，
+    形如 [{kind:"chi"|"peng"|"gang", tiles:[...]}, ...] ×4）与 drawn_tile
+    （本人刚摸）——v14 时代"快照无 melds 需本地 tracker 累计"的结论已过时；
+    game.py 以服务器 melds[seat] 为权威，tracker 仅作字段缺失时的兜底。
+    """
     god = snap_god(snap)
     seat = _int_or(snap.get("seat"), -1)
+    melds = []
+    raw_melds = snap.get("melds")
+    if isinstance(raw_melds, list) and len(raw_melds) == 4 and \
+            0 <= seat < 4 and isinstance(raw_melds[seat], list):
+        # kind→type 归一（服务器 kind: chi|peng|gang；杠补后仍为 gang）
+        for m in raw_melds[seat]:
+            if not isinstance(m, dict):
+                continue
+            kind = m.get("kind") or m.get("type")
+            if kind not in ("chi", "peng", "gang"):
+                continue
+            ts = m.get("tiles") or []
+            melds.append({"type": kind, "tile": ts[0] if ts else ""})
     return {
         "seat": seat,                       # 本人座位（观赛 -1）
         "phase": snap.get("phase") or "",   # deal|draw|response_*|settled|finished
         "turn": _int_or(snap.get("turn"), -1),
         "responding_seats": list(snap.get("responding_seats") or []),
-        "drawn_tile": snap.get("drawn_tile") or None,   # 仅本人刚摸的牌
+        "drawn_tile": snap.get("drawn_tile") or None,   # 本人刚摸（v24 快照自带）
         "my_hand": list(snap.get("my_hand") or []),
+        "melds": melds,                     # 本人副露（服务器权威；空=无）
         "god": god,
         "scores": snap.get("scores"),
+        "_snap_has_melds": bool(melds) or
+        (isinstance(raw_melds, list) and len(raw_melds) == 4),
     }
 
 
