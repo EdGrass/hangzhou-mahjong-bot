@@ -320,7 +320,7 @@ def run(argv=None):
         raise SystemExit("无指定策略")
 
     files = [ns.file] if ns.file else sorted(
-        glob.glob(os.path.join(ns.dir, "t_*.json")))
+        glob.glob(os.path.join(ns.dir, "*.json")))
     if ns.limit:
         files = files[: ns.limit]
 
