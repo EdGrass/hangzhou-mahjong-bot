@@ -84,7 +84,8 @@ class SimGame:
                       "chi": list(z), "peng": list(z), "gang": list(z),
                       "chain_hu": 0, "catch_rounds": 0, "viol_sites": [],
                       "tenpai_ever": list(z),       # 曾听牌的局数（每座）
-                      "tenpai_at_sum": list(z)}     # 听牌时摸牌序号累计
+                      "tenpai_at_sum": list(z),     # 听牌时摸牌序号累计
+                      "bao_ever": list(z)}          # 曾到达爆头态（任意摸胡）的局数
 
     def _viol(self, seat, site):
         self.stats["violations"] += 1
@@ -260,6 +261,7 @@ class SimGame:
         state = "ready"                       # ready: 已摸牌待行动; discard: 副露/杠后出牌
         drawn = None
         tenpai_seen = [False] * 4             # 本局各座是否已听牌（出牌后判）
+        bao_seen = [False] * 4                # 本局各座是否到达爆头态
         seat_draws = [0] * 4                  # 本局各座摸牌序号
         while True:
             if state == "ready":
@@ -330,14 +332,20 @@ class SimGame:
             # 听牌统计（2026-09-09）：出牌后 13-3e-g 张存在任何补入即胡 =
             # 听牌；用 is_win（_core_win lru 缓存）快速判定，避免 exact_shanten
             # 高成本插桩。每座每局只记首次（摸牌序号 = 听牌速度代理）。
-            if not tenpai_seen[seat]:
+            if not tenpai_seen[seat] or \
+                    (not bao_seen[seat] and hand.count(GOD_TILE) >= 1):
                 ee, gg = self._e(seat), self._g(seat)
                 try:
-                    win = any(
-                        is_win(hand + [t], exposed_melds=ee, gangs=gg)
-                        for t in ALL_CODES
-                        if not (t == GOD_TILE and hand.count(t) >= 4))
-                    if win:
+                    win_cnt = 0
+                    for t in ALL_CODES:
+                        if t == GOD_TILE and hand.count(t) >= 4:
+                            continue
+                        if is_win(hand + [t], exposed_melds=ee, gangs=gg):
+                            win_cnt += 1
+                    if win_cnt == 34 and not bao_seen[seat]:
+                        bao_seen[seat] = True       # 任意摸皆胡 = 爆头态
+                        self.stats["bao_ever"][seat] += 1
+                    if win_cnt > 0 and not tenpai_seen[seat]:
                         tenpai_seen[seat] = True
                         self.stats["tenpai_at_sum"][seat] += seat_draws[seat]
                 except ValueError:
