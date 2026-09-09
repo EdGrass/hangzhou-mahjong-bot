@@ -78,8 +78,8 @@ def one_room(strategy, stamp):
             "--strategy", strategy, "--log", logp,
             "--record-replays", rec_dir]
     env = dict(os.environ)
-    if strategy != "speedE":
-        env["HM_XLOG"] = "1"          # 非 E 策略自动开分歧探针（执行验证）
+    if strategy not in ("speedE", "speedtm"):
+        env["HM_XLOG"] = "1"          # 实验候选自动开分歧探针（执行验证）
     with open(logp, "a", encoding="utf-8") as logf:
         p = subprocess.Popen(argv, cwd=ROOT, stdout=logf,
                              stderr=subprocess.STDOUT, env=env)
@@ -90,7 +90,7 @@ def one_room(strategy, stamp):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rooms", type=int, default=6)
-    ap.add_argument("--strategy", default="speedE")
+    ap.add_argument("--strategy", default="speedtm")
     args = ap.parse_args()
     if not os.path.exists(TOKEN_FILE):
         raise SystemExit("缺 var/.global_token")
