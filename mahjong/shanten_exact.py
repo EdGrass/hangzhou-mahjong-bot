@@ -38,8 +38,13 @@ def _face_ok(kind_ids, c):
     return all(c[k] > 0 for k in kind_ids)
 
 
-def _iter_decompositions(c):
-    """34 维计数（末位=白）。产出 (m, p, t)。白作为万能补位参与块。"""
+def _iter_decompositions(c, god_face=True):
+    """34 维计数（末位=白）。产出 (m, p, t)。白作为万能补位参与块。
+
+    god_face=False（C013 白保留模式，2026-09-09）：白不得补足面子
+    （顺/刻/纯白面），仅可做对子/塔子伴侣/孤张——用于评估"白留作万能
+    听"的弃牌路径（向听保守化），爆头态导向。
+    """
     i = _anchor_first(c)
     if i < 0:
         yield (0, 0, 0)
@@ -47,38 +52,38 @@ def _iter_decompositions(c):
     j = c[_GOD]
     cc = list(c)
     if i == _GOD:  # 只剩白板
-        if j >= 3:
+        if j >= 3 and god_face:
             c3 = cc[:]
             c3[_GOD] -= 3
-            for m, p, t in _iter_decompositions(c3):
+            for m, p, t in _iter_decompositions(c3, god_face):
                 yield (m + 1, p, t)
         if j >= 2:
             c2 = cc[:]
             c2[_GOD] -= 2
-            for m, p, t in _iter_decompositions(c2):
+            for m, p, t in _iter_decompositions(c2, god_face):
                 yield (m, p + 1, t)
         c1 = cc[:]
         c1[_GOD] = 0
-        for m, p, t in _iter_decompositions(c1):
+        for m, p, t in _iter_decompositions(c1, god_face):
             yield (m, p, t)
         return
     # 刻子：实体 3 / 实体 2+1白 / 实体 1+2白
     if cc[i] >= 3:
         c3 = cc[:]
         c3[i] -= 3
-        for m, p, t in _iter_decompositions(c3):
+        for m, p, t in _iter_decompositions(c3, god_face):
             yield (m + 1, p, t)
-    if cc[i] >= 2 and j >= 1:
+    if cc[i] >= 2 and j >= 1 and god_face:
         c2 = cc[:]
         c2[i] -= 2
         c2[_GOD] -= 1
-        for m, p, t in _iter_decompositions(c2):
+        for m, p, t in _iter_decompositions(c2, god_face):
             yield (m + 1, p, t)
-    if cc[i] >= 1 and j >= 2:
+    if cc[i] >= 1 and j >= 2 and god_face:
         c1 = cc[:]
         c1[i] -= 1
         c1[_GOD] -= 2
-        for m, p, t in _iter_decompositions(c1):
+        for m, p, t in _iter_decompositions(c1, god_face):
             yield (m + 1, p, t)
     # 顺子：实体位置 1~3 张，白补其余（仅数牌）
     if i < _NUM:
@@ -87,7 +92,7 @@ def _iter_decompositions(c):
         if n <= 6:
             for mask in (0b111, 0b110, 0b101, 0b011, 0b100, 0b010, 0b001):
                 need_w = 3 - bin(mask).count("1")
-                if need_w > j:
+                if need_w > j or (need_w and not god_face):
                     continue
                 ks = [i + k for k in range(3) if (mask >> (2 - k)) & 1]
                 if all(cc[k] > 0 for k in ks):
@@ -96,7 +101,7 @@ def _iter_decompositions(c):
                         c3[k] -= 1
                     if need_w:
                         c3[_GOD] -= need_w
-                    for m, p, t in _iter_decompositions(c3):
+                    for m, p, t in _iter_decompositions(c3, god_face):
                         yield (m + 1, p, t)
         # 塔子：实体两连(差1/差2)；实体1+1白 万能塔
         for d in (1, 2):
@@ -105,30 +110,30 @@ def _iter_decompositions(c):
                 c2 = cc[:]
                 c2[i] -= 1
                 c2[k2] -= 1
-                for m, p, t in _iter_decompositions(c2):
+                for m, p, t in _iter_decompositions(c2, god_face):
                     yield (m, p, t + 1)
         if j >= 1:
             cw = cc[:]
             cw[i] -= 1
             cw[_GOD] -= 1
-            for m, p, t in _iter_decompositions(cw):
+            for m, p, t in _iter_decompositions(cw, god_face):
                 yield (m, p, t + 1)
     # 对子：实体2 / 实体1+1白（纯白对/纯白面在实体耗尽后于 _GOD 锚统一处理）
     if cc[i] >= 2:
         c2 = cc[:]
         c2[i] -= 2
-        for m, p, t in _iter_decompositions(c2):
+        for m, p, t in _iter_decompositions(c2, god_face):
             yield (m, p + 1, t)
     if j >= 1:
         cw = cc[:]
         cw[i] -= 1
         cw[_GOD] -= 1
-        for m, p, t in _iter_decompositions(cw):
+        for m, p, t in _iter_decompositions(cw, god_face):
             yield (m, p + 1, t)
     # 孤张：整位当孤（含实体余张）
     c1 = cc[:]
     c1[i] = 0
-    for m, p, t in _iter_decompositions(c1):
+    for m, p, t in _iter_decompositions(c1, god_face):
         yield (m, p, t)
 
 
@@ -141,11 +146,11 @@ def _score(m, p, t, base_faces=4):
     return max(0, 2 * need - has - min(ta, need))
 
 
-@lru_cache(maxsize=65536)
-def _shanten_counts(counts_tuple, exposed, gangs):
+@lru_cache(maxsize=131072)
+def _shanten_counts(counts_tuple, exposed, gangs, god_face):
     base = 4 - exposed
     best = 2 * base
-    for m, p, t in _iter_decompositions(list(counts_tuple)):
+    for m, p, t in _iter_decompositions(list(counts_tuple), god_face):
         s = _score(m, p, t, base)
         if s < best:
             best = s
@@ -165,10 +170,12 @@ def _qidui_shanten(counts):
     return max(0, 6 - pairs)
 
 
-def shanten(hand, qidui=True, exposed_melds=0, gangs=0):
+def shanten(hand, qidui=True, exposed_melds=0, gangs=0, god_meld=True):
     """摸牌前暗牌（13-3e-g 张，含财神）的精确向听数。
 
     一般形基准面子 = 4-e；七对仅当 e=g=0 时参与。
+    god_meld=False（C013 白保留评估模式）：白不补面子（仅对/塔/孤），
+    评估"留白万能听"路径的保守向听。
     """
     e = int(exposed_melds or 0)
     g = int(gangs or 0)
@@ -177,7 +184,7 @@ def shanten(hand, qidui=True, exposed_melds=0, gangs=0):
         raise ValueError("副露 %d 杠 %d 时向听判定需 %d 张，实际 %d" % (
             e, g, need_len, len(hand)))
     counts = list(counts_of(hand))
-    best = _shanten_counts(tuple(counts), e, g)
+    best = _shanten_counts(tuple(counts), e, g, bool(god_meld))
     if qidui and e == 0 and g == 0:
         q = _qidui_shanten(counts)
         if q < best:

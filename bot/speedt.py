@@ -48,8 +48,11 @@ def _pref(d, hand):
     return 1
 
 
-def _best_discard_t(hand, drawn, exposed, gangs):
-    """弃牌：主键向听最小 → 听牌等待最大 → 弃牌偏好 pref → 保留刚摸。"""
+def _best_discard_t(hand, drawn, exposed, gangs, god_meld=True):
+    """弃牌：主键向听最小 → 听牌等待最大 → 弃牌偏好 pref → 保留刚摸。
+
+    god_meld=False（C013 白保留模式）：向听评估中白不补面子——弃牌路径
+    保守化，白倾向留作万能听（爆头导向）。"""
     best_tile, best_key = None, None
     for d in sorted(set(hand)):
         rem = list(hand)
@@ -57,7 +60,8 @@ def _best_discard_t(hand, drawn, exposed, gangs):
         s = 0
         from mahjong.shanten_exact import shanten as exact_shanten
         s = exact_shanten(rem, qidui=(exposed == 0 and gangs == 0),
-                          exposed_melds=exposed, gangs=gangs)
+                          exposed_melds=exposed, gangs=gangs,
+                          god_meld=god_meld)
         wcnt = 0
         if s == 0:
             from mahjong.shanten import waits

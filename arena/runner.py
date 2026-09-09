@@ -77,6 +77,13 @@ def _speedtm():
     return SpeedTM()
 
 
+@_reg("speedw")
+def _speedw():
+    """白保留候选 C013（E+弃牌偏好+白不补面子，见 bot/speedw.py）。"""
+    from bot.speedw import SpeedW
+    return SpeedW()
+
+
 def parse_combo(combo):
     """'speedAx4' | 'speedAx2+speedBx2'（兼容 × 全角）。"""
     names = []
