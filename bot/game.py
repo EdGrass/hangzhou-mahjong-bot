@@ -240,6 +240,7 @@ def play_game(client, gid, strategy, recorder=None):
                     "snap_hand=%s", last_res_kind, seq, drawn_tile,
                     self_drawn, ",".join(sorted(hand)))
                 log("  [debug] self_gang_tiles=%s self_replenish=%r",
+                    self_gang_tiles, self_replenish)
                 if view["phase"].startswith("response_"):
                     last_window_key = (view["phase"], view["turn"])
                 continue
