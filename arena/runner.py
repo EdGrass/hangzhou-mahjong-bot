@@ -84,6 +84,13 @@ def _speedwm():
     return SpeedWM()
 
 
+@_reg("speedtqm")
+def _speedtqm():
+    """全机制合体 C014（tie+副露+七对锁定，见 bot/speedtqm.py）。"""
+    from bot.speedtqm import SpeedTQM
+    return SpeedTQM(lead=1)
+
+
 @_reg("speedw")
 def _speedw():
     """白保留候选 C013（E+弃牌偏好+白不补面子，见 bot/speedw.py）。"""
