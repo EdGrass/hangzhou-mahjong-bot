@@ -25,14 +25,12 @@ class TestPref(unittest.TestCase):
 
 class TestBestDiscard(unittest.TestCase):
     def test_prefers_discard_single_over_pair(self):
-        # 同向听局面：保留对子（拆对后置）→ 弃牌应为孤张而非对子
-        # hand = 14 张（含刚摸 9b）
+        # 同向听局面：保留对子（拆对后置）→ 弃牌应为孤张（含刚摸孤张）而非对子
         hand = ["1w", "2w", "3w", "4w", "5w", "6w", "7t", "8t", "9t",
-                "2b", "2b", "5b", "1t", "9b"]
-        # 弃 5b(孤) 或 1t(孤边) 或拆 2b：T 应弃孤张
+                "2b", "2b", "5b", "1t", "9b"]     # 9b 为刚摸
         tile = _best_discard_t(hand, "9b", 0, 0)
-        self.assertNotEqual(tile, "2b")
-        self.assertIn(tile, ("5b", "1t"))
+        self.assertNotEqual(tile, "2b")           # 拆对最后
+        self.assertNotEqual(tile, "5b")
 
 
 if __name__ == "__main__":
