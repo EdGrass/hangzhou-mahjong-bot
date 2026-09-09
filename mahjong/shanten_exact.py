@@ -103,7 +103,8 @@ def _iter_decompositions(c, god_face=True):
                         c3[_GOD] -= need_w
                     for m, p, t in _iter_decompositions(c3, god_face):
                         yield (m + 1, p, t)
-        # 塔子：实体两连(差1/差2)；实体1+1白 万能塔
+        # 塔子：实体两连(差1/差2)；实体1+1白 万能塔（god_face=False 时禁——
+        # 白不得被塔子绑定，只能成对/孤，保证成型后白自然为孤（爆头导向））
         for d in (1, 2):
             k2 = i + d
             if k2 < base + 9 and cc[k2] > 0:
@@ -112,7 +113,7 @@ def _iter_decompositions(c, god_face=True):
                 c2[k2] -= 1
                 for m, p, t in _iter_decompositions(c2, god_face):
                     yield (m, p, t + 1)
-        if j >= 1:
+        if j >= 1 and god_face:
             cw = cc[:]
             cw[i] -= 1
             cw[_GOD] -= 1

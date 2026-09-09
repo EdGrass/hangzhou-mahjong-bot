@@ -77,6 +77,13 @@ def _speedtm():
     return SpeedTM()
 
 
+@_reg("speedwm")
+def _speedwm():
+    """白保留+副露组合 C013v2（见 bot/speedwm.py）。"""
+    from bot.speedwm import SpeedWM
+    return SpeedWM()
+
+
 @_reg("speedw")
 def _speedw():
     """白保留候选 C013（E+弃牌偏好+白不补面子，见 bot/speedw.py）。"""
