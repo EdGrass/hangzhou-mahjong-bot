@@ -32,6 +32,7 @@ def main():
     ok = True
     for name in names:
         hu = dr = vi = fb = 0
+        te = tas = 0
         cons = True
         t0 = time.time()
         for s in range(args.seeds):
@@ -42,13 +43,17 @@ def main():
             dr += st["draw_count"]
             vi += st["violations"]
             fb += st["fallbacks"]
+            te += sum(st["tenpai_ever"])
+            tas += sum(st["tenpai_at_sum"])
             cons = cons and (sum(r["totals"]) == 0)
         tot = 4 * args.seeds * args.rounds
         good = cons and vi == 0
         ok = ok and good
         print("%-10s 违规=%-5d 兜底=%-5d 守恒=%-5s 胡率=%5.1f%% "
-              "流局=%5.1f%% (%.0fs) %s" % (
-                  name, vi, fb, cons, hu / tot * 100, dr / tot * 100,
+              "听牌率=%5.1f%% 均听巡=%4.2f 流局=%5.1f%% (%.0fs) %s" % (
+                  name, vi, fb, cons, hu / tot * 100,
+                  te / tot * 100,
+                  (tas / te) if te else 0.0, dr / tot * 100,
                   time.time() - t0, "PASS" if good else "FAIL"), flush=True)
     print("稳定性矩阵:", "ALL PASS" if ok else "FAIL")
     return 0 if ok else 1
