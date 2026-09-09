@@ -17,6 +17,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mahjong.shanten_exact import shanten as S  # noqa: E402
+from mahjong.hu import is_baotou, is_win  # noqa: E402
 
 ME_UID = "u_7a3fba48d70b"
 
@@ -41,11 +42,14 @@ def _rounds(data):
 
 
 def run_round(start_hands, events, dealer):
-    """返回 (hu_seat, tenpai_at) —— tenpai_at[seat] = 首次听牌的摸牌序号或 None。"""
+    """返回 (hu_seat, tenpai_at, tenpai_bao) —— tenpai_at[seat] = 首次听牌的
+    摸牌序号；tenpai_bao[seat] = 首次听牌是否为爆头态（is_baotou）。"""
     hands = [list(h) for h in start_hands]
     melds = [[] for _ in range(4)]
     draw_no = [0, 0, 0, 0]
     tenpai_at = [None] * 4
+    tenpai_bao = [False] * 4      # 首次听牌即爆头
+    bao_ever = [False] * 4        # 整局任意时点到达爆头态（摸后摸前 13 判）
     hu_seat = None
     for e in events:
         t, seat = e.get("type"), e.get("seat")
@@ -59,15 +63,24 @@ def run_round(start_hands, events, dealer):
                 e_cnt = len(melds[seat])
                 g_cnt = sum(1 for m in melds[seat] if m.get("gang"))
                 pre = list(hands[seat])
-                if len(pre) == 14 - 3 * e_cnt - g_cnt and tenpai_at[seat] is None:
+                if len(pre) == 14 - 3 * e_cnt - g_cnt:
                     pre.pop()          # 摸前 13-3e-g
                     try:
-                        s0 = S(pre, qidui=(e_cnt == 0 and g_cnt == 0),
+                        if not bao_ever[seat]:
+                            bao_ever[seat] = is_baotou(
+                                pre, allow_qidui=True,
                                 exposed_melds=e_cnt, gangs=g_cnt)
-                        if s0 == 0:
-                            tenpai_at[seat] = draw_no[seat]
                     except ValueError:
                         pass
+                    if tenpai_at[seat] is None:
+                        try:
+                            s0 = S(pre, qidui=(e_cnt == 0 and g_cnt == 0),
+                                    exposed_melds=e_cnt, gangs=g_cnt)
+                            if s0 == 0:
+                                tenpai_at[seat] = draw_no[seat]
+                                tenpai_bao[seat] = bao_ever[seat]
+                        except ValueError:
+                            pass
         elif t == "tile_discarded":
             tile = e.get("tile")
             if tile and tile in hands[seat]:
@@ -106,7 +119,7 @@ def run_round(start_hands, events, dealer):
         elif t == "round_ended":
             hu_seat = e.get("seat")
             break
-    return hu_seat, tenpai_at
+    return hu_seat, tenpai_at, tenpai_bao, bao_ever
 
 
 def main():
@@ -135,24 +148,30 @@ def main():
         for rn, dealer, start_hands, evs in _rounds(d):
             if not start_hands or len(start_hands) != 4:
                 continue
-            hu, ta = run_round(start_hands, evs, dealer)
+            hu, ta, tb, bev = run_round(start_hands, evs, dealer)
             for seat in range(4):
                 uid = uid_of.get(seat, ("?", "?"))[0]
-                a = agg.setdefault(uid, [0, 0, 0, 0, 0])
+                a = agg.setdefault(uid, [0, 0, 0, 0, 0, 0, 0])
                 a[0] += 1
                 a[1] += 1 if hu == seat else 0
+                if bev[seat]:
+                    a[6] += 1          # 到达过爆头态
                 if ta[seat] is not None:
                     a[2] += ta[seat]
                     a[3] += 1
+                    if tb[seat]:
+                        a[5] += 1      # 首次听牌即爆头
                     if hu == seat:
                         a[4] += ta[seat]
-    print("%-28s %6s %6s %7s %7s %7s" %
-          ("name", "席局", "胡", "胡率%", "听牌率%", "均听巡"))
+    print("%-28s %6s %6s %7s %7s %7s %9s %9s" %
+          ("name", "席局", "胡", "胡率%", "听牌率%", "均听巡",
+           "爆头态局%", "首听即爆%"))
     for uid, a in sorted(agg.items(), key=lambda kv: -kv[1][1] / max(1, kv[1][0])):
-        n, hu, ts, tc, hw = a
-        print("%-28s %6d %6d %7.1f %7.1f %7.2f" %
+        n, hu, ts, tc, hw, tb, bev = a
+        print("%-28s %6d %6d %7.1f %7.1f %7.2f %9.1f %9.1f" %
               ((names.get(uid) or uid)[:28], n, hu, 100.0 * hu / max(1, n),
-               100.0 * tc / max(1, n), ts / max(1, tc)))
+               100.0 * tc / max(1, n), ts / max(1, tc),
+               100.0 * bev / max(1, n), 100.0 * tb / max(1, tc)))
 
 
 if __name__ == "__main__":
