@@ -79,12 +79,16 @@ def main():
                   r["champ_score"], r["champ_place"], r["champ_god"],
                   F16.get(r["champ_user"], r["champ_user"][:8])))
     avg = lambda xs: sum(xs) / len(xs)
-    print("\n汇总（%d 房）：" % n)
+    gp = max(1, (me.get("games_played") or 0))
+    print("\n汇总（%d 房，每房 %d 局）：" % (n, gp))
     print("  我方 rank 分布: %s（均值 %.2f）" %
           (dict((r, me_ranks.count(r)) for r in sorted(set(me_ranks))),
            avg(me_ranks)))
-    print("  我方场均 %+.2f | 冠军场均 %+.2f | 场均差 %+.2f" %
-          (avg(me_scores), avg(champ_scores), avg(me_scores) - avg(champ_scores)))
+    print("  我方累计 %+.0f（场均 %+.2f）| 冠军累计 %+.0f（场均 %+.2f）"
+          "| 场均差 %+.2f" %
+          (sum(me_scores), sum(me_scores) / (n * gp),
+           sum(champ_scores), sum(champ_scores) / (n * gp),
+           (sum(me_scores) - sum(champ_scores)) / (n * gp)))
     mp = avg([r["me_place"] for r in room_rows])
     cp = avg([r["champ_place"] for r in room_rows])
     mg = avg([r["me_god"] for r in room_rows])
