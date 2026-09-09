@@ -91,6 +91,13 @@ def _speedtqm():
     return SpeedTQM(lead=1)
 
 
+@_reg("speedtp")
+def _speedtp():
+    """TM+碰严格 C017（吃 mild/碰严格，见 bot/speedtp.py）。"""
+    from bot.speedtp import SpeedTP
+    return SpeedTP()
+
+
 @_reg("speedw")
 def _speedw():
     """白保留候选 C013（E+弃牌偏好+白不补面子，见 bot/speedw.py）。"""
