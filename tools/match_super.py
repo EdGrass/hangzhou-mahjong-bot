@@ -77,9 +77,12 @@ def one_room(strategy, stamp):
     argv = [sys.executable, "-X", "utf8", "run_bot.py", _token(), room,
             "--strategy", strategy, "--log", logp,
             "--record-replays", rec_dir]
+    env = dict(os.environ)
+    if strategy != "speedE":
+        env["HM_XLOG"] = "1"          # 非 E 策略自动开分歧探针（执行验证）
     with open(logp, "a", encoding="utf-8") as logf:
         p = subprocess.Popen(argv, cwd=ROOT, stdout=logf,
-                             stderr=subprocess.STDOUT)
+                             stderr=subprocess.STDOUT, env=env)
         code = p.wait()
     return room, logp, code
 
