@@ -1,0 +1,9 @@
+# 参赛核心（run_bot.py + bot/ + mahjong/）为**纯标准库**，无需任何第三方包。
+# 以下仅为可选组件依赖：
+
+# 本地自对弈看板 arena/dashboard.py
+fastapi>=0.110
+uvicorn>=0.27
+
+# 进程管理类运维脚本（runtime/_keeper.py, _watchdog.py, _official_keepalive.py 等）
+psutil>=5.9
