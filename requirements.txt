@@ -5,5 +5,5 @@
 fastapi>=0.110
 uvicorn>=0.27
 
-# 进程管理类运维脚本（runtime/_keeper.py, _watchdog.py, _official_keepalive.py 等）
+# A/B 评测与运维脚本（tools/ab_ctl.py、tools/rate_guard.py 的进程管理）
 psutil>=5.9
