@@ -4230,6 +4230,7 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 1. 强场里我们是“**副露最少 + 副露后胡率最低**”的一组：量少，且副露转化也差（26.0% vs 32~34%）。
 2. 与 §V.158 合起来，强场缺口的因果链是：**副露「量+质」不如对手 ⇒ 听牌率低 8.75pp ⇒ 胡率低 5.6pp ⇒ 分/轮 −1.04**。
 3. ⇒ **余下役位优先级：① 副露/索取轴（`speedvaluemeld` 及其剂量档 p35/40/45/50；`speedvaluebcmeld` 组合）、
+   ★ **R1407 更正**：本事件里的“多要”路线用 **剂量档 `speedvaluemeldp35/p40`**（`claim_p` 越低越激进），不要引 `speedvaluemeldmore0chi`：实测 `run_bot.STRATEGY_FACTORIES` **无此键**（只有 ycbk 双胞胎 `speedmeldmore0chiycbk`，仅适用 `YouCaiBiKao=true`）。
    ② 出牌牌效轴（`speedvaluebc`）、③ V（爆头）**降至第三位**。**
 4. 注意：观察数据不能区分“应该多要”还是“应该要得更准”——两条路各有现成臂（前者=`speedvaluemeldmore0chi`；后者=`speedvaluemeld`/`speedvaluebc`），
    正好可以在同一役里並行对比。
@@ -4262,3 +4263,34 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 2. 不可判定 ⇒ 进入下一役时**把该轴的剂量档一并带上**（役 5 已固定为 V 剂量；副露剂量档已写进役 4）。
 3. 役 3 四格取舍不变（BC✓V✓ → `speedvaluebcmeldp45`；BC✓V✗ → `speedvaluebaotouvmeld`；BC✗V✓ → `speedvaluemeldp45`；两者✗ → `speedvaluemeld`）。
 4. **不做**：点炮防守（§V.157 已证无此通道）、god_count 类（§V.154/ R158）、阶段风险偏好轴（仅在役 7 余量且前三条轴都已决策时才考虑）。
+
+
+---
+
+### §V.161 用户指令：**10/7 换上“最屌”的模型，准备最后的比赛**（★ 硬截止日）
+
+**用户原话**：“在七号换上你能搓出来的最屌的模型 准备最后的比赛”。
+
+**A. 什么叫“最屌”（先写死口径，不能事后挑）**
+
+1. 候选来自役 3–役 6 里**通过预登记判词**的臂（单轴 |t|≥1.96，组合臂按 `--bundles` 声明后 1.50）；没过阈值的不进候选池。
+2. 排序主键：**同席强手口径的 分/轮**（`var/_pick_arm.py --strong-top 32`）—— 四测实测证明全场平均会给假信号（§V.156）；
+   平局时比：强场胡率 → 爆头率 → 弱场稳定性。
+3. 必须通过的硬门：`var/_campaign_ready.py --arms <最终臂>`（注册/可实例化/模型在场）+ `tests` 全绿 + 提交闭包门。
+4. 若到 10/6 晚仍有两个臂“看不出差别”：选**组合臂**（两条都带上）而不是随便选一条——除非组合臂自己没注册/没模型。
+
+**B. 机械步骤（已全部预置，不靠人记忆）**
+
+| 时间 | 任务 | 行为 |
+|---|---|---|
+| 10/5–10/6 | `var/_pick_arm.py` + §V.160 取舍 | 我定最终臂并写 `var/.final_arm.txt` |
+| **10/7 09:00** | `HangzhouMajFinalSwitch` | `var/_switch_final.py --go`：停 A/B → 等对局结束 → 换 keeper 策略 → 写 `.final_installed`。**未选定最终臂就拒绝执行**；官方模式在位也拒绝。 |
+| 10/7 10:30 | `HangzhouMajFinalCheck` | `var/_final_ready_check.py`：7 项逐条 PASS/FAIL，落 `.FINAL_READY` / `.FINAL_NOT_READY` |
+| 10/8 09:00 | `HangzhouMajFinalCheck2` | 同上（提交截止 12:00 前最后一次） |
+| 10/8 12:00 前 | `var/_prepare_submission.ps1 -Go` | 提交（含 P0 补丁后的 v35 文案/代码一致） |
+
+**C. 红线（已写进脚本）**
+
+- 官方模式在位（正在打正式赛）⇒ 不换臂；
+- 最终臂未选定/未通过校验 ⇒ 不换臂；
+- 换臂过程**不强杀对局**（最多等 25 分钟，超时就停）。

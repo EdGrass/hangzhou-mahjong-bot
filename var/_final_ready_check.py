@@ -1,0 +1,117 @@
+# -*- coding: utf-8 -*-
+"""`var/_final_ready_check.py` —— **10/7\u201310/8 \u6700\u7ec8\u5c31\u7eea\u6821\u9a8c**\uff08\u53ea\u8bfb + \u5199\u81ea\u5df1\u7684\u62a5\u544a\uff09\u3002
+
+\u4e3a\u4ec0\u4e48\uff1a\u7528\u6237\u6307\u4ee4\u201c**\u5728\u4e03\u53f7\u6362\u4e0a\u4f60\u80fd\u6413\u51fa\u6765\u7684\u6700\u5c4c\u7684\u6a21\u578b\uff0c\u51c6\u5907\u6700\u540e\u7684\u6bd4\u8d5b**\u201d\u3002
+\u6362\u4e0a\u53bb\u4e4b\u540e\u5fc5\u987b\u6709\u4e00\u4e2a\u4e0d\u4f9d\u8d56\u8bb0\u5fc6\u7684\u68c0\u67e5\uff1a\u771f\u6b63\u5728\u8dd1\u7684\u7b56\u7565\u662f\u4e0d\u662f\u90a3\u4e2a\u6700\u7ec8\u81c2\u3001\u5f79\u662f\u4e0d\u662f\u5df2\u6536\u53e3\u3001
+\u63d0\u4ea4\u7269\u68c0\u67e5\u662f\u4e0d\u662f\u8fc7\u3002\u9010\u6761\u7ed3\u679c\u5199 `var/_final_ready_check.out`\uff0c\u5e76\u843d\u4e00\u4e2a\u558a\u5f97\u5f88\u54cd\u7684\u6807\u8bb0\u6587\u4ef6\u3002
+
+\u68c0\u67e5\u9879\uff08\u4efb\u4e00 FAIL \u5c31\u5199 `.FINAL_NOT_READY`\uff09\uff1a
+  1. `var/.final_arm.txt` \u5b58\u5728\u4e14\u975e\u7a7a\uff1b
+  2. \u8be5\u81c2\u5df2\u6ce8\u518c **\u4e14\u53ef\u5b9e\u4f8b\u5316**\uff08\u8c03\u7528\u771f\u5b9e factory\uff09\uff1b
+  3. `var/.final_installed` \u5b58\u5728\u4e14\u81c2\u540d\u4e0e\u4e0a\u4e00\u81f4\uff08\u5373 10/7 \u7684 `_switch_final.py --go` \u771f\u8dd1\u8fc7\uff09\uff1b
+  4. `var/_keeper_strategy.txt` == \u6700\u7ec8\u81c2\uff08\u771f\u6b63\u5728\u8dd1\u7684\u5c31\u662f\u5b83\uff09\uff1b
+  5. `var/.ab_mode` \u4e0d\u5b58\u5728\uff08\u5f79\u5df2\u6536\u53e3\uff0c\u4e0d\u4f1a\u518d\u88ab A/B \u6539\u6210\u522b\u7684\u81c2\uff09\uff1b
+  6. git \u5de5\u4f5c\u533a\u5e72\u51c0\u4e14\u672c\u5730 == origin/main\uff08\u63d0\u4ea4\u7269\u5c31\u662f\u8dd1\u7740\u7684\u4efd\uff09\uff1b
+  7. `var/_prepare_submission.ps1` \u68c0\u67e5\u6a21\u5f0f rc==0\uff08\u63d0\u4ea4\u7269\u683c\u5f0f\u5408\u89c4\uff09\u3002
+
+\u7528\u6cd5\uff1a python -X utf8 var/_final_ready_check.py
+"""
+from __future__ import annotations
+import io
+import os
+import socket
+import subprocess
+import sys
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "var"))
+OUT = os.path.join(ROOT, "var", "_final_ready_check.out")
+OK_MARK = os.path.join(ROOT, "var", ".FINAL_READY")
+BAD_MARK = os.path.join(ROOT, "var", ".FINAL_NOT_READY")
+FINAL_ARM = os.path.join(ROOT, "var", ".final_arm.txt")
+MARKER = os.path.join(ROOT, "var", ".final_installed")
+KEEPER = os.path.join(ROOT, "var", "_keeper_strategy.txt")
+AB = os.path.join(ROOT, "var", ".ab_mode")
+
+
+def read(p):
+    try:
+        return io.open(p, encoding="utf-8-sig", errors="replace").read().strip()
+    except Exception:
+        return ""
+
+
+def main():
+    lines = []
+    bad = []
+
+    def chk(name, ok, detail=""):
+        lines.append("%s %s%s" % ("PASS" if ok else "FAIL", name, (" \u2014 " + detail) if detail else ""))
+        if not ok:
+            bad.append(name)
+
+    arm = read(FINAL_ARM)
+    chk("1 \u6700\u7ec8\u81c2\u5df2\u9009\u5b9a", bool(arm), "\u81c2=%r" % arm)
+    ok_arm = False
+    if arm:
+        try:
+            sys.path.insert(0, ROOT)
+            from run_bot import STRATEGY_FACTORIES as F
+            if arm not in F:
+                chk("2 \u5df2\u6ce8\u518c\u4e14\u53ef\u5b9e\u4f8b\u5316", False, "\u672a\u6ce8\u518c")
+            else:
+                F[arm]()
+                ok_arm = True
+                chk("2 \u5df2\u6ce8\u518c\u4e14\u53ef\u5b9e\u4f8b\u5316", True, "ok")
+        except Exception as e:
+            chk("2 \u5df2\u6ce8\u518c\u4e14\u53ef\u5b9e\u4f8b\u5316", False, "%s: %s" % (type(e).__name__, str(e)[:80]))
+    else:
+        chk("2 \u5df2\u6ce8\u518c\u4e14\u53ef\u5b9e\u4f8b\u5316", False, "\u65e0\u81c2\u540d")
+    inst = read(MARKER)
+    chk("3 \u5df2\u771f\u6362\u4e0a\uff08.final_installed\uff09", bool(inst) and (("arm=" + arm) in inst),
+        inst or "\u7f3a .final_installed\uff08\u672a\u8dd1 _switch_final.py --go\uff09")
+    cur = read(KEEPER)
+    chk("4 keeper \u7b56\u7565==\u6700\u7ec8\u81c2", bool(arm) and cur == arm, "keeper=%r" % cur)
+    chk("5 \u5f79\u5df2\u6536\u53e3\uff08\u65e0 .ab_mode\uff09", not os.path.exists(AB),
+        "\u4ecd\u5728 A/B\uff08.ab_mode \u5b58\u5728\uff09" if os.path.exists(AB) else "")
+    try:
+        st = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT, capture_output=True,
+                            text=True, timeout=60).stdout.strip()
+        head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, timeout=60).stdout.strip()
+        org = subprocess.run(["git", "rev-parse", "origin/main"], cwd=ROOT, capture_output=True, text=True, timeout=60).stdout.strip()
+        chk("6 git \u5e72\u51c0\u4e14\u672c\u5730==origin/main", (not st) and head == org and bool(head),
+            "dirty=%r head=%s origin=%s" % (st[:80], head[:8], org[:8]))
+    except Exception as e:
+        chk("6 git \u5e72\u51c0\u4e14\u672c\u5730==origin/main", False, str(e)[:60])
+    try:
+        import _ps
+        cmd = _ps.argv("-NoProfile", "-File", "var/_prepare_submission.ps1")
+        p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=900)
+        tail = [l for l in (p.stdout or "").splitlines() if "FAIL" in l or "\u7ed3\u679c" in l][-4:]
+        chk("7 \u63d0\u4ea4\u7269\u68c0\u67e5 rc==0", p.returncode == 0, "rc=%s %s" % (p.returncode, " | ".join(tail)))
+    except Exception as e:
+        chk("7 \u63d0\u4ea4\u7269\u68c0\u67e5 rc==0", False, str(e)[:80])
+
+    hdr = "===== \u6700\u7ec8\u5c31\u7eea\u6821\u9a8c %s on %s =====" % (time.strftime("%Y-%m-%d %H:%M:%S"), socket.gethostname())
+    out = "\n".join([hdr] + lines + ["\u7ed3\u679c\uff1a" + ("\u5168\u90e8 PASS" if not bad else "FAIL %d \u9879\uff1a%s" % (len(bad), "\u3001".join(bad))), ""])
+    try:
+        with io.open(OUT, "a", encoding="utf-8") as f:
+            f.write(out)
+    except Exception:
+        pass
+    print(out)
+    try:
+        for p in (OK_MARK, BAD_MARK):
+            if os.path.exists(p):
+                os.remove(p)
+        with io.open(BAD_MARK if bad else OK_MARK, "w", encoding="utf-8") as f:
+            f.write(time.strftime("%Y-%m-%d %H:%M:%S") + (" \u5f85\u4fee\uff1a" + "\u3001".join(bad) if bad else " ok\n"))
+    except Exception:
+        pass
+    return 2 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

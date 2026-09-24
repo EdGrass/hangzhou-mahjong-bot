@@ -26184,3 +26184,15 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     （探针留下的两行日志已清理并在日志头注明是合成探针。）
   - 两个新文件（`_adopt_when_ready.py` / `_register_adopt_watch.ps1`）已补进 `$opsScripts`（闭包门要求入仓）。
   - 红线：脚本自身不杀进程、不改 `bot/`；真正干活只走既有 B 段（它自己任一步失败就 `return 2` 停下，绝不强停对局）。
+
+- [R1407 | 2026-09-24 17:2x ★★★★**用户指令「10/7 换上最屌的模型」落地：最终换臂脚本 + 10/7·10/8 定时验收（均已实测拦截）**]
+  - 新增 `var/_switch_final.py`：读 `var/.final_arm.txt` → 校验已注册/可实例化 →（**若官方模式在位则拒绝**）→ 停 A/B → 等对局自然结束（超时则停，绝不强杀）
+    → `_switch_test_strategy.py <最终臂>` → 校验 `_keeper_strategy.txt` + 单实例 → 写 `var/.final_installed`。**未选定最终臂就拒绝执行**。
+    实测：① 无 `.final_arm.txt` ⇒ `最终臂未选定 ⇒ 拒绝`；② 假臂 + **官方模式实时在位** ⇒ `官方模式在位（比赛中）⇒ 不换臂`（正是四测进行时）。
+  - 新增 `var/_final_ready_check.py`：7 项最终就绪校验（最终臂已选/可实例化/已换上/keeper==最终臂/无 `.ab_mode`/git 干净且本地==origin/`_prepare_submission` rc=0），
+    写 `var/_final_ready_check.out` + 二选一标记 `.FINAL_READY` / `.FINAL_NOT_READY`。当前实测报告：**6 FAIL / 1 PASS**（该 6 项正是 10/7 前还没发生的事）。
+  - 注册三个一次性任务：`HangzhouMajFinalSwitch` @**10/7 09:00**、`HangzhouMajFinalCheck` @10/7 10:30、`HangzhouMajFinalCheck2` @**10/8 09:00**（都用 pythonw 无窗口，避免 R1393 那类被误关）；
+    新文件：`var/_register_final_day.ps1`、`docs/iter/reports/final-switch-card-20261007.md`。
+  - 计划同步：新增 **§V.161**（“最屌”的口径：仅预登记判词通过者进候选池，按**同席强手分/轮**排序；平局选组合臂）；
+    并**更正 §V.159 的臂名错误**：本事件里“多要”路线用 **`speedvaluemeldp35/p40`**，
+    而 `speedvaluemeldmore0chi` **未注册**（实测 KeyError；只有 ycbk 双胞胎 `speedmeldmore0chiycbk`）。
