@@ -66,7 +66,10 @@ def game_ids_from_detail(detail):
     for g in (detail.get("my_games") or []):
         take(g)
     mb = detail.get("my_games_by_batch") or {}
-    if isinstance(mb, dict):
+    # ★ R1396：四测实测 —— `my_games_by_batch` 含**同批次别人的对局**（拉它们全部 403 not a participant），
+    #   而 `my_games`（字符串 gid，实测 10 条）才是**我们真正参与的对局**。
+    #   故只有 `my_games` 一条 gid 都拿不到时才回退到 batch 字段（保留向后兼容，不再制造 403/拉高 429 风险）。
+    if not out and isinstance(mb, dict):
         for v in mb.values():
             if isinstance(v, list):
                 for g in v:
