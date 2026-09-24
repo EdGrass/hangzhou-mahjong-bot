@@ -168,11 +168,13 @@ def main(argv=None):
         log("\u5df2\u662f\u6700\u7ec8\u81c2\u4e14\u65e0\u5f79\u5728\u8dd1\uff08%s\uff09\u21d2 no-op" % arm)
         return 0
     if (not a.go) or a.dry_run:
-        print("=== dry-run\uff1a\u5c06\u6267\u884c ===")
+        print("=== dry-run：将执行 ===")
         print("  1) python -X utf8 tools/ab_ctl.py stop")
-        print("  2) \u7b49\u5bf9\u5c40\u81ea\u7136\u7ed3\u675f\uff08\u6700\u591a %d \u5206\u949f\uff09" % a.wait_min)
-        print("  3) python -X utf8 var/_switch_test_strategy.py %s" % arm)
-        print("  4) \u6821\u9a8c + \u5199 %s" % os.path.basename(MARKER))
+        print("  2) 写 _keeper_strategy.txt = %s（watchdog 重启 keeper 时会读它）" % arm)
+        print("  3) 杀 _keeper.py（只杀监督器；不碰 match_super/run_bot）")
+        print("  4) 等对局进程自然结束（最多 %d 分钟）" % a.wait_min)
+        print("  5) python -X utf8 var/_switch_test_strategy.py %s" % arm)
+        print("  6) 校验 + 写 .rate_guard_off（防熔断回退）＋ 写 %s" % os.path.basename(MARKER))
         return 0
 
     py = sys.executable
