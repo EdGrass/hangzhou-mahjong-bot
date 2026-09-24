@@ -24961,3 +24961,13 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     → 赛后 `var/_exit_official.py` → `tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 \"--started=2026-09-23 03:13:44\"` 恢复役 2。
   - ⑤ **时间红线**：**15:00 前**必须完成报名/到位（否则进不去）；**16:00 前**bot 必须已在跑（否则就是代打/超时，反而伤成绩）。
     决定权在用户（账号与排名口径都是他的）。
+
+- [R1312 | 2026-09-24 09:5x ★★★★**四测报名入口已查清（`POST /portal/api/tournaments/<tid>/token`）+ 新工具 `var/_fourth_test_entry.py`（默认只读，`--go` 才发那一个 POST）**]
+  - ① **只读探测结果**：`GET /portal/api/me`（门户 cookie）= `{"name":"吃五角教主","tournaments":[]}` ⇒ **账号确实不在任何赛事里**；
+    `GET /portal/api/tournaments/t_6266386bfd56/token` = **405 Method Not Allowed** ⇒ **该端点存在、需 POST**（门户 UI 的“报名”很可能就是它，返回赛事令牌）；
+    其他猜测路径（`/portal/api/tokens`、`/my-tokens`、`/token`、`/profile`、`/entry`）均 404。
+  - ② **新工具 `var/_fourth_test_entry.py`**：默认只读（列事事件 + 是否已报名 + 打印"将要发什么 POST"）；
+    `--go` 才发 `POST /portal/api/tournaments/<tid>/token`，把返回的令牌落盘 `var/.token_4test_<YYYYMMDD>`，并用新令牌读 `/api/me` 自证。
+    **已只读实跑通过**（打印：门户身份、`已报名=17`、`my_registered=False`、截止 15:00 / 开赛 16:00）；**未发任何 POST**（等用户授权）。
+  - ③ **为何不自己发**：报名即**占用账号**（一账号一房）且会影响天梯累计分 —— 属于用户决策欄（与二测/三测"用户给令牌"的惯例一致）。报名后的入场链见 §V.89（已备好）。
+  - ④ **注意**：已报名人数在累增（15 → 17，约 2 分钟内）⇒ 窗口真实且在收窄；到 **15:00** 未报名则进不去。
