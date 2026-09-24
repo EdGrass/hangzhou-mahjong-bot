@@ -25186,3 +25186,17 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     **v35 P0 补丁不在现在打**（保役 2 样本同质；补丁仍在 §V.51 B 段落地）⇒ 四测切换用 **`-AllowNotReady`**
     （smoke 仅因 v35 而 NOT READY，且 R1325 已证补丁后全绿）；已知代价：旧实现会把 GONE 误判为房已删 ⇒ **进四测后可能出现退出/重启抖动**（三测 12 次），
     但守护链 `_official_keepalive` 会 5s 重启，且**牌局决策本身不受影响**（只影响连续性）。
+
+- [R1328 | 2026-09-24 10:1x ★★★**四测的“收尾与分析”已写成清单：自动收尾（已注册）+ 只读分析四条（已核对工具参数）**]
+  - ① **为什么要写**：四测是到目前为止**最接近 10/10 的真实引擎**（Rounds=16、Kind=分阶段、对手密度同级）。
+    跑完不分析 = 白跑；但跑完一堆重活也会污染役 2（R1182）⇒ 必须写清“哪些只读、怎么限流”。
+  - ② **可用工具（本轮核对过参数）**：`tools/official_latency_audit.py`（自带 `--dirs/--logs` 通配，默认就是 official_1024_*）；
+    `tools/real_game_audit.py` / `tools/gang_gap.py` / `tools/our_action_audit.py` / `var/_width_fidelity.py` 都支持 **`--dirs <glob>`** ⇒ 可直接指向事件目录；
+    `var/_official_status.py --tid … --token-file …` 读事件成绩/阶段榜。
+  - ③ **已知缺口（写明，不装作能跑）**：`tools/hu_gap_split.py` 与 `var/_seat_h2h.py` 只支持 `{server, recent}` 
+    ⇒ “**事件房里的 和牌率/听牌率 vs 同房 top32**”需二选一：（a）临时把事件目录复制进 `var/replays/recent/`（分析完删，避污染 A/B 语料）；
+    （b）用 `var/_replay_endpoint.py` 写 ≤40 行 ad-hoc。
+  - ④ **自动收尾已就位**：`HangzhouMajAfter4Test[2-4]`（19:00/21:00/22:30/00:30）会在比赛结束后
+    退出官方模式并用**原窗口**恢复役 2（比赛还在跑时 `_exit_official` 会拒绝，属预期）。
+  - ⑤ **顺带核实官方链自愈**：`.official_mode` 在位时，`_ensure_all.py`（每 5 分钟）与 `_official_guard.py`（**每 60 秒**，独立任务）
+    会按 `.official_spec.json` 的参数把 keepalive 拉回来（两者都用 `_has()` 幂等，不双开）⇒ **断线最坏 ~1 分钟**。

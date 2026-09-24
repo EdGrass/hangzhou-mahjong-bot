@@ -3274,3 +3274,21 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 **赛制差异（四测 config vs 训练基线）**：`Rounds` **8 → 16**（赛事每房 2× 局数）、`Kind` **auto → ""**（锦标赛分阶段）、
 `OnlineConfirm` **false → true**（分桌实到）；M/BaseScore/三个窗口时限/YouCaiBiKao 一致。
 ⇒ 策略结论（按决策/轮）可迁移；**分/房类读数不可跨格式直接比**；10/10 若同格式则 §V.57 的“重算 MDE/方差”为必做项。
+
+### V.105 ★★★ 四测收尾与分析清单（2026-09-24 10:1x，R1328）
+
+**自动收尾（已注册）**：19:00 / 21:00 / 22:30 / 00:30 四个一次性任务 → `_exit_official` → **原窗口恢复役 2**。
+
+**只读分析（建议用 `var/_lowprio_run.py` 包一层，且不并发）**
+
+| 目的 | 命令 |
+|---|---|
+| 事件成绩/阶段榜 | `python -X utf8 var/_official_status.py --tid t_6266386bfd56 --token-file var/.token_4test_20260924` |
+| 官方跑延迟/超窗 | `python -X utf8 tools/official_latency_audit.py --dirs "var/replays/official_1024_20260924_*" --logs "logs/official_1024_20260924_*.log"` |
+| 事件房机制读数 | `python -X utf8 tools/real_game_audit.py --dirs "var/replays/official_1024_20260924_*"`（以及 `gang_gap.py` / `our_action_audit.py` / `var/_width_fidelity.py` 同参数） |
+| 抖动代价（未打 v35 补丁） | 数 `var/_official_1024.out` 里的 `bot exit code` 行数 |
+
+**已知工具限制**：`hu_gap_split.py` / `_seat_h2h.py` 只吃 `{server,recent}` ⇒ “事件房 和牌率/听牌率 vs 同房 top32”
+需临时把事件目录复制进 `recent/`（完了删）或用 `_replay_endpoint.py` 写 ≤40 行 ad-hoc。
+
+**自愈（已核）**：`.official_mode` 在位时，`_ensure_all.py`（每 5 分钟）与 `_official_guard.py`（**每 60 秒**）按 spec 参数拉回 keepalive（幂等）。
