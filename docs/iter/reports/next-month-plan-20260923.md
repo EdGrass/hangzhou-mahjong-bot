@@ -3795,3 +3795,12 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 | `_exit_official.py` | bot 链还在跑 ⇒ **rc=2 拒绝退出** | `BUSY_NAMES` | 无（防捶断） |
 
 `_breaker_watch.py` = **只读预警**，且**无计划任务**。⇒ **四测期间仓库内无任何自动化会干扰比赛**。
+
+### V.137 ★★★ 判词心跳实测 + 四测 config 封口（R1365）
+
+**判词看护（将决定役 2）`--check-only` 实跑**：
+`speedc151 54 房（覆盖 100%）/ speedvalue 55 房（覆盖 100%）⇒ 攒房中`，**rc=0**，**三个哨兵/判词文件均未生成**。
+⇒ 心跳可用 · 覆盖前置已满足 · 非决定性不写哨兵（R1304）生效。
+
+**四测可变项封口**：预检 dry-run 读到 `YouCaiBiKao=False ⇒ speedvalue`（与 10:47 一致）；且
+`speedvalue` 与 `speedvalueycbk` **两个可能臂都可实例化** ⇒ 即使赛事规则在 15:05 前翻转，自动重注册也不会落到坏臂。
