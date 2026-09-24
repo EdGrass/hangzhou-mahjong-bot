@@ -4026,3 +4026,13 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 拉起进程全部用 `sys.executable`（`_ensure_all` / `_watchdog` / `ab_ctl` / `_official_guard` 逐个查过）。
 
 ⇒ **脚本对 PATH 的依赖已归零**（除那个带回退的 `_ps.py`）。
+
+### V.151 ★★★ “环境差异”三轴审计完成（R1381）
+
+| 轴 | 结论 | 证据 |
+|---|---|---|
+| **PATH** | 唯一缺失是 `pwsh`（已加 5.1 回退） | R1380：注册表 PATH 逐项查 + 44 脚本无裸名调用 |
+| **环境变量** | **零依赖 Codex 注入变量** | 实计只引用 `HM_ALLOW_NOT_READY`/`HM_OFFICIAL_SPEC`/`HM_PS`（可选）+ `SystemRoot`/`TEMP` |
+| **工作目录** | 两重保险 | 任务 `cmd /c cd /d D:\hangzhouMaj` + 脚本内 `ROOT`（`__file__`）绝对路径 |
+
+⇒ 这三轴都是“只在真实执行环境才暴露”的缺陷类别，现已逐一封口。
