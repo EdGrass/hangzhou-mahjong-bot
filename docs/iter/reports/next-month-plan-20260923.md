@@ -4784,3 +4784,28 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 ⇒ 两层都不显著 ⇒ **不否决**；但"难点层里 speedvalue 反而更好"这个方向翻转必须写进判词读数
 （§8 的意义正在于此：**决赛相似层不能只看 ≥1 层**）。
 参考：BC 预登记 §8 记的难度曲线 0/1/2/3 名 top32 = +61.0 / −19.4 / −55.6 / −95.1，与上表 ≥2 层量级一致。
+
+### §V.185 补上"役 3 → 役 4"的**采用看护**（原链会静默停摆 —— 本轮核出的真缺口）
+
+**核对结果（本机）**：`_bsegment.py` 起役时只注册**判词看护**（役 3 = `HangzhouMajVerdictWatch3bc/3v`），
+**不注册采用看护**；而现成的 `HangzhouMajAdoptWatch` 只盯 `--label 役2`（已核）。
+⇒ 役 3 判词落地后**没有任何东西会起役 4**，整条链**静默停摆**；役 3 判词约 2.5 天后落地，
+停一天就吃掉 10/7 前的余量。（R1436 只补了 10/7 换臂前的人工断点，没补这里。）
+
+**新增 `var/_adopt_pair.py`（双候选采用裁决 → 起下一役；口径全部取自已生效的预登记）**
+1. 两个候选哨兵齐（`.verdict_done_役3bc` / `.verdict_done_役3v`）才动；marker 已存在 ⇒ 幂等 no-op；
+2. 每个候选：最后一条 `★ 判定：` 以 **ADOPT** 开头才算 Δ；对 Δ 跑 **`var/_strong_veto.py`**（§7/§8 两层，z ≤ −2.0）：
+   **VETO ⇒ 按"不采用"处理**；**OK/UNKNOWN ⇒ 采用**（§7.3/§8 样本不足"只记录，不据此翻转"）；
+   **工具异常 ⇒ 无法判定 ⇒ 原地不动**（fail-closed，绝不猜）；
+3. **四格 → 役 4**（役 3 读卡 §3 逐字）：BC✓ ⇒ `speedvaluebc` + `speedvaluebcmeldp45`；
+   BC✗ 且 V✓ ⇒ `speedvaluebaotouv5` + `speedvaluebaotouvmeld`；都 ✗ ⇒ `speedvalue` + `speedvaluemeldp45`；
+4. 本脚本只算与调；真正干活仍走现成 `var/_bsegment.py --go`（停驱动 → 等空档 → P0 → preflight → 切役 → 注册看护）。
+
+**已注册**：`HangzhouMajAdoptPairWatch`（每 10 分钟、pythonw、`--label 役3 --baseline speedvalue`；
+**`--since` 不写死**，每次读 `.ab_mode.started` ⇒ 不会带着过期时间戳判词）。
+**活体验收（任务上下文，不是 Codex 会话里）**：03:44:18 首次运行 **rc=0**，日志正确写
+"[判词未决定性（缺 .verdict_done_役3bc）⇒ 不动]" ⇒ 计划任务环境下跑通。
+单测 `tests/test_adopt_pair.py` 8 条（四格映射 / VETO⇒不采用 / UNKNOWN⇒不阻塞 / 工具异常⇒无法判定）。
+
+**至此 10/7 前的自动化链**：役起役（B 段）→ 判词（两对看护）→ **采用+起下一役（本件）** → 选臂提案（10/5）
+→ **换臂（10/7，含人工断点替身 + 12:00 可升级重试）** → 10/10 上线。**唯一人工输入仍是 10/10 的令牌文件。**

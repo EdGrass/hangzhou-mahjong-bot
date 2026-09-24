@@ -26460,3 +26460,18 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     另：**副露轴 `speedvaluemeldp45` 与 V 轴 `speedvaluebaotouv5` 都是进张干净的**（100%）——
     在"缺口 100% 在听牌率"的前提下，这两条是**不付进张代价**的杠杆。
   - 验证：`tests/test_strong_strata.py` 17 条 ✓；合计 57 条全绿 ✓。
+
+- [R1439 | 2026-09-25 03:4x ★★★★**补上"役 3 → 役 4"的采用看护：原链会静默停摆（真缺口）**]
+  - **核对发现**：`_bsegment.py` 只注册**判词**看护（`HangzhouMajVerdictWatch3bc/3v`），**不注册采用看护**；
+    而 `HangzhouMajAdoptWatch` 只盯 `--label 役2`。⇒ 役 3 判词落地后**没有任何东西会起役 4**，
+    链会停住 ~2.5 天后无人接手（R1436 只补了 10/7 换臂前的人工断点，这里漏了）。
+  - 新增 **`var/_adopt_pair.py`**：两候选哨兵齐 → 各自判词（ADOPT 才算）→ 各自跑 `_strong_veto.py`（§7/§8 两层、z≤−2.0）
+    → **VETO⇒不采用 / OK+UNKNOWN⇒采用 / 工具异常⇒无法判定⇒原地不动（fail-closed）** → 按役 3 读卡 §3 四格表
+    调 `_bsegment.py --go --label 役4 --baseline <行> --candidates <行> --watch-mechanism melds`。
+  - 新增 **`var/_register_adopt_pair.ps1`**（带 BOM；PS 5.1 读中文注释必须）注册 **`HangzhouMajAdoptPairWatch`**
+    （每 10 分钟、pythonw、**不写死 --since** ⇒ 每次读 `.ab_mode.started`）。
+  - **活体验收（任务上下文）**：03:44:18 首次运行 **rc=0** + 正确 no-op 行 ⇒ 不是"只在会话里能跑"。
+  - 演练还核了两条分支：A=ADOPT/B=REFUSE ⇒ 走 A 行（`speedvaluebc`+`speedvaluebcmeldp45`）；
+    两个都 REFUSE ⇒ 走 NONE 行（`speedvalue`+`speedvaluemeldp45`）。
+  - 小修：dry-run 时日志写"(dry-run) 将起下一役"（原先看起来像真起过役）。
+  - 验证：`tests/test_adopt_pair.py` 8 条 ✓ + 闭包门 ✓（两个新文件已入 `$opsScripts`）。
