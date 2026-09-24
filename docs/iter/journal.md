@@ -24874,3 +24874,27 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     真 `役2` 路径（未到 80/臂）⇒ 静默 rc=0、三类产物均不存在；测试产物（自测 H/I/J/K）已清。
   - ⑦ **顺带的真实观测**：同一役的预览 z 会随新房跳动（**09:33 z=+1.52/+1.13 → 09:40 z=+1.38/+1.00**）
     ⇒ 这正是“盒必须是**固定房数**而不能是单次读数”的实证，也对应 §V.66 的“2×SE 才算可区分”。
+
+- [R1307 | 2026-09-24 09:4x ★★★★**「过期默认值」清扫第 2 轮：10/7 实跑路径上又抓到 3 处（会带错臂 / 带错赛事 / 跳过到位）**]
+  - ① **扫描口径**：把 `tools/*.py` 与 `var/*.py|ps1` 里的 argparse `default=`（策略/令牌文件/tid）全量列出，再逐条判"是否在 **10/7 裸跑路径**上"。
+    结果：绝大多数带历史默认值的工具**都被显式传参**（A/B 驱动、keeper、参赛说明），只有三处真在裸跑/自愈路径上。
+  - ② **修复 1 — `tools/tminus_check.py`**（赛前总门禁，已更新到当前脂肪）：旧默认 `--strategy speedtugc`
+    / `--token-file var/.token_1024_20260917` / `--tid t_65d538e905c5`（**全是 09-17 二测**）⇒ 裸跑会把门禁打在"错的臂 + 过期令牌 + 已结束赛事"上。
+    现在：策略默认读 `var/_keeper_strategy.txt`；令牌默认 `var/.global_token`；**不给 `--tid` 就跳过赛事核对**；两者取不到 ⇒ 报错退出 2。
+  - ③ **修复 2 — `var/_official_keepalive.py`**：旧默认同样是 `speedtugc` + `.token_1024_20260917`。危险点在于
+    `_ensure_all.py`（每 5 分钟）在"缺 `.official_spec.json`"时**不带参数**拉它 ⇒ **用错臂+过期令牌进正式赛**。
+    现在同上回落（策略文件 + `.global_token`），取不到就**直接报错**。
+  - ④ **修复 3 — `var/_switch_to_official.ps1` 的顺序坑**：它在**开头**从 `_keeper_strategy.txt` 读 `$Strategy`，
+    但 A/B 驱动会**每批把该文件改写成"本批的臂"**、退出时又把**基线**写回 ⇒
+    若不显式传 `-Strategy`，就可能**带着一个 A/B 候选臂进正式赛**（而等待退出期间文件已被改回基线，属于静默不一致）。
+    现在加**等待后一致性断言**：若启动时是从文件读的，等到 `run_bot`/`match_super`/`_ab_driver` 都退出后**再读一次**，
+    不一致就**停**（fail-safe）并提示显式传 `-Strategy <最终臂>`；显式传参时该断言**不生效**（不干涉有意为之）。
+  - ⑤ **实测（3条 + 2 个负控）**：① `tminus_check` 裸跑 ⇒ 头部 `策略=speedc151 令牌=var/.global_token`、门户行 = `⚠️ 未指定 --tid ⇒ 跳过…`；
+    ② 显式 `--tid t_069a55e84b26` ⇒ **真走到 portal 分支**（"没找到"，三测赛事已下线）；③ 显式 `--strategy speedvalue` ⇒ 头部 `策略=speedvalue`；
+    ④ `_official_keepalive` 用 harness（stub `_existing`/`write_spec`，**不碰**真 `.official_spec.json` 与在打对局）跑 `--dry-run` ⇒ 解析出 `strategy=speedc151` + `var/.global_token`；
+    ⑤ `_switch_to_official.ps1` PowerShell 解析 OK；不传 `-Strategy` 的 `-DryRun` ⇒ 打印 `✓ 策略一致性断言已执行：speedc151`；显式 `-Strategy speedvalue` ⇒ 该行**按设计不出现**。
+    两次 DryRun **零副作用**：`.official_spec.json` 仍是 9/23 20:41 原件（已复核 mtime + 内容）。
+  - ⑥ **不改的部分（说明）**：`tools/match_super.py`(speedtm)、`tools/keep_alive.py`(speedA)、`tools/replay_oracle.py`、
+    `tools/fetch_tournament_replays.py`(t_65d538e905c5) 等仍带历史默认值，但**只在显式传参时被调用**（不在 10/7 裸跑路径上）⇒ 本轮不动，避免无谓改动。
+  - ⑦ **副带的真实读数**：本轮 `tminus_check` 跑出榜单 `[all] (live) rank=618 rooms=1073 score=-21202.0（-19.8 分/房）firsts=182`；
+    与 09:26 快照（617/1071/-20716）相比，**房数 +2 但分数 -486** ⇒ 这两房是强手层（符合 §V.47 的难度曲线，不是异常）。

@@ -7,7 +7,7 @@
   ⑤ 榜单快照（`tools/ladder_snapshot.py --show`）⑥ 进程清单与"有无 keeper 残留"
 
 用法：
-    python -X utf8 tools/tminus_check.py                       # 用默认二测令牌/策略
+    python -X utf8 tools/tminus_check.py                       # 策略=取 var/_keeper_strategy.txt；令牌=var/.global_token；不给 --tid 就跳过赛事核对
     python -X utf8 tools/tminus_check.py --strategy speedtugc --token-file var/.token_1024_20260917
 """
 from __future__ import annotations
@@ -30,15 +30,37 @@ def portal(path, cookie):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--strategy", default="speedtugc")
-    ap.add_argument("--token-file", default="var/.token_1024_20260917")
-    ap.add_argument("--tid", default="t_65d538e905c5")
+    # ★ R1307：**旧默认值是 09-17 二测的（speedtugc / .token_1024_20260917 / t_65d538e905c5）**
+    #   ⇒ 裸跑会把"赛前总门禁"打在**错的臂 + 过期令牌 + 已结束的赛事**上，给出误导性的 READY。
+    #   现在：策略默认取 `var/_keeper_strategy.txt`；令牌默认取 `var/.global_token`；
+    #   tid 不给就**跳过赛事核对**（宁可不查，也不查错赛事）。
+    ap.add_argument("--strategy", default="")
+    ap.add_argument("--token-file", default="")
+    ap.add_argument("--tid", default="")
     ap.add_argument("--since", default="",
                     help="显式 A/B 战役窗口（无 .ab_mode 暂停期用）")
     ap.add_argument("--arms", default="",
                     help="逗号分隔的 A/B 臂列表；与 --since 一起传给 ab_integrity")
     a = ap.parse_args()
     rows = []
+    if not a.strategy:
+        try:
+            a.strategy = io.open(os.path.join(ROOT, "var", "_keeper_strategy.txt"),
+                                 encoding="utf-8").read().strip()
+        except Exception:
+            a.strategy = ""
+        if not a.strategy:
+            print("❌ 读不到 var/_keeper_strategy.txt 且未指定 --strategy"
+                  "（禁止沿用历史默认值 speedtugc）")
+            return 2
+    if not a.token_file:
+        cand = os.path.join(ROOT, "var", ".global_token")
+        if os.path.exists(cand):
+            a.token_file = "var/.global_token"
+        else:
+            print("❌ 未指定 --token-file 且找不到 var/.global_token"
+                  "（禁止沿用历史默认值 .token_1024_20260917）")
+            return 2
 
     def add(name, ok, detail):
         rows.append((("✅" if ok is True else ("⚠️" if ok is None else "❌")), name, detail))
@@ -58,25 +80,29 @@ def main():
     add("rules_guard（策略↔规则）", (rc == 0), (ycbk or ("rc=%d" % rc)))
 
     # ③ /ready + 门户赛事
-    try:
-        rc, out = run([sys.executable, "-X", "utf8", "var/_ready_1024.py", "--status"])
-        add("ready/报名状态", (rc == 0), out.strip().splitlines()[0][:90] if out.strip() else "无输出")
-        ck = io.open(os.path.join(ROOT, "var", ".portal_cookie"), encoding="utf-8-sig").read().strip()
-        j = portal("/portal/api/tournaments", ck)
-        t = next((x for x in (j.get("tournaments") or []) if x.get("id") == a.tid), None)
-        if t is None:
-            add("门户赛事", False, "没找到 %s" % a.tid)
-        else:
-            f = lambda x: dt.datetime.fromtimestamp(int(x)).strftime("%m-%d %H:%M") if x else "-"
-            now = dt.datetime.now()
-            start = dt.datetime.fromtimestamp(int(t.get("start_at"))) if t.get("start_at") else None
-            hrs = ((start - now).total_seconds() / 3600.0) if start else None
-            add("门户赛事", bool(t.get("my_registered")),
-                "%s status=%s 报名截止=%s 开赛=%s 距开赛=%.1fh 已报名=%s 我已报名=%s" % (
-                    t.get("name"), t.get("status"), f(t.get("register_deadline")), f(t.get("start_at")),
-                    (hrs if hrs is not None else -1), t.get("registered"), t.get("my_registered")))
-    except Exception as e:
-        add("门户/ready", False, repr(e)[:80])
+    rc, out = run([sys.executable, "-X", "utf8", "var/_ready_1024.py", "--status"])
+    add("ready/报名状态", (rc == 0), out.strip().splitlines()[0][:90] if out.strip() else "无输出")
+    if not a.tid:
+        # ★ R1307：不给 tid 就**不查**（旧行为会去查 09-17 二测的 t_65d538e905c5 ⇒ 误导性"没找到/未报名"）
+        add("门户赛事", None, "未指定 --tid ⇒ 跳过赛事/到位核对（不再沿用历史默认值）")
+    else:
+        try:
+            ck = io.open(os.path.join(ROOT, "var", ".portal_cookie"), encoding="utf-8-sig").read().strip()
+            j = portal("/portal/api/tournaments", ck)
+            t = next((x for x in (j.get("tournaments") or []) if x.get("id") == a.tid), None)
+            if t is None:
+                add("门户赛事", False, "没找到 %s" % a.tid)
+            else:
+                f = lambda x: dt.datetime.fromtimestamp(int(x)).strftime("%m-%d %H:%M") if x else "-"
+                now = dt.datetime.now()
+                start = dt.datetime.fromtimestamp(int(t.get("start_at"))) if t.get("start_at") else None
+                hrs = ((start - now).total_seconds() / 3600.0) if start else None
+                add("门户赛事", bool(t.get("my_registered")),
+                    "%s status=%s 报名截止=%s 开赛=%s 距开赛=%.1fh 已报名=%s 我已报名=%s" % (
+                        t.get("name"), t.get("status"), f(t.get("register_deadline")), f(t.get("start_at")),
+                        (hrs if hrs is not None else -1), t.get("registered"), t.get("my_registered")))
+        except Exception as e:
+            add("门户/ready", False, repr(e)[:80])
 
     # ④ A/B 完整性：无 .ab_mode 的暂停期可用 --since/--arms 显式指定战役窗口，
     #    否则历史上已归档的旧异常会被误判为“本役异常”并阻止开赛切换。

@@ -2952,3 +2952,21 @@ python -X utf8 var/_pick_arm.py --since "<役起点>" --min-rooms 30    # 给①
 **边界**：到盒**不降低采用门槛**；看护只写判词/日志，写 `_keeper_strategy.txt` 与起下一役一律人工。
 
 **实测**：`--box-rooms 10` ⇒ 出现“⚠ 已达役盒…”且不写 sentinel；默认 120 ⇒ 无该行；真 `役2` 未到门槛 ⇒ 静默 rc=0。
+
+### V.87 ★★★★ 「过期默认值」清扫第 2 轮（2026-09-24 09:4x，R1307）——**10/7 实跑路径上又抓到 3 处**
+
+§V.53/54/55/81 已清过 4 处过期指路；本轮对**10/7 裸跑路径**再扫一遍 argparse 默认值，又抓到三处。
+
+| # | 位置 | 旧默认（过期） | 后果 | 处置 |
+|---|---|---|---|---|
+| 1 | `tools/tminus_check.py` | `speedtugc` / `var/.token_1024_20260917` / `t_65d538e905c5` | 裸跑“赛前总门禁”打在**错的臂 + 过期令牌 + 已结束赛事**上 | 策略←`var/_keeper_strategy.txt`；令牌←`var/.global_token`；**不给 `--tid` 就跳过赛事核对**；取不到则报错 `2` |
+| 2 | `var/_official_keepalive.py` | `speedtugc` / `var/.token_1024_20260917` | `_ensure_all.py` 在缺 `.official_spec.json` 时**不带参数**拉它 ⇒ **用错臂+过期令牌进正式赛** | 同上回落；取不到 ⇒ 直接报错 |
+| 3 | `var/_switch_to_official.ps1` | 开头从 `_keeper_strategy.txt` 读 `$Strategy`，但**等 A/B 退出后**才用 | A/B 期间该文件被驱动**每批改写**，退出时又写回**基线** ⇒ 不传 `-Strategy` 可能**带 A/B 候选臂进正式赛** | 加“**等待后一致性断言**”：不一致就**停**（fail-safe）；显式传 `-Strategy` 时跳过 |
+
+**实测**：`tminus_check` 裸跑 ⇒ `策略=speedc151 令牌=var/.global_token` + `⚠️ 未指定 --tid ⇒ 跳过…`；
+显式 `--tid t_069a55e84b26` ⇒ 真走 portal 分支；显式 `--strategy speedvalue` ⇒ 头部 `策略=speedvalue`；
+`_official_keepalive` harness 跑 `--dry-run` ⇒ `strategy=speedc151` + `.global_token`；`_switch_to_official.ps1 -DryRun` ⇒ `✓ 策略一致性断言已执行`（显式 `-Strategy` 时不出现），
+两次 DryRun **零副作用**（`.official_spec.json` 仍为 9/23 20:41 原件）。
+
+**不改的**：`match_super.py`/`keep_alive.py`/`replay_oracle.py`/`fetch_tournament_replays.py` 等历史默认值——
+它们**只在显式传参时被调用**，不在 10/7 裸跑路径上（避免无谓改动）。
