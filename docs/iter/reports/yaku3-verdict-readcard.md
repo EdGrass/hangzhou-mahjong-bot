@@ -51,3 +51,24 @@ python -X utf8 var/_bsegment.py --label 役4 --baseline <基线> --candidates <�
 ## 4. 纪律
 
 不改阈值、不延长役盒、不为追 z 拖时间；**强手房否决优先于主端点**。
+
+## ★ 追加（R1437）：§2 强手房否决的**机械执行**
+
+> 本节为追补，§2 的要求不变，只是把它变成一条命令 + 一个自动闸。
+
+- 手工：
+  ```powershell
+  python -X utf8 var/_strong_veto.py --since "<起役ts>" --baseline speedvalue --candidate speedvaluebc
+  ```
+  退出码 **0=OK（可采用）／3=VETO（显著劣 ⇒ 该轴不采用，四格表里当 ✗）／2=UNKNOWN（强手房 <15 房/臂，不阻塞）**。
+- 自动链（注册该役 AdoptWatch 时**必须**带 `--strong-veto`）：
+  ```powershell
+  python -X utf8 var/_adopt_when_ready.py --label 役3 --baseline speedvalue ^
+      --candidates speedvaluebc,speedvaluebaotouv5 --strong-veto
+  ```
+  ⇒ VETO 时**不执行** B 段，并落 `var/.strong_veto_役3`（等人/看护处理四格表）。
+- 分层读数（破平第 ② 步**同口径**）：
+  ```powershell
+  python -X utf8 var/_strong_slice.py --since "<起役ts>"      # 按它打印的两条命令接着跑
+  ```
+  参考（役 2 窗口实测）：强手房缺口 听牌率 **−5.19pp** vs 混合口径 −3.14pp。

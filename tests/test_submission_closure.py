@@ -30,7 +30,12 @@ def ops_list():
     m = re.search(r"\$opsScripts\s*=\s*@\((.*?)\)", s, re.S)
     if not m:
         return []
-    return [x.replace("\\", "/") for x in re.findall(r'"([^"]+)"', m.group(1))]
+    # ★ R1437：只接受**真路径**条目 —— 原实现把注释里的任何双引号串都当条目，
+    #   本机实测：注释里写了 "房里有/没有 top32" ⇒ 清单里凭空多出一条假文件名，门直接红。
+    toks = re.findall(r'"([^"]+)"', m.group(1))
+    return [x.replace("\\", "/") for x in toks
+            if x.startswith("var/") or x.startswith("var\\")]
+
 
 
 @unittest.skipUnless(os.path.exists(PS1), "var/ 不在仓库里（gitignore）")

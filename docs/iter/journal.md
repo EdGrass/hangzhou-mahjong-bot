@@ -26424,3 +26424,21 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **本轮真踩的两个坑**：① 第一次接线把新增行插进了**头部注释**（`findIndex` 命中了注释里的 "HangzhouMajFinalCheck2"），
     而 `_ps_syntax_check` 照样报 OK —— 属"**语法合法、语义全错**"；② 新写的 `.ps1` 忘加 BOM ⇒ PS 5.1 按 ANSI 解码中文注释
     ⇒ **把 `param` 块吃掉** ⇒ `$Root` 为 null（`Set-Location` 报 null）。两条都已钉进 `tests/test_final_day_wiring.py` 的静态断言。
+
+- [R1437 | 2026-09-25 03:4x ★★★★**分层口径修正：真实缺口是混合口径的 1.65 倍；强手房否决机械化**]
+  - **发现的口径错误**：`hu_gap_split` 的 `top32` 行**本来就只有强手房**（top32 只出现在有 top32 的房里）
+    ⇒ 过去"我方 55.2% vs top32 58.3%"是**拿我们全部房比人家强手房**。
+  - **同口径（105 强手房 / 1050 份复盘）**：我方强手房 听牌率 **53.1%**（均听巡 6.23）vs top32 **58.3%**（5.98）
+    ⇒ 缺口 **−5.19pp**（混合口径 −3.14pp）；胡率缺口 −1.97pp → **−3.06pp**；兑现仍只差 −0.50pp。
+    ⇒ §V.39"缺口 100% 在听牌率"**不变且更强**。
+  - **按臂分层**：听牌率 speedvalue 更好（53.5/52.9）、兑现与爆头 speedc151 更好（44.8/44.3、5.8/5.5）
+    ⇒ 两半 Pareto 仍互有胜负（不是"弱房独赢"）。
+  - 新增 **`var/_strong_slice.py`**（切强手房语料 → 现成工具做分层；分类与台账分层完全一致 105/46）+
+    **`var/_strong_veto.py`**（净分/房 Welch z + 第1率比例 z，任一 ≤−1.96 ⇒ VETO；<15 房/臂 ⇒ UNKNOWN 不阻塞）。
+  - **`_adopt_when_ready.py --strong-veto`**（默认关，役 2 不回归）：ADOPT 前跑闸，VETO ⇒ 不执行 B 段 + 留 `.strong_veto_<label>`。
+  - **役 2 预演**：speedc151 53 房 vs speedvalue 51 房；净分/房 z=−0.50、第1率 z=−0.67 ⇒ **不否决**。
+  - **真 bug（演练抓出）**：`adopted.split()[1]` 把臂名取成 `speedvalue（和牌率`（括号前有空格）⇒ 闸去查不存在的臂。
+    已改正则 `ADOPT\s+([0-9A-Za-z_]+)` + 抽成 `adopted_arm()` + 回归单测（含"错法"反例）。
+  - **顺带补两个提交缺口**：`_verdict_by_elite.py`、`_elite_share_by_day.py` 一直**没进闭包清单**（读卡/计划 §V.66 命令② 却要求跑它）
+    ⇒ 已补进 `$opsScripts`；并加固闭包门解析器（原实现把注释里的双引号串当成清单条目 —— 本轮真被绊了一次）。
+  - 验证：`tests/test_strong_strata.py` 16 条 ✓；`test_adopt_classify`/`test_final_arm_confirm`/`test_final_day_wiring` 回归 ✓（合计 51）；闭包门绿 ✓。

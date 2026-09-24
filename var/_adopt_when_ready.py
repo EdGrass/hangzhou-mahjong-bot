@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import io
 import os
+import re
 import subprocess
 import sys
 import time
@@ -112,6 +113,48 @@ def verify_campaign(baseline, candidates):
     return ok, out
 
 
+def adopted_arm(line):
+    """判词行 ⇒ 被判 ADOPT 的臂名（非 ADOPT ⇒ ""）。
+
+    ★ 必须用正则：判词是 `ADOPT speedvalue（和牌率 z=+1.80、番 z=+1.60、护栏通过）`，
+    括号前**有**空格、括号内还有空格 ⇒ `line.split()[1]` 会取到 `speedvalue（和牌率`
+    （本机实测踩过一次，导致否决闸去查一个不存在的臂）。
+    """
+    m = re.match(r"ADOPT\s+([0-9A-Za-z_]+)", (line or "").strip())
+    return m.group(1) if m else ""
+
+
+def _since_of(cfg_path):
+    """从 .ab_mode 里取本役起点（拿不到就空串）。"""
+    import json as _json
+    for pth in (cfg_path, os.path.join(ROOT, "var", ".ab_mode")):
+        try:
+            with io.open(pth, encoding="utf-8-sig") as f:
+                return str(_json.loads(f.read()).get("started") or "")
+        except Exception:
+            continue
+    return ""
+
+
+def strong_veto(since, baseline, arm):
+    """跑 var/_strong_veto.py ⇒ (rc, 输出的最后几行)。rc: 0=OK 3=VETO 2=UNKNOWN。"""
+    if not arm:
+        return 2, ["判词里没有臂名 ⇒ 无法判"]
+    if not since:
+        since = _since_of("")
+    if not since:
+        return 2, ["拿不到本役起点（.ab_mode.started）⇒ 无法判"]
+    cmd = [sys.executable, "-X", "utf8", os.path.join(ROOT, "var", "_strong_veto.py"),
+           "--since", since, "--baseline", baseline, "--candidate", arm]
+    try:
+        p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=900)
+    except Exception as e:
+        return 2, ["无法运行（%s）" % str(e)[:60]]
+    lines = [x for x in (p.stdout or "").strip().splitlines() if x.strip()][-4:]
+    return p.returncode, lines
+
+
 def classify(txt):
     """判词文本 → (action, reason)；action ∈ {"proceed", "wait"}。
 
@@ -151,6 +194,9 @@ def main(argv=None):
     ap.add_argument("--timeout-min", type=int, default=60)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--force", action="store_true", help="调试用：跳过规则 1+2（默认关闭）")
+    ap.add_argument("--since", default="", help="健壮性否决的窗口起点（默认读 .ab_mode.started）")
+    ap.add_argument("--strong-veto", action="store_true",
+                    help="★ 采用前先跑强手房否决（§V.156 + 役 3 预登记）：VETO ⇒ 不采用并留 .strong_veto_<label>")
     a = ap.parse_args(argv)
 
     verdict = a.verdict or os.path.join(ROOT, "var", "_verdict_%s.txt" % a.label)
@@ -173,6 +219,24 @@ def main(argv=None):
         log("判词分类：%s（%s）" % (act, why))
         if act != "proceed":
             return 0
+        if a.strong_veto:
+            adopted = (last_verdict_line(txt) or "")
+            if adopted.upper().startswith("ADOPT"):
+                arm = adopted_arm(adopted)
+                rc, out = strong_veto(a.since, a.baseline, arm)
+                for _l in out:
+                    log("  强手房否决：" + _l)
+                if rc == 3:
+                    log("!! 强手房否决 VETO（%s 在强手房显著劣于 %s）⇒ 本轴不采用，不执行 B 段" % (arm, a.baseline))
+                    try:
+                        with io.open(os.path.join(ROOT, "var", ".strong_veto_%s" % a.label),
+                                     "w", encoding="utf-8") as f:
+                            f.write("%s VETO %s vs %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), arm, a.baseline))
+                    except Exception:
+                        pass
+                    return 0
+                if rc == 2:
+                    log("  强手房数据不足 ⇒ UNKNOWN（不阻塞，按预登记继续）")
 
     cmd = [sys.executable, "-X", "utf8", os.path.join(ROOT, a.bsegment), "--go",
            "--baseline", a.baseline, "--candidates", a.candidates]

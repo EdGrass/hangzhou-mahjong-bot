@@ -89,6 +89,10 @@ $opsScripts = @(
   "var/_switch_final.py",                # ★ R1407：10/7 换上最终臂（未选定/官方模式就拒绝）
   "var/_final_arm_confirm.py",            # ★ R1436：10/7 换臂前自动补 .final_arm.txt（人工 echo 断点的替身）
   "var/_final_switch_retry.ps1",          # ★ R1436：10/7 12:00 换臂重试（判词晚到也能升级）
+  "var/_strong_slice.py",               # ★ R1437：按强手房切复盘语料（让现成工具做分层读数；口径修正）
+  "var/_strong_veto.py",                # ★ R1437：强手房否决（净分/房 + 第1率 显著劣 ⇒ 该轴不采用）
+  "var/_verdict_by_elite.py",           # ★ R1437：按【房里有/没有 top32】分层读役次（读卡/计划 §V.66 命令②；此前漏在闭包外）
+  "var/_elite_share_by_day.py",         # ★ R1437：上行工具引用的同级模块（缺它 clone 里必断）
   "var/_final_ready_check.py",           # ★ R1407：10/7·10/8 最终就绪校验（7 项）
   "var/_register_final_day.ps1",         # ★ R1407：上两个一次性任务的注册脚本
   "var/_switch_test_strategy.py",

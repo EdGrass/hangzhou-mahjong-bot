@@ -101,3 +101,23 @@ python -X utf8 tools/first_rate_readout.py          # 自动取本役臂与 sinc
 判据仍是 `_gate2.py`；第一率只作**方向/护栏**。原因（工具会直接算）：一房只贡献 1 个名次 ⇒
 要分辨 **5.4pp** 的第一率差需要**每臂 ~496 房**，本役盒只有 **80 房/臂** ⇒ **功率不够**。
 `_gate2` 用复盘的和牌率/番（样本量 = 局数）⇒ 功率高一个量级。
+
+## ★ 追加（R1437）：强手房分层 —— 破平第 ② 步必须看**同口径**
+
+> 本节为追补，不修改上文任何口径/阈值。
+
+- `hu_gap_split` 的 `top32` 那一行**本来就是强手房**（top32 只出现在有 top32 的房里）。
+  同口径下：我方强手房 听牌率 **53.1%**（均听巡 6.23）vs top32 **58.3%**（5.98）⇒ 缺口 **−5.19pp**
+  （混合口径 −3.14pp 是**低估**）。
+- 切语料 + 分层读数：
+  ```powershell
+  python -X utf8 var/_strong_slice.py --since "2026-09-23 03:13:44"
+  python -X utf8 tools/hu_gap_split.py --dirs strong_202609230313/*.json --by-arm
+  python -X utf8 tools/hu_gap_split.py --dirs strong_202609230313/*.json
+  ```
+- **强手房否决（机械，判词落地前已跑）**：
+  ```powershell
+  python -X utf8 var/_strong_veto.py --since "2026-09-23 03:13:44" --baseline speedc151 --candidate speedvalue
+  ```
+  ⇒ 净分/房 −30.5 vs −43.4（**z=−0.50**）、第1率 20.8% vs 15.7%（**z=−0.67**）⇒ **OK（不否决）**。
+  退出码：0=OK／3=VETO／2=UNKNOWN（不阻塞）。
