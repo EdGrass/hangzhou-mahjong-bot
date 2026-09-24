@@ -25008,3 +25008,26 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     随后 API 回 **`403 FORBIDDEN: not a participant`**（语义正确：**我们还没报名**）；② 显式 `--tid t_6266386bfd56 --token-file var/.global_token` ⇒ 同样报文−—两者均 **exit 2 且在任何 POST 之前就停下**（工具原本就是先 GET 后 POST，错配对不会误打）。
   - ⑤ **新事实（对四测入场很关键）**：全局令牌对四测返回的不是“无权限”而是 **`not a participant`** ⇒ 说明全局令牌可以对该 tid 发声，
     **但前提是先在门户完成报名（参与关系）**；这与 `_fourth_test_entry.py` 的设计（报名用 `POST /portal/api/tournaments/<tid>/token`）一致。
+
+- [R1316 | 2026-09-24 09:5x ★★★★★**门户公告给出官方时间表：正式比赛 = 10/10 19:30、提交截止 = **10/8 12:00** —— 与本计划假设的 10/7 不同**]
+  - ① **发现途径（只读）**：探到门户公告接口 `GET /portal/api/announcements`（带门户 cookie），返回当前**唯一**公告
+    `an_179367a9380e`「**杭州麻将 AI 竞技赛-参赛公告**」（创建 %s）。原文要点：
+    | 项 | 内容 |
+    |---|---|
+    | **正式比赛** | **10 月 10 日 19:30** |
+    | **提交截止** | **10 月 8 日 12:00** |
+    | 提交入口 | 易网-荣誉-AI 大赛专区（`https://e.netease.com/honor/1000042?awardId=150297`） |
+    | 提交内容 | ① 使用程序参赛的说明；② 完整可运行源码（**仓库链接** 或 **含 .git 的压缩包 <20MB**） |
+    | 令牌 | **参赛前必须登录杭麻平台领取令牌** |
+    | 更多细则 | POPO 文档 `docs.popo.netease.com/lingxi/c6d54d663c0547c0b8e4bcf44d676639`（**本次未读到**，见 ④） |
+  - ② **对本计划的修正（排期口径从 "10/7" 改为 "10/8 提交冻结 + 10/10 比赛"）**：
+    - 优化窗口实际到 **10/8 12:00**（提交截止），比原假设多出 **约 3 天 ≈ 280 房 ≈ +1~2 个役位**；
+    - 但新增一条硬约束：**任何可能上场的臂/模型必须在 10/8 12:00 前进仓库**（之后新加的在评委那里不存在）；
+    - 新里程碑：**10/8 11:00 前** 跑 `_prepare_submission.ps1 -Go` + `-CloneVerify`（公网克隆跑 smoke），并用 `docs/参赛说明.md` 填申报正文；
+    - 比赛当天（10/10 19:30）流程不变（§V.28/§V.53/§V.90），但 **令牌需用户先登录杭麻平台领取**。
+  - ③ **提交完整性核查（新证据）**：脚本逐个把“我们可能上场的 **13 个臂**”的模块名从
+    `run_bot.STRATEGY_FACTORIES` 里取出，再比对 `git ls-files`（**561 个已追踪文件**）⇒ **13/13 全在**（`speedc151`/`speedvalue`/`speedvaluebc`/`speedc151bc`/
+    `speedvaluebaotouv5`/`speedvaluemeld`/`speedvaluerank`/`speedvalueplain`/`speedvaluebcmeldp45`/`speedvaluebaotouvmeld`/`speedvaluebcvmeld`/`speedvaluebcv`/`speedvaluebcmeld`）。
+    加上 R1305 已验的 **4 个模型已 `git add -f`** ⇒ **提交完整性目前没有缺口**。
+  - ④ **未读到的部分（阻塞已记录）**：公告里的“更多细则”POPO 文档：`popo-cli` 报 **“有新版本，请先升级再继续”**（当前 0.1.47 → 0.1.49）且
+    `auth status` = **idle_locked**；直接 HTTP 拉只得到 SPA 壳（无正文）；codemaker 未安装 ⇒ **需用户给正文，或授权 `popo-cli update`**。
