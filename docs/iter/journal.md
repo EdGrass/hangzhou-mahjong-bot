@@ -25711,3 +25711,23 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     对照：我们当前臂只有 **+2~+7 分/房** ⇒ **距离同席强手还差一个量级**（这是“为什么我们还是倒数”的硬数字）。
   - ④ **对役序的意义**：缺口 98% 在**同座位收益率**⇒ **通用改进（出牌质量/听牌速度）是正解**，而且它会自动在庄家轮被 **×2.4 放大**（庄家轮只占 27% 却贡献了 **50% 的率效应**）
     ⇒ **不做庄位专用线**（`speedc154/155/193` 留档），**役 3（BC+V）方向确认**。
+
+- [R1367 | 2026-09-24 14:0x ★★★**役 3→役 4 决策树完整性核对：四格全就绪（且 §V.49/V.50 里的“⚠ 未造”已过时）**]
+  - 动机：役 3（BC+V 双候选）判词后，役 4 的臂**应当是查表，不应临场造**。逐格核对“注册 / 有单测 / 有有效预登记”：
+
+| 役 3 判词 | 新基线 | **役 4 实际臂** | 注册 | 单测 | 预登记 |
+|---|---|---|---|---|---|
+| **BC✓ 且 V✓** | `speedvaluebc` | `speedvaluebcmeldp45`（BC+副露 `claim_p=0.45`） | ✅ | ✅ | `prereg-campaign4b` ✅ |
+| **BC✓ 且 V✗** | `speedvaluebc` | 同上 | ✅ | ✅ | `prereg-campaign4b` ✅ |
+| **BC✗ 且 V✓** | `speedvaluebaotouv5` | `speedvaluebaotouvmeld` | ✅ | ✅ | `prereg-campaign4c` ✅ |
+| **BC✗ 且 V✗** | `speedvalue` | `speedvaluemeldp45` | ✅ | ✅ | `prereg-campaign4` ✅ |
+
+  - ① **旧缺口已补上（计划文字过时）**：§V.49/§V.50 写着 `speedvaluebaotouvmeld`“⚠ **未造**（届时 ~30 行）”，
+    但现它**已存在**：`bot/speedvaluebaotouvmeld.py`（`class SpeedValueBaotouVMeld(SpeedValueBaotouV5, SpeedValueMeld)`）+
+    `tests/test_speedvaluebaotouvmeld.py` + `prereg-campaign4c` ⇒ **那一格不需要临场写代码了**。
+    （类定义与计划描述一致：V 的 `value_of` + 副露的 `_want_claim`）
+  - ② **口径纠正**：§V.49 表里 BC 分支写的是概念臂 `speedvaluebcmeld`，而预登记（`prereg-campaign4b`）里**实际用的是剂量档
+    `speedvaluebcmeldp45`**（对齐 dose 0.45，因为默认 0.60 只补 +10.5% 副露量而缺口是 ~+20%）。以后读表时以**预登记为准**。
+  - ③ **另一条路径（不是役）**：**BC✓且V✓** 时，`speedvaluebcv`（BC+V，实测改动面 21.8%）不做判词（增量 6.0% < 10%），
+    只作为**10/10 正式赛选臂**的候选（按 §V.44 规则与单轴臂同台比较）。
+  - ⇒ **结论：役 4 的 B 段现在是纯查表**（四格都不必临场造臂）。

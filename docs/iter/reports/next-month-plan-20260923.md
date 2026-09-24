@@ -3818,3 +3818,16 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 - 作庄占比 24.4% vs 27.3%（份额只值 2%）
 - **换算：总差 +1.089 分/轮 × 80 轮/房 ≈ +87 分/房**（我们当前臂 +2~+7 分/房）
 - 庄家轮只占 27% 却贡献 **50% 的率效应**（×2.4 放大器）⇒ 通用改进自动放大，**不做庄位专用线**
+
+### V.139 ★★★ 役 3→役 4 决策树定稿：四格全就绪（R1367）
+
+| 役 3 判词 | 新基线 | **役 4 实际臂** | 注册 | 单测 | 预登记 |
+|---|---|---|---|---|---|
+| BC✓ 且 V✓ | `speedvaluebc` | `speedvaluebcmeldp45` | ✅ | ✅ | campaign4b ✅ |
+| BC✓ 且 V✗ | `speedvaluebc` | 同上 | ✅ | ✅ | campaign4b ✅ |
+| BC✗ 且 V✓ | `speedvaluebaotouv5` | `speedvaluebaotouvmeld` | ✅ | ✅ | campaign4c ✅ |
+| BC✗ 且 V✗ | `speedvalue` | `speedvaluemeldp45` | ✅ | ✅ | campaign4 ✅ |
+
+**更正§V.49/§V.50**：它们写的 `speedvaluebaotouvmeld`“⚠ 未造”**已过时** —— 该文件、单测、预登记均已存在（MRO 与计划描述一致）。
+**口径**：BC 分支实际用剂量档 `speedvaluebcmeldp45`（dose 0.45），**以预登记为准**。
+**部署路径**：BC✓V✓ 时 `speedvaluebcv` 不做判词，仅作 10/10 选臂候选（§V.44）。
