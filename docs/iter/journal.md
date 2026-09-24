@@ -25391,3 +25391,30 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - ⑧ **全套回归**：`python -X utf8 -m unittest discover -s tests -p "test_*.py"` ⇒ **958 条 · OK（skipped=1, expected failures=1）· 713s**（`var/_fulltest_r1344.log`）。
   - ⑨ **四测前复查**（改过切换脚本 ⇒ 必须复查）：15 个 `HangzhouMaj*` 任务全 Ready，3 个切换任务仍是 `-Strategy speedvalue`、`-AllowNotReady` 在位，
     `tid=t_6266386bfd56`；役 2 完整性 ✓（49/50 房，无异常）。
+
+- [R1345 | 2026-09-24 11:0x ★★★★★**提交物链路断在 var/：28 个“接入官方平台”的运行期脚本从未入仓（判官 clone 下来只能跑 run_bot.py）**]
+  - ① **发现**：`.gitignore` 里有 `var/`，而**整条“接入官方平台”的链都住在 var/**（`_keeper`/`_watchdog`/`_ensure_all` 自愈、
+    `_switch_to_official.ps1` 切官方模式、`_ready_1024.py` POST /ready 到位、`_official_keepalive.py`+`_official_guard.py` 官方对局与看护）。
+    `_prepare_submission.ps1` 只 `git add -f` 了 4 个模型 ⇒ **28 个脚本全不在仓库**。提交要求是“完整可运行 + **能接入官方对战平台**”，
+    这一项按当时的仓库状态**不成立**（判官 clone 后跑不起比赛流程，只能跑 `run_bot.py`）。
+  - ② **修法**：`_prepare_submission.ps1` 新增 `$opsScripts` 清单（**31** 个 = **19 个 `.py`** + **12 个 `.ps1`**）+
+    存在性检查 + `-Go` 时逐个 `git add -f`；并新增**泄密门**（待发布文件不得含 64 位令牌串；已追踪文件里不得有“纯令牌/纯 cookie 小文件”）。
+  - ③ **第二处缺口（只有在公网副本里才暴露）**：新入仓的 `var/_ensure_all.py` 在 clone 里 **`ModuleNotFoundError: No module named '_feature_mode'`**
+    ⇒ `test_bom_state_readers` / `test_official_spec` 在克隆里**全红**（本机因为 `var/` 什么都有，**永远发现不了**）。
+    已按**依赖闭包**（`import` 边 + 源码里按路径引用的 `var/*.py` 边）算出 19 个模块，补上漏掉的 3 个：
+    `_feature_mode.py`（`_ensure_all` 的直接依赖）、`_exit_official.py`（`_daily` 按路径调用）、`_portal_watch.py`（`_register_portal_watch.ps1` 注册的看护脚本）。
+  - ④ **新增门 `tests/test_submission_closure.py`（3 项）**：① 清单非空（防空跑）；② **依赖闭包 ⊆ 清单**；③ 清单内文件**已被 git 跟踪**。
+    ⇒ 这类“看着完整、其实断链”的缺口以后再出现会立刻变红（本轮就是靠它确认 3 个文件确实没入仓）。
+  - ⑤ **写脚本时自己踩的 3 个坑（都是实测报错逼出来的，已修）**：
+    ① **双引号字符串里的弯引号 “…” 在 PowerShell 里是合法字符串定界符** ⇒ 会**提前截断字符串**（报 `Unexpected token` 一片）；
+    ② `@(...)` 数组**末元素不能带逗号** ⇒ `Missing expression after ','`（PS 5.1 与 pwsh 7 一致）；
+    ③ `git ls-files` 对**非 ASCII 路径**会加引号 + 转义 ⇒ `Test-Path` 报 `Illegal characters in path`
+    （改用 `-c core.quotepath=false` + `-LiteralPath` + 一次性建集合，不再逐文件调 git —— 逐文件调还会在 `$ErrorActionPreference='Stop'` 下被 stderr 顶成终止错误）。
+  - ⑥ **验证**：`_prepare_submission.ps1` 在 **PS 5.1 与 pwsh 7 语法解析均 0 错**、检查模式 **rc=0**；`-Go` 实测**暂存恰好 5 项**（3 个依赖 + 新门 + 脚本本身，无夹带）；
+    泄密门报告“待发布 35 个文件均无 64 位令牌串”。
+  - ⑦ **公网克隆验收（判官视角，`--depth 1` 从 GitHub 拉）**：已追踪文件 561 → **602**；31 个运行期脚本**全部在位**；
+    `_ensure_all` / `_feature_mode` / `_official_guard` / `_watchdog` / `_ab_driver` **全部可 import** ✓；
+    `test_bom_state_readers + test_submission_closure + test_official_spec + test_switch_official + test_verify_four_way` ⇒ **27 项 OK** ✓
+    （修前是 `FAILED (errors=1)`）。
+  - ⑧ **纪律沉淀**：**提交物必须做“依赖闭包 + 克隆验收”，且验收要跑到会真的 import 那些脚本的测试**——只跑 `run_bot.py --smoke`
+    是**看不见** var/ 断链的（smoke 根本不碰 `_ensure_all`）。这条直接进了 `_prepare_submission.ps1` 与新版提交卡片。

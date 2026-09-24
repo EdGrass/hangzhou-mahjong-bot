@@ -3474,3 +3474,28 @@ python -X utf8 var/_enter_event.py --tid <TID> --token-file <TOK> --strategy <AR
 
 **纪律沉淀**：**“改 .ps1 的写盘 = 必须查它的读取方编码”**；同理 `.py` 写状态文件时不得用 `utf-8-sig`。
 这条与 R1323（`.ps1` 自身需要 BOM 才能被 PS 5.1 正确解码）**方向相反**，务必分清：**脚本正文要 BOM，脚本写出的数据文件不要 BOM**。
+
+### V.119 ★★★★★ 提交物的“接入链”必须完整：依赖闭包 + 克隆验收（R1345）
+
+**缺口**：`var/` 被 `.gitignore` 忽略，而整条“接入官方平台”的链都在 var/ 里 ⇒ `_prepare_submission.ps1` 只强制 add 了 4 个模型，
+**31 个运行期脚本（含 3 个它们依赖的模块）此前从未入仓** ⇒ 判官 clone 后跑不起比赛流程（只能 `run_bot.py`）。
+
+| 修法 | 内容 |
+|---|---|
+| 清单 | `$opsScripts`（31 个）+ 存在性检查 + `-Go` 时 `git add -f` |
+| 泄密门 | 待发布文件不得含 64 位令牌串；已追踪文件里不得有“纯令牌/纯 cookie 小文件” |
+| 闭包门 | `tests/test_submission_closure.py`：清单非空 + **依赖闭包 ⊆ 清单** + 清单内文件已被 git 跟踪 |
+| 克隆验收 | `git clone --depth 1` 公网副本 → 逐模块 import + 跑相关单测 |
+
+**依赖闭包怎么算**（两条边，缺一不可）：
+① `import X` / `from X import`，且 `X` 是 `var/` 里的同级模块；
+② **源码里按路径出现的** `var/…py`（动态 import / subprocess / 任务注册都走这条 —— 本轮 `_exit_official.py`、`_portal_watch.py` 就是只有第 ② 条边才抓得到）。
+结果 = 19 个模块，此前漏 3 个：`_feature_mode`（`_ensure_all` 直接依赖）、`_exit_official`（`_daily`）、`_portal_watch`（portal 看护注册）。
+
+**实测**（公网 clone）：已追踪 561 → **602**；31 个脚本全在位；`_ensure_all` 等**全部可 import**；相关单测 **27 项 OK**（修前 `errors=1`）。
+
+**本轮写 .ps1 踩的 3 个坑（都写进知识库）**：
+1. **双引号字符串里的弯引号 `“…”` 在 PowerShell 里是合法字符串定界符** ⇒ 提前截断字符串（报一片 `Unexpected token`）；
+2. `@(...)` 数组**末元素不能带逗号** ⇒ `Missing expression after ','`（5.1 与 pwsh 7 一致）；
+3. `git ls-files` 对**非 ASCII 路径**加引号+转义 ⇒ `Test-Path` 报 `Illegal characters in path`
+   （用 `-c core.quotepath=false` + `-LiteralPath` + 一次性集合；**不要**逐文件调 git：`$ErrorActionPreference='Stop'` 下 stderr 会顶成终止错误）。

@@ -15,11 +15,18 @@
 ```powershell
 cd D:\hangzhouMaj
 git status --porcelain                     # 应为空（或只有你刚改的东西）
-pwsh -NoProfile -File var/_prepare_submission.ps1 -Go     # git add -A + git add -f 四个模型
-git status --short                                        # 确认模型四个都在暂存区
+pwsh -NoProfile -File var/_prepare_submission.ps1          # 先看检查：应 rc=0、泄密门 OK
+pwsh -NoProfile -File var/_prepare_submission.ps1 -Go     # git add -A + **4 个模型 + 31 个运行期脚本**（均 git add -f）
+git status --short                                        # 确认模型 4 个 + var/ 脚本都在暂存区
+python -X utf8 -m unittest tests.test_submission_closure  # ★ 闭包门：清单内文件必须全部已入仓（R1345）
 git commit -m "submit: 完整可运行源码 + 4 个模型权重 + 参赛说明"
 git push origin main
 ```
+
+> ★ **R1345 教训**：`var/` 被 .gitignore 忽略，而**整条“接入官方平台”的链都在 var/ 里**。
+> 只 `git add -f` 模型（旧做法）会导致判官 clone 后**只能跑 run_bot.py，进不了比赛流程**。
+> 现在强制 add 的是 **31 个 = 19 个 .py + 12 个 .ps1**，并且 `tests/test_submission_closure.py` 会堵住
+> “清单引用了清单外的 var/ 文件”（依赖闭包）与“清单里的文件还没入仓”两种漏洞。
 
 ## 2. 从公网克隆验证（~判官视角，~3 分钟）
 
@@ -27,8 +34,12 @@ git push origin main
 cd $env:TEMP; git clone https://github.com/EdGrass/hangzhou-mahjong-bot hm_verify; cd hm_verify
 pip install -r requirements.txt
 python -X utf8 run_bot.py --smoke           # 打了 P0 后应为「冒烟结果: 全部通过」
+python -X utf8 -c "import importlib.util,sys;[ (lambda sp: (lambda m: (sys.modules.__setitem__(n,m), sp.loader.exec_module(m)))(importlib.util.module_from_spec(sp)))(importlib.util.spec_from_file_location(n,p)) for n,p in [('_ensure_all','var/_ensure_all.py'),('_official_guard','var/_official_guard.py'),('_watchdog','var/_watchdog.py'),('_ab_driver','var/_ab_driver.py'),('_feature_mode','var/_feature_mode.py')] ]; print('ENGINE CHAIN IMPORT OK')"
 python -X utf8 -m unittest discover -s tests
 ```
+
+> ★ 上面那条 import 检查是 **R1345 的新课目**：`var/_ensure_all.py` 依赖 `var/_feature_mode.py`，
+> 漏入仓时会报 `ModuleNotFoundError`，而**本机因为 var/ 什么都有、永远不会发现**。
 
 > 若没打 P0：smoke 会因 v35 而报「存在失败项」（R1325 已证打了就全绿）⇒ 不要在这个状态下提交。
 
