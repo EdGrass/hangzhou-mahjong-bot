@@ -4588,3 +4588,24 @@ A/B 驱动被 `_ensure_all` 自动拉起，但每批都撞 403：`_ab_driver.out
 
 - 用役 3 期望（`speedvalue` + `speedvaluebc` + `speedvaluebaotouv5`）对**当前役 2 状态** ⇒ 正确报「臂集不符（缺 bc/baotouv5、多 speedc151）」+「看护缺失×2」，ok=False；
 - 用**当前真实臂集**（`speedc151`+`speedvalue`）⇒ 「臂集正确」✓，仅看护缺失（预期，役 3 尚未起）。
+
+
+---
+
+### §V.174 平台重开自由匹配→**自动恢复全链路实测通过**（★ 运行事实，非代码推断）
+
+**时间线（现场捕获）**
+
+| 时间 | 事件 |
+|---|---|
+| 18:38:51 | 我的探针仍报 `match_enabled=False`（暂停保持） |
+| **18:41:08** | `_ensure_all`（5 分钟链）发现 `match_enabled=True` ⇒ **自动删除 `.pause_mode`** ⇒ 拉起 `_ab_driver` |
+| 18:41:19 | 驱动启动第一批：`match_super --strategy speedc151 --wait-until-second 50` |
+| 18:41:51 | `run_bot.py <token> a_8e389a54be53 --strategy speedc151` 起 ⇒ **房子真的开了** |
+| 18:43:52 | 我的探针确认 `match_enabled=True`、`.pause_mode` **已不在** |
+
+**验收（四项）**：① `.pause_mode` 自动消失 ✓；② `_ab_driver` 在跑（pid 52188）✓；
+③ `match_super`（pid 22368）+`run_bot`（pid 35288，房 a_8e389a54be53）在跑 ✓；④ `ab_ctl` 确认窗口**未变**（`started=2026-09-23 03:13:44`）✓。
+
+⇒ “**恢复信号 = `match_enabled`，不是时钟**”这条（§V.168）现在有了完整的自动化证据；
+役 2 暂停共 **~3.3 小时**（15:20–18:41），台账一行未丢（仍 117 房 / 59:58，等第一房完成后 +1）。
