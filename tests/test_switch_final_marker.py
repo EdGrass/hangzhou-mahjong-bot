@@ -30,5 +30,42 @@ class TestMarkerText(unittest.TestCase):
         self.assertIn("-AllowNotReady", t)
 
 
+class TestR1444DeadlockAndGuard(unittest.TestCase):
+    """★ R1444：10/7 换臂链的两个真雷（本机 watchdog 日志/rate_guard 源码实证）。
+
+    ① **死等 keeper**：原等待条件是 run_bot + match_super + **_keeper** 三者全无，
+       但 watchdog 每 90 秒必把 keeper 拉回来（日志 09-23 03:07:50 / 03:09:20 恰好 90s）
+       ⇒ 25 分钟必然超时 ⇒ 换臂失败。
+    ② **熔断静默回退**：A/B 一停、.official_mode 未写时 rate_guard 生效，
+       40 房净胜 < −40 ⇒ 把 _keeper_strategy.txt 改回 speedtugc ⇒ 刚装上的最终臂被改掉。
+    """
+
+    def test_wait_patterns_excludes_keeper(self):
+        pats = SF.wait_patterns()
+        self.assertIn("run_bot.py", pats)
+        self.assertIn("match_super.py", pats)
+        self.assertNotIn("_keeper.py", pats)      # ← 死等的根因，必须不在等待集合里
+
+    def test_guard_off_path(self):
+        self.assertTrue(SF.GUARD_OFF.endswith(".rate_guard_off"))
+
+    def test_main_flow_order_and_guard_off(self):
+        """接线条：主流程必须 先写策略 → 杀 keeper → 用 wait_patterns 等对局 → 成功后关熔断。"""
+        import io as _io
+        src = _io.open(os.path.join(ROOT, "var", "_switch_final.py"),
+                       encoding="utf-8-sig").read()
+        i_write = src.index("已写 _keeper_strategy.txt")
+        i_kill = src.index("kk = kill_keepers()")
+        i_wait = src.index("alive = [x for pat in wait_patterns()")
+        i_guard = src.index("io.open(GUARD_OFF")
+        self.assertLess(i_write, i_kill, "必须先写策略文件再杀 keeper（否则 watchdog 会按旧策略重启）")
+        self.assertLess(i_kill, i_wait, "必须先杀 keeper 再等对局结束（否则会不停起新房，等不到空档）")
+        self.assertLess(i_wait, i_guard, "关熔断应在换臂流程之后")
+        # 绝不再把 keeper 并进等待集合
+        wait_src = src.split("alive = [x for pat in")[1].split("if not alive")[0]
+        self.assertNotIn("_keeper.py", wait_src)
+
+
+
 if __name__ == "__main__":
     unittest.main()

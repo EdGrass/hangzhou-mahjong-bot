@@ -32,6 +32,7 @@ BAD_MARK = os.path.join(ROOT, "var", ".FINAL_NOT_READY")
 FINAL_ARM = os.path.join(ROOT, "var", ".final_arm.txt")
 MARKER = os.path.join(ROOT, "var", ".final_installed")
 KEEPER = os.path.join(ROOT, "var", "_keeper_strategy.txt")
+GUARD_OFF = os.path.join(ROOT, "var", ".rate_guard_off")   # ★ R1444：最终臂固定开关
 AB = os.path.join(ROOT, "var", ".ab_mode")
 
 
@@ -72,7 +73,12 @@ def main():
     chk("3 \u5df2\u771f\u6362\u4e0a\uff08.final_installed\uff09", bool(inst) and (("arm=" + arm) in inst),
         inst or "\u7f3a .final_installed\uff08\u672a\u8dd1 _switch_final.py --go\uff09")
     cur = read(KEEPER)
-    chk("4 keeper \u7b56\u7565==\u6700\u7ec8\u81c2", bool(arm) and cur == arm, "keeper=%r" % cur)
+    # ★ R1444：熔断器必须已关 —— 否则 A/B 收口后 rate_guard 会把策略**静默改回** FALLBACK(speedtugc)，
+    #   第 4 项会在 10/7 10:30 之后某次运行里悄悄变红（而不是"装完就稳"）。
+    guard_off = os.path.exists(GUARD_OFF)
+    chk("4 keeper \u7b56\u7565==\u6700\u7ec8\u81c2 \u4e14 \u7194\u65ad\u5df2\u5173",
+        bool(arm) and cur == arm and guard_off,
+        "keeper=%r \u7194\u65ad\u5173=%s" % (cur, guard_off))
     chk("5 \u5f79\u5df2\u6536\u53e3\uff08\u65e0 .ab_mode\uff09", not os.path.exists(AB),
         "\u4ecd\u5728 A/B\uff08.ab_mode \u5b58\u5728\uff09" if os.path.exists(AB) else "")
     try:

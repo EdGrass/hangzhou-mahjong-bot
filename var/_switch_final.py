@@ -32,6 +32,47 @@ LOG = os.path.join(ROOT, "var", "_switch_final.log")
 OFFICIAL = os.path.join(ROOT, "var", ".official_mode")
 FINAL_ARM = os.path.join(ROOT, "var", ".final_arm.txt")
 MARKER = os.path.join(ROOT, "var", ".final_installed")
+GUARD_OFF = os.path.join(ROOT, "var", ".rate_guard_off")   # ★ R1444：固定最终臂，防生产熔断静默回退
+
+
+def wait_patterns():
+    """换臂前只等**对局进程**（run_bot/match_super）自然结束。
+
+    ★ R1444（真雷）：原实现把 `_keeper.py` 也放进等待条件 ⇒ **永远等不到**：
+    本机 watchdog 日志实测，`.ab_mode` 一消失，watchdog 就每 90 秒把 keeper 拉回来
+    （09-23 03:07:50 / 03:09:20 两次「keeper 缺失，已按 strategy=… 拉起」正好间隔 90 秒），
+    而 keeper 是**常驻监督器**、平时一直在跑房 ⇒ 25 分钟必然超时 ⇒ 10/7 换臂失败（12:00 重试同样失败）。
+    keeper 的换策略方式本来就是"杀掉 → 由 watchdog 按 `_keeper_strategy.txt` 重启"（见 `_switch_test_strategy.py`），
+    所以它**不该**被当成"还要等它退出"的对象。
+    """
+    return ("run_bot.py", "match_super.py")
+
+
+def kill_keepers():
+    """只杀 `_keeper.py`（**监督器**，不碰 match_super/run_bot）。见上述理由。
+
+    红线仍守：`_watchdog.py` / `_ab_driver.py` / `match_super.py` / `run_bot.py` 一律不碰。
+    """
+    killed = []
+    try:
+        import psutil
+    except Exception:
+        return killed
+    me = os.getpid()
+    for pr in psutil.process_iter(["pid", "cmdline", "exe"]):
+        try:
+            if pr.info["pid"] == me:
+                continue
+            exe = os.path.basename(pr.info.get("exe") or "").lower()
+            if "python" not in exe:
+                continue
+            args = [os.path.basename(str(x).replace("\\", "/")) for x in (pr.info.get("cmdline") or [])[1:]]
+            if "_keeper.py" in args:
+                psutil.Process(pr.info["pid"]).kill()
+                killed.append(pr.info["pid"])
+        except Exception:
+            pass
+    return killed
 KEEPER_STRAT = os.path.join(ROOT, "var", "_keeper_strategy.txt")
 
 
@@ -139,9 +180,20 @@ def main(argv=None):
     p = subprocess.run([py, "-X", "utf8", "tools/ab_ctl.py", "stop"], cwd=ROOT,
                        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
     log("ab_ctl stop rc=%s %s" % (p.returncode, (p.stdout or "").strip().splitlines()[-1:] or ""))
+    # ★ R1444：先把策略写进文件（watchdog 重启 keeper 时会读它），再杀掉 keeper 阻止新房，
+    #   然后**只等对局进程**结束 —— 这样才收敛（原实现在这里死等 keeper）。
+    try:
+        with io.open(KEEPER_STRAT, "w", encoding="utf-8") as f:
+            f.write(arm)
+        log("已写 _keeper_strategy.txt = %s（供 watchdog 重启 keeper 时读取）" % arm)
+    except Exception as e:
+        log("!! 写 _keeper_strategy.txt 失败：%s ⇒ 停止" % str(e)[:60])
+        return 2
+    kk = kill_keepers()
+    log("杀 keeper（仅监督器）：%s" % (kk or "无"))
     t0 = time.time()
     while time.time() - t0 < a.wait_min * 60:
-        alive = procs("run_bot.py") + procs("match_super.py") + procs("_keeper.py")
+        alive = [x for pat in wait_patterns() for x in procs(pat)]
         if not alive:
             break
         log("\u7b49\u5bf9\u5c40\u81ea\u7136\u7ed3\u675f\u4e2d\uff08\u8fd8\u5728\uff1a%s\uff09" % ",".join(sorted({str(x) for x in alive})))
@@ -164,6 +216,15 @@ def main(argv=None):
     if now != arm or len(k) > 1:
         log("!! \u6821\u9a8c\u5931\u8d25\uff1a_keeper_strategy=%r keeper=%s \u21d2 \u9700\u4eba\u5de5" % (now, k))
         return 2
+    # ★ R1444：最终臂是**已判正**的决定，不能被生产熔断静默改回 FALLBACK。
+    #   （A/B 一停、.official_mode 未写时 rate_guard 就生效：40 房净胜 < −40 ⇒ 回退 speedtugc。）
+    try:
+        with io.open(GUARD_OFF, "w", encoding="utf-8") as f:
+            f.write("%s 最终臂 %s：停用 rate_guard（防静默回退）\n"
+                    % (time.strftime("%Y-%m-%d %H:%M:%S"), arm))
+        log("已写 .rate_guard_off（最终臂 %s 不再被生产熔断回退）" % arm)
+    except Exception as e:
+        log("⚠ 写 .rate_guard_off 失败：%s" % str(e)[:60])
     try:
         with io.open(MARKER, "w", encoding="utf-8") as f:
             f.write(marker_text(arm, k))

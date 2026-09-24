@@ -37,3 +37,19 @@ powershell -NoProfile -File var/_prepare_submission.ps1        # 先看检查
 powershell -NoProfile -File var/_prepare_submission.ps1 -Go    # 真准备 + git add -f
 git commit && git push                                          # 提交仓就是跑着的份
 ```
+
+---
+
+## ★ 追加（R1444）：第 4 项口径升级 + 为什么 10/7 原来会**静默失败**
+
+> 上文"它会检查什么"里的 **第 4 项已升级**，其余不变。
+
+- **第 4 项现在是**：「`_keeper_strategy.txt` == 最终臂 **且 `var/.rate_guard_off` 已在位**」。
+  原因：`tools/rate_guard.py` 在 **A/B 收口后、`.official_mode` 未写时**生效，
+  **最近 40 房净胜 < −40/房 ⇒ 会把 `_keeper_strategy.txt` 回退成 `speedtugc`**（快档：6 房 < −150）。
+  10/7 换臂后正好落在这个窗口 ⇒ 最终臂可能**装上几分钟就被改掉**，而 10:30 的验收只会看到"第 4 项 FAIL"，
+  看起来像"没装上"，实际是"装上后被熔断器推翻"。⇒ `_switch_final` 现在换臂成功即写 `var/.rate_guard_off`。
+- **另一处已修（原来会让换臂直接失败）**：`_switch_final` 原来要等 `_keeper.py` 也退出，但 watchdog 在非 A/B 模式下
+  **每 90 秒就会把 keeper 拉回来**（日志实证）⇒ 25 分钟等不到 ⇒ 09:00 与 12:00 两次都会失败。
+  现在改为：先写策略文件 → 杀 `_keeper.py`（只杀监督器，不碰对局进程）→ **只等对局进程**结束 → 再走 `_switch_test_strategy.py`。
+- **你仍然不用做任何事**；这两处修好后 10/7 的自动换臂才真的成立。
