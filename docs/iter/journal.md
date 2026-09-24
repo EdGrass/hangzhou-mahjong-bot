@@ -26006,3 +26006,17 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     ② **把任务动作原样跑一次** ⇒ rc=2（= 预期的 `Rounds`/`Kind` 关键差异码）、输出确实落在 `_4test_format.out`；
     ③ 再跑一次 ⇒ 打印“（与上一条相同 ⇒ 不重复留档）”且 `format_history.jsonl` 行数不变 ⇒ R1386 的 struct 去重键真的生效（不会 27 次刷屏）。
   - ④ 代价与红线：每 10 分钟 1 次门户 GET（远低于 12/s 桶）、每次至多一行 JSON；不杀进程、不改 `bot/`、不与在途 A/B / official keepalive 抢文件（唯一共享的 `format_history.jsonl` 是追加式）。
+
+- [R1390 | 2026-09-24 15:0x ★★★★**四测赛后的“官方复盘”也自动化：不然 16:00–19:00 这场又只剩一个总排名**]
+  - ① **缺口**：keepalive 自己录的是 `var/replays/official_1024_<stamp>/<gid>.jsonl`（**裸事件流**），
+    而赛后审计 / 同席对比（`hu_gap_split` / `_seat_h2h` / `real_game_audit`）读的是**门户格式**（`<gid>.json`，含 `seats`/`blocks`）⇒
+    两者之间只有 `tools/fetch_tournament_replays.py` 这一座桥，而它**只能赛后手动跑**；门户**只保留当前 1 场赛事** ⇒ 不自动化就是一次性证据。
+  - ② **修法**：新增 `var/_register_4test_replay_fetch.ps1`（同模板：BOM+CRLF、`Get-Command python.exe` 绝对路径），
+    注册 **`HangzhouMaj4TestReplayFetch`**：`19:10` 起**每 30 分钟**、持续 **5h**（→ 00:10），单次上限 10 分钟、`IgnoreNew`；
+    动作 = `fetch_tournament_replays.py --tid t_6266386bfd56 --token-file var/.token_4test_20260924 --out var/replays/4test_rooms`，日志 `var/_4test_replayfetch.out`；
+    并补进 `$opsScripts`（与其余 `_register_*.ps1` 同类）。
+  - ③ **为什么是“重试型”而不是“跑一次”**：该工具**幂等**（已存在的 `<gid>.json` 直接 skip），
+    而它的 docstring 自认“**锦标赛房的 room→gid 路径尚未在真数据上跑过**”⇒ 重试既能吃掉赛程尾部才落库的对局，也能在第一次路径假设不对时留下连续证据。
+  - ④ **实测**（赛前）：`--dry-run` 与**任务同形命令实跑**各一次 ⇒ 均 `GET /api/tournaments/t_6266386bfd56 -> 200`、
+    `status=registering my_games=0`、日志确实落 `_4test_replayfetch.out`；注册后 `NextRunTime=2026-09-24 19:10:00`、触发 XML `Interval=PT30M / Duration=PT5H`。
+  - ⑤ 红线：只发 GET + 只写 `var/replays/4test_rooms/`与日志；与 19:00/21:00/22:30/00:30 的 `_after_4test.py`（恢复役 2）互不干扰。
