@@ -68,6 +68,32 @@ class TestSubmissionClosure(unittest.TestCase):
         self.assertEqual([], leaked,
                          "以下 var/ 文件在清单的**依赖闭包**里但**不在清单上** ⇒ clone 里会缺文件（用 -Go 前必须先补进 $opsScripts）：%s" % leaked)
 
+    def test_tests_var_references_are_in_list(self):
+        """★ R1346：**测试自己**按文件名/路径引用的 var/ 模块也必须在清单里。
+
+        为什么：实测在公网 clone 里，test_speedc069 / test_replay_guard / test_replay_model / test_speedc220
+        因为它们 exec/import 的 var/ 模块没入仓 ⇒ 直接 FileNotFoundError / ImportError（而不是跳过）；
+        而本机 var/ 什么都有 ⇒ **永远不会发现**。
+        """
+        ops = set(ops_list())
+        tdir = os.path.join(ROOT, "tests")
+        var_names = [f for f in os.listdir(os.path.join(ROOT, "var"))
+                     if f.endswith(".py") or f.endswith(".ps1")]
+        srcs = {}
+        for t in sorted(os.listdir(tdir)):
+            if t.startswith("test_") and t.endswith(".py"):
+                with io.open(os.path.join(tdir, t), encoding="utf-8-sig", errors="replace") as f:
+                    srcs[t] = f.read()
+        missing = []
+        for vf in var_names:
+            users = [t for t, s2 in srcs.items()
+                     if ('"%s"' % vf) in s2 or ("'%s'" % vf) in s2]
+            if users and ("var/%s" % vf) not in ops:
+                missing.append("var/%s <- %s" % (vf, ", ".join(sorted(users)[:3])))
+        self.assertEqual([], missing,
+                         "测试引用了不在 `.\$opsScripts` 里的 var/ 文件 ⇒ clone 里跑测试会报 FileNotFoundError/ImportError"
+                         "（把它们加进 $opsScripts 并 `-Go`）：%s" % missing)
+
     def test_listed_files_are_tracked(self):
         try:
             tracked = set(subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True,

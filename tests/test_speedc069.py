@@ -27,3 +27,23 @@ class T(unittest.TestCase):
   v = make_view(0,'draw',0,HAND,melds=[],river=[],all_melds=[[],[],[],[]],dealer=0)
   a = st.decide(v); self.assertEqual(a.get('action'),'discard'); self.assertIn(a.get('tile'), HAND)
 if __name__ == '__main__': unittest.main()
+
+
+def setUpModule():
+    """★ R1346：**无真实语料就整模块跳过**（clone / CI）。
+
+    为什么：本模块的护栏要在**真实对局记录**（`var/replays/**/*.dec.jsonl`）上取窗口；
+    语料不在时它们报“取不到真实吃牌窗口”这类**假失败**，把真问题淹没。
+    """
+    import os as _os
+    import unittest as _ut
+    _root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    _rep = _os.path.join(_root, "var", "replays")
+    _has = False
+    if _os.path.isdir(_rep):
+        for _dp, _dn, _fn in _os.walk(_rep):
+            if any(_x.endswith(".dec.jsonl") for _x in _fn):
+                _has = True
+                break
+    if not _has:
+        raise _ut.SkipTest("无真实语料 var/replays/**/*.dec.jsonl（clone/CI）⇒ 跳过本模块")

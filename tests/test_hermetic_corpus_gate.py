@@ -42,7 +42,9 @@ CORPUS_MODULES = (
     "test_speedc147",
     "test_speedmeldmore",
     "test_speedmeldtoldose",
-    "test_replay_model"
+    "test_replay_model",
+    "test_speedc069",
+    "test_speedvaluemeldmore0chigang"
 )
 
 

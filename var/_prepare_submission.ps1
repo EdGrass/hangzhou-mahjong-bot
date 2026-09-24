@@ -51,7 +51,11 @@ $opsScripts = @(
   "var/_daily.py",
   "var/_feature_mode.py",        # ★ R1345：_ensure_all.py 的同级依赖（缺它 clone 里 import 就报 ModuleNotFoundError）
   "var/_exit_official.py",       # ★ R1345：_daily.py 按路径调用
-  "var/_portal_watch.py",        # ★ R1345：_register_portal_watch.ps1 按路径注册的看护脚本
+  "var/_portal_watch.py",
+  "var/_c069_discard_train.py",  # ★ R1346：test_speedc069 按路径 exec（未入仓 ⇒ clone 里 FileNotFoundError）
+  "var/_replay_guard.py",         # ★ R1346：test_replay_guard 按路径 exec
+  "var/_replay_model.py",         # ★ R1346：test_replay_model 按路径 exec
+        # ★ R1345：_register_portal_watch.ps1 按路径注册的看护脚本
   "var/_switch_to_official.ps1",
   "var/_switch_back_to_test.ps1",
   "var/_start_1024.ps1",
