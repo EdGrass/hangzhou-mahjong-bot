@@ -3195,3 +3195,18 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 **对分支地图的修正**：若 §V.49 读到的第一列（役 2）落在 **判负**，则役 3 只能是二臂（`speedc151` vs `speedc151bc`）或先造 c151-V 新变体；
 它应当被当成**需人工重排的事件**，而不是自动 re-base。**而现有证据均指向 speedvalue**（见 §V.86/R1321），
 判负概率低 ⇒ 实际基线就是 speedvalue。
+
+### V.99 ★★★★ 新增「役 2 判词判读卡」（2026-09-24 10:0x，R1322）
+
+`docs/iter/reports/yaku2-verdict-readcard.md`：役 2 判词会在**夜里**落盘，本卡把“在哪看 / 怎么读 / 四条分支各跑什么”写死：
+
+| 判词 | 动作 |
+|---|---|
+| ADOPT | 起役 3（P0 → preflight → `_switch_campaign --candidates speedvaluebc,speedvaluebaotouv5 --go` → `_register_campaign3_watches.ps1 -Since <ts> -Go`） |
+| UNDECIDED | 继续攒房（看护自动重判，每 +10 房） |
+| 达役盒（120/臂） | 按 §V.66/§V.67 破平序列收口（`_pick_arm.py` → 两半 Pareto → 第1率 → 保持现状） |
+| REJECT | 人工重排（§V.98：V 轴无法孪生到 c151）；默认仍以 speedvalue 为基线 |
+| REFUSE | 本役不采用 → 收口后进下一役 |
+
+**新证据**：`_switch_to_official.ps1` 在第 2b 步就写 `.official_mode`，而 watchdog 在官方模式下不启不杀
+⇒ **正式赛切换不存在“与 keeper 抢窗口”的竞态**（役间切换仍有，最坏多等一批 ≈15min）。
