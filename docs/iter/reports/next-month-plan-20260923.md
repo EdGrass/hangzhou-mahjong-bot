@@ -3364,3 +3364,13 @@ python -X utf8 tools/hu_gap_split.py 0 --dirs 4test_rooms
 2. **0 文件 ⇒ exit 2 + 明说**（否则会输出一堆 +0.00pp，看上去像“没有缺口”）；另补上入口 `sys.exit(main())`。
 
 **实测**：`--dir recent` **exit 0** / `--dirs recent` **exit 0**（两者读数一致）/ 只有 `.jsonl` 的事件目录 **exit 2**（报错文本指向正确工具）。
+
+### V.112 ★★★★ `fetch_tournament_replays` 默认值修正（R1337）——第 6 处过期默认值
+
+| 项 | 旧 | 新 |
+|---|---|---|
+| `--tid` | `t_65d538e905c5`（09-17 二测） | 空 ⇒ `.official_spec.json` → 门户唯一 `registering` 赛事；取不到 ⇒ **exit 2** |
+| `--token-file` | `var/.token_1024_20260917` | 空 ⇒ **与 tid 同源**（门户来的 tid 就用 `.global_token` 并告警） |
+
+**实测**：裸跑 `--dry-run` ⇒ tid←门户(四测)、token←`.global_token`、**HTTP 200**（registered=66 / ready=11）；显式传参不变。
+**附带**：成为参赛者后 `.global_token` 也能读四测（之前 403 `not a participant`）⇒ 印证 §V.92：**访问权由参与关系决定**。

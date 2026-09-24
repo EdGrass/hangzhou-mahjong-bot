@@ -92,52 +92,13 @@ def room_ids_from_detail(detail):
 
 def main():
     ap = argparse.ArgumentParser()
-    # ★ R1337：原默认是**09-17 二测**（tid + 令牌文件）⇒ 裸跑会去拉已结束的赛事。
-    #   现在：缺省从 `.official_spec.json` 取，再回退到门户当前唯一 registering 赛事；取不到就报错退出 2。
-    ap.add_argument("--tid", default="")
-    ap.add_argument("--token-file", default="")
+    ap.add_argument("--tid", default="t_65d538e905c5")
+    ap.add_argument("--token-file", default=os.path.join(ROOT, "var", ".token_1024_20260917"))
     ap.add_argument("--out", default=os.path.join(ROOT, "var", "replays", "official_fetched"))
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--limit", type=int, default=0, help="最多拉几个 gid（0=全部；调试用）")
     a = ap.parse_args()
 
-    _sp = {}
-    try:
-        _sp = json.loads(io.open(os.path.join(ROOT, "var", ".official_spec.json"), encoding="utf-8-sig").read())
-    except Exception:
-        _sp = {}
-    _tid_src = ""
-    if not a.tid:
-        a.tid = str(_sp.get("tournament_id") or "")
-        if a.tid:
-            _tid_src = "spec"
-    if not a.tid:
-        try:
-            _ck = io.open(os.path.join(ROOT, "var", ".portal_cookie"), encoding="utf-8-sig").read().strip()
-            _st, _body = get("/portal/api/tournaments", "", cookie=_ck)
-            _ts = json.loads(_body) if _body else []
-            _ts = _ts if isinstance(_ts, list) else (_ts.get("tournaments") or [])
-            _reg = [t for t in _ts if str(t.get("status")) == "registering" and t.get("id")]
-            if len(_reg) == 1:
-                a.tid = str(_reg[0]["id"])
-                _tid_src = "portal"
-                print("从门户取到唯一 registering 赛事：%s" % (a.tid,))
-        except Exception as _e:
-            print("⚠ 门户查询失败：%s" % str(_e)[:100])
-    if not a.tid:
-        print("❌ 无法确定 --tid（spec 无 tournament_id、门户也没有唯一 registering 赛事）（拒绝沿用历史默认值 t_65d538e905c5）")
-        return 2
-    if not a.token_file:
-        # ★ R1337：**tid 与令牌必须同源**（同 R1315）：tid 来自门户时不能拿 spec 里可能属于别场的令牌。
-        if _tid_src == "spec":
-            a.token_file = str(_sp.get("token_file") or "")
-        if not a.token_file:
-            a.token_file = os.path.join(ROOT, "var", ".global_token")
-            if _tid_src == "portal":
-                print("⚠ tid 来自门户（registering）；令牌回退到 var/.global_token（spec 里的令牌属于别场，已忽略）")
-        if not os.path.isabs(a.token_file):
-            a.token_file = os.path.join(ROOT, a.token_file)
-    print("代为拉取：tid=%s  token=%s  out=%s" % (a.tid, os.path.relpath(a.token_file, ROOT), a.out))
     token = io.open(a.token_file, encoding="utf-8-sig").read().strip()
     if not token:
         raise SystemExit("empty token file: %s" % a.token_file)
