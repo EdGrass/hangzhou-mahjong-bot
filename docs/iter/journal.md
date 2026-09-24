@@ -26259,3 +26259,13 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - 正确做法：写 `var/.pause_mode` ⇒ `_ab_driver` 自己退出（日志 `17:53:56 平台暂停模式…A/B 驱动退出`），watchdog 走“不启不杀”分支；
     `_feature_mode` 会在 `match_enabled` 恢复后**自动删标志**，`_ensure_all`（5min）自动重拉，**窗口不变**。
   - 19:00 收尾任务 dry-run：“已恢复 ⇒ 无事可做”✓（不与暂停标志冲突）。已写入计划 **§V.168**（恢复信号 = match_enabled，不是时钟）。
+
+- [R1416 | 2026-09-24 17:5x ★★★★**把预登记的「机制端点每 20 房复跑」变成自动守护（`_mech_watch` + 每 6h 任务）**]
+  - **依据**：`prereg-campaign3-speedvaluebc-20260924.md` §2 将「决策改动率 ∈ [10%,20%] 且 action 差异=0」定为**核心机制端点**，
+    并要求“每 20 房复跑一次 offline_replay（抽样即可）”。人工数房必漏 ⇒ 写成脚本 + 计划任务。
+  - **新增 `var/_mech_watch.py`**：读 `.ab_mode` 自动判当前役（无役 ⇒ 严格 no-op）；对候选臂选相位（含 `meld` ⇒ window；含 `bc`/`baotou` ⇒ draw），
+    跑 `offline_replay --lowprio`（8§9.30/§9.47 纪律），把读数写 `var/_mech_watch.log`；脱离预期带 ⇒ 写 `var/.mech_warn`，正常则删标志。
+  - **两条路径均真跑校验过解析**（`--files 60`，临时日志）：
+    `speedvaluebc` draw ⇒ **tile 改动 15.7% / action 0.0%**⇒PASS（预期 10–20%，与预登记 15.9% 一致）；
+    `speedvaluemeldp45` window ⇒ **索取率 64.9% → 81.2%，仅基线收 0** ⇒PASS（与预登记 82.0% 一致）。
+  - **任务 `HangzhouMajMechWatch`**（pythonw、`IgnoreNew`、限 30min）：**每 6 小时**一次；新增注册脚本 `var/_register_mech_watch.ps1`；两文件已补进 `$opsScripts`。
