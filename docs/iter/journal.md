@@ -26269,3 +26269,8 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     `speedvaluebc` draw ⇒ **tile 改动 15.7% / action 0.0%**⇒PASS（预期 10–20%，与预登记 15.9% 一致）；
     `speedvaluemeldp45` window ⇒ **索取率 64.9% → 81.2%，仅基线收 0** ⇒PASS（与预登记 82.0% 一致）。
   - **任务 `HangzhouMajMechWatch`**（pythonw、`IgnoreNew`、限 30min）：**每 6 小时**一次；新增注册脚本 `var/_register_mech_watch.ps1`；两文件已补进 `$opsScripts`。
+
+- [R1417 | 2026-09-24 18:0x ★★★★**役 3 自动链最后一环验证：P0 补丁锚点完好 + 补丁后 preflight 将 PASS**]
+  - `var/_apply_p0_404.py --check` ⇒ 两处锚点均可替换（protocol 15812→15903 字节；`__init__` 34→35），rc=0 ⇒ 今天的其他改动（如 `run_bot.py` 注册项）没碰坏补丁。
+  - preflight 实侧：唯一 `✗`是“未知 BREAKING”（补丁修它）；**无 run_bot 仅 `⚠`**、**延迟体检无对象仅 `⚠ 跳过`** ⇒ 不阻塞 READY。
+  - 结论：今晚“判词→采用→起役 3”链路**环环可验**（唯一依赖的平台侧事件是 `match_enabled` 恢复，已有 `.pause_mode` 自动解除机制）。

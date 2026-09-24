@@ -4479,3 +4479,19 @@ A/B 驱动被 `_ensure_all` 自动拉起，但每批都撞 403：`_ab_driver.out
 1. 赛事期间不要提前「恢复训练」；若已提前退出官方模式，**必须先读 `features.match_enabled`**，为 false 就设 `.pause_mode`；
 2. 19:00 的定时收尾任务现在会输出“已恢复 ⇒ 无事可做”（不会与暂停标志打架）；
 3. **真正的恢复信号 = `match_enabled` 变 True**，恢复后无需人工（自动解除 + 自动重拉）。
+
+
+---
+
+### §V.169 役 3 自动链的**最后一环已验证**（P0 补丁锚点 + preflight 将 PASS）（★ 关键路径）
+
+役 2 判词 → 自动采用 → 起役 3 的链路里，唯一没被验过的是 B 段步骤 2/3（**P0 补丁与其后的 preflight**）。今天运中验完：
+
+1. **P0 补丁锚点完好**：`python -X utf8 var/_apply_p0_404.py --check` ⇒
+   `✓ protocol.py：404 分支可替换（15812 → 15903 字节）`、`✓ bot/__init__.py：版本号 34 → 35 可替换`（rc=0）。
+   ⇒ 说明今天我改过的其它文件（如 `run_bot.py` 加两个注册项）**没有碰坏补丁锚点**。
+2. **preflight 在补丁后会 PASS**（逐条核对 `tools/preflight.py`）：报 `✗` 的只有“未知 BREAKING”一项，而它正是补丁修的；
+   其余：指南版本 ✓、fan-calc 抽样 ✓、引擎单测 ✓、自愈链 ✓；
+   **无 run_bot 时只是 `⚠`（不阻塞）**、延迟体检无对象时 `⚠ 跳过`（不阻塞）⇒ 判定仍为 READY。
+3. 因此今晚（判词到点后）的自动链：`_verdict_watch`（每 10min）→ `_adopt_when_ready`（仅 ADOPT）→ `_bsegment --go`
+   （停驱动 → 等空档 → **P0 补丁** → preflight → 三臂切役 → 注册两对看护）⇒ 役 3 起跑，**环环可验**。
