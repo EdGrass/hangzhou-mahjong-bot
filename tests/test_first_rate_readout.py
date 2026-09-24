@@ -117,6 +117,24 @@ class TestFirstRateReadout(unittest.TestCase):
         self.assertIn("100.0%", s)     # b 的第一率
         self.assertIn("_gate2.py", s)  # 口径提醒必须在
 
+    def test_cli_direction_is_stable_candidate_minus_baseline(self):
+        """★ 方向稳定：即使两臂房数不同（旧实现会按房数排序而翻转方向），也必须打 "候选 − 基线"。"""
+        # base 1 房全第一（100%）；cand 3 房 = 1 第一 + 2 末位（33.3%）
+        # 关键：cand 的房数**多于** base ⇒ 旧实现（按房数降序取对）会把方向翻成 "base − cand"
+        rows = ([_room("2026-09-23 04:00:00", "base", 1, 100)] +
+                [_room("2026-09-23 05:00:00", "cand", 1, 100),
+                 _room("2026-09-23 06:00:00", "cand", 4, -100),
+                 _room("2026-09-23 07:00:00", "cand", 4, -100)])
+        p = self._ledger(rows)
+        out = subprocess.run([sys.executable, "-X", "utf8",
+                              os.path.join(ROOT, "tools", "first_rate_readout.py"),
+                              "--ledger", p, "--since", "", "--arms", "base,cand", "--me", ME],
+                             capture_output=True, text=True, encoding="utf-8", timeout=90)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        line = [l for l in out.stdout.splitlines() if " \u2212 " in l][0]
+        self.assertTrue(line.startswith("cand \u2212 base"), line)   # 候选在前
+        self.assertIn("-66.7pp", line)                              # 33.3% - 100% = -66.7pp（方向对应为负）
+
     def test_cli_no_rows_exits_2(self):
         p = self._ledger([])
         out = subprocess.run([sys.executable, "-X", "utf8",

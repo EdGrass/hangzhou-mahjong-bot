@@ -141,7 +141,13 @@ def main():
               % (k, v["n"], v["mean"], v["se95"], 100 * v["first_rate"],
                  100 * v["last_rate"], 100 * v["pos_rate"], v["mean_rank"]))
     if len(order) == 2:
-        b, c = order[0], order[1]
+        # ★ 方向必须**稳定**：始终打印 "候选 − 基线"（即 --arms 的第 2 个 − 第 1 个；默认就是 .ab_mode 的 b − a）。
+        #   为什么：若按"房数降序"取对，两臂房数接近时方向会**随机翻转**，读数会被误读（实测：同一工具在三个窗口里打出了两种方向）。
+        pair = [x for x in arms if x in tab]
+        if len(pair) == 2:
+            b, c = pair[0], pair[1]
+        else:
+            b, c = order[0], order[1]
         v1, v2 = tab[b], tab[c]
         z, se = first_rate_z(v1["first_rate"], v1["n"], v2["first_rate"], v2["n"])
         d = v2["first_rate"] - v1["first_rate"]

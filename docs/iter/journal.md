@@ -25484,6 +25484,10 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     - `hu_gap_split.py 0 --dirs official_20260917`（**二测真数据，10 个文件**）⇒ 出表：
       **我方 听牌率 51.2% vs top32 61.5%（缺口 −10.21pp）**、胡率 −0.42pp、听牌后兑现 **+6.61pp**、爆头态率 4.4% vs 4.2%。
       ⇒ 与 §V.5 的"**缺口在听牌速度、不在兑现**"**同一结论**（小样本 n=160 席局，仅作方向确认）。
+  - ⑤ **自测时抓到自己的一个会误导人的缺陷（已修 + 加测）**：两臂差最初按"房数降序"取对 ⇒ 两臂房数接近时**方向会翻转**
+    （实测同一工具在三个窗口打出了 `speedc151 − speedvalue` 与 `speedvalue − speedc151` 两种方向）。
+    已改成**固定"候选 − 基线"**（即 `--arms` 的第 2 个 − 第 1 个，默认就是 `.ab_mode` 的 `b − a`），并加单测
+    （构造"候选房数更多"的用例 ⇒ 旧实现必翻、新实现不翻）⇒ `tests/test_first_rate_readout.py` **9 项 OK**。
   - ⑤ **赛后一键口径（四测 19:00 后 / 10-10 赛后照抄）**：
     ```powershell
     python -X utf8 tools/fetch_tournament_replays.py --tid <TID> --token-file var/.token_<X> --out var/replays/official_<TID>
