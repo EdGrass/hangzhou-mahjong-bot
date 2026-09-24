@@ -26622,3 +26622,13 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     （rc=3 且含"房数不足" ⇒ 非决定性 ⇒ 每 +10 房重跑；到 120/臂打"已达役盒"）。
   - **意义**：确认判词管线（读复盘→算端点→出判词）在真实样本上**不报错、口径正确**；
     也确认了预测——端点 z≈0.5~0.6 ⇒ **到 80 房仍 UNDECIDED ⇒ 落点就是役盒 120 转 §V.66 破平**。
+
+- [R1456 | 2026-09-25 04:1x ★★**核：通用看护注册器（役 4/5 用）dry-run 正确**]
+  - 我只验过役 3 的**专用**注册器；役 3→役 4 时 `_bsegment` 会改调**通用**注册器 ⇒ 补验：
+    `powershell -File var/_register_campaign_watches.ps1 -Label 役4 -Since "…" -Baseline speedvaluebc \
+       -Candidates speedvaluebcmeldp45 -Mechanism melds`（dry-run）⇒ 正确产出
+    `HangzhouMajVerdictWatch_役4_speedvaluebcmeldp45` + 参数 `--label "役4speedvaluebcmeldp45" … --mechanism melds` ✓。
+  - **命名约定确认**：任务名 = `HangzhouMajVerdictWatch_<Label>_<safeCand>`；判词 label = `<Label><safeCand>`
+    ⇒ 判词文件 `_verdict_役4speedvaluebcmeldp45.txt`、哨兵 `.verdict_done_役4speedvaluebcmeldp45`
+    （将来若要自动消费役 4 判词，key 就是这个）。
+  - ⇒ 役 3→役 4→役 5 这条链的**注册环节**也验完了（此前验过：三臂配置/轮转、P0 补丁可落地、preflight 转绿路径、采用裁决器）。
