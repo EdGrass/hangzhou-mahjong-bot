@@ -26053,3 +26053,21 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     ③ `_official_keepalive.write_spec()` 在起 `run_bot` **之前**把 spec 重写成**带 `ts`** 的版本 ⇒ `_official_guard.spec_freshness(12h)` 在 keepalive 起来后即正常。
     已知且**故意保留**的窄窗：switch 写的 spec **无 `ts`**，若 switch 在“哨兵已写、keepalive 未起”之间挂掉，60s 守卫会拒绝自愈，
     落到 `_ensure_all` 的 5 分钟兜底链（R1214 的取舍）⇒ **四测前不动它**，赛后再考虑给 switch 的 spec 补上 `ts`。
+
+- [R1393 | 2026-09-24 15:2x ★★★★**四测切换事故复盘 + 修掉“spec 缺 `ts` 让 60s 看护失效”的链路缺陷（现场实测，非推理）**]
+  - ① **现场**：15:20 的 `HangzhouMaj4TestSwitch` 走完步骤 1 / 1b / 2 / 2b / 2c（preflight NOT READY ⇒ 按 `-AllowNotReady` 放行；rules_guard **rc=0**；停 keeper；
+    写 `.official_spec.json`；写哨兵 `.official_mode`；POST /ready ⇒ **registered=101 / ready=42**），但在步骤 3（等 `run_bot`/`match_super`/A/B 驱动自然退出）里**被 Ctrl+C 打断**：
+    任务返回码 **3221225786 = 0xC000013A（STATUS_CONTROL_C_EXIT）**，`_4test_switch.out` 末尾留下 `^C`；实例 15:20:00 起、15:21:26 结束（86s）。
+    ⇒ 后果：**官方模式已生效、到位已确认，但 keepalive 没起来**（步骤 4 未执行）。
+  - ② **连带暴露的真实缺陷（比事件本身更值钱）**：switch 写的 `.official_spec.json` **不含 `ts`**，
+    而 `_official_guard.spec_freshness()` 把“有 `ts` 且 <12h”当作自愈前提 ⇒ 15:20:07 起 60s 看护每分钟记 `⚠ 官方模式但 spec 无 ts ⇒ 不动作`（任务返回 **2147942401**），
+    自愈被降级成只剩 `_ensure_all` 的 **5 分钟**兜底。（`_official_keepalive.write_spec()` 本来会写 `ts` ⇒ 这不是设计冲突，是 **switch 写 spec 时漏字段**。）
+  - ③ **修法（两处，都不碰 `bot/`、不杀进程）**：① `var/_switch_to_official.ps1` 的 `$specObj` **补 `ts`**（`(Get-Date).ToString('yyyy-MM-dd HH:mm:ss')`）
+    ⇒ 15:40/15:50 重试与 10/10 正式赛写出的 spec 都自带新鲜度；② 给**当前**那份 spec 补 `ts`（等价于 keepalive 本来会写的内容）⇒ 60s 看护**立即恢复**
+    （`spec_freshness()` 实测 `(True, 'spec 新鲜（0.0 小时）')`）。
+  - ④ **验证**：`_ps_syntax_check.ps1` ⇒ `syntax OK`；隔离跑同一段 hashtable+`ts` 写法 ⇒ 输出**无 BOM**、`has_ts=True`、strategy/tid 正确；
+    `_official_guard` 动作段确认是 `Popen(..., CREATE_NO_WINDOW)` 拉起 keepalive ⇒ **不带控制台、不会重蹈 Ctrl+C**；而 keepalive 自身 `_existing()` 守卫会在 A/B 对局未结束前拒绝启动（不会 E002）。
+  - ⑤ **当时状态（15:27）**：A/B 最后一房（15:19:46 起）仍在跑；A/B 驱动已按哨兵退出；役 2 台账 **116 房 = 58/58**、`ab_integrity` 干净；
+    keepalive 将在该房自然结束后由 **60s 看护 / `_ensure_all`（5min）/ 15:40·15:50 切换重试** 中任一路径拉起（三条独立路径，16:00 前余量充足）。
+  - ⑥ 遗留（**赛后再动**）：① 切换类任务 `Hidden=false` ⇒ 交互式控制台窗口可见，若被误关即 0xC000013A（今天的疑因），建议改 Hidden 或把长等待挪进无窗口的 python；
+    ② `_official_guard` 拒绝自愈时返非 0，容易被误读成“看护坏了”（今天就是），建议改专用退出码并写进操作单。

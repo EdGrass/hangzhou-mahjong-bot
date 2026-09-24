@@ -99,8 +99,11 @@ if ($DryRun) {
   Info ("步骤2b-1/5: [dry-run] 将写 var\.official_spec.json: strategy=" + $Strategy + " token_file=" + $TokenFile + " tournament_id=" + $TournamentId)
 } else {
   $specPath = Join-Path $root 'var\.official_spec.json'
+  # ★ R1393：**必须带 `ts`**——`_official_guard.spec_freshness()` 以“spec 有无/是否超 12h 的 `ts`”为自愈前提，
+  #   四测实罕：旧版本写出的 spec 无 `ts` ⇒ 哨兵已上、keepalive 未起的那段窗口里 60s 看护**拒绝自愈**（只剩 5 分钟兜底）。
   $specObj = @{ strategy = $Strategy; token_file = $TokenFile; tournament_id = $TournamentId;
-                server = 'https://10.240.169.190:18080' } | ConvertTo-Json -Compress
+                server = 'https://10.240.169.190:18080';
+                ts = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') } | ConvertTo-Json -Compress
   # ★ R1344：**不能用 `Set-Content -Encoding UTF8`** —— Windows PowerShell 5.1 会写 **BOM**（EF BB BF），
   #   而下游全部按 JSON 解析它：带 BOM 会直接抛 `JSONDecodeError: Unexpected UTF-8 BOM`
   #   ⇒ `_ensure_all.official_argv()` 误判“spec 缺失”后回落**默认策略 + 默认令牌** 拉起 keepalive（即 R647 的静默风险）；
