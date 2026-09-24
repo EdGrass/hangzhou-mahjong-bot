@@ -25885,3 +25885,20 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     计划里另引用的 **45 个 var 脚本**（`_dealer_split_server` / `_tenpai_decomp` / `_window_*` / `_prep_*` / `_sub_audit` 等）
     属于**内部方法论工具**，**不属于“能否接入平台”的证据** ⇒ **不强制入仓**；
     若将来要“对外复现判词/报告”，再按需补入（闭包门会自动抠依赖）。
+
+- [R1379 | 2026-09-24 14:5x ★★★★★**在“真实执行环境”里必定失败的隐患：三个关键脚本硬编码调用 `pwsh`，而本机注册表 PATH 里根本没有 pwsh**]
+  - ① **怎么发现的**：本轮去验证“15:05 预检任务能不能在**计划任务上下文**里跑”，结果发现：
+    * 该任务 **从未跑过**（`LastRun=1999/11/30`、`LastResult=267011`、无 `var/_4test_gate_precheck.out`）；
+    * 它内部用 **`subprocess.run(["pwsh", ...])`** 去重注册 3 个切换任务；
+    * **而本机唯一的 `pwsh.exe` 是 Codex 运行时自带的**（`...\.cache\codex-runtimes\...`），
+      它**不在 User/Machine 注册表 PATH 里**（实测）⇒ **计划任务（继承注册表环境）里必定 FileNotFoundError**；
+      用户自己开的 PowerShell 窗口同理（系统里没装 PS7）；只有“在 Codex 会话里跑”才会碰巧命中。
+  - ② **影响**：今天因为 `YouCaiBiKao=False` 且 3 个任务本来就是 `speedvalue` ⇒ 重注册本是 no-op ⇒ **四测不受影响**；
+    但若 config 变了（或 10/10 换事件），**自动纠正就不会发生** —— 属于“只在真实执行场景才暴露”的缺陷。
+  - ③ **修法**：新增共享解析器 **`var/_ps.py`**（优先 `HM_PS` → PATH 上的 `pwsh` → **回退一定存在的 5.1**），
+    并把三个调用点（`_4test_gate_precheck.py` / `_bsegment.py` / `_enter_event.py`）全部接上；
+    并确认 `_register_*.ps1` 是 **UTF-8 BOM**（R1323 门钉住）且只用基础 cmdlet ⇒ **5.1 能用**。
+  - ④ **决定性验证（模拟任务环境）**：把 `PATH` 换成**注册表合并 PATH**（实测 `where pwsh` **rc=1 ⇒ 不可见**）后跑修好的预检：
+    **rc=0**；它自动选中 `C:\windows\System32\WindowsPowerShell\v1.0\powershell.exe`，**3 个任务重注册均 rc=0**；
+    重查参数：**strategy=speedvalue / AllowNotReady=True / tid=True 全在** ✓（顺带把 15:05 那一步**真正预演**了一次）。
+  - ⑤ **闭包门又立功**：`_ps.py` 是新依赖 ⇒ 门报“不在清单上” ⇒ 补入 ⇒ **`$opsScripts` 43 → 44**。

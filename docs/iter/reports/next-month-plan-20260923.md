@@ -3995,3 +3995,17 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 
 **提交范围政策**：`$opsScripts` = **43**（运行时接入链 + 服务/决策链 + 依赖闭包）；
 计划里另引用的 **45 个 var 脚本**是**内部方法论工具**，**不强制入仓**；若要对外复现判词/报告，再按需补。
+
+### V.149 ★★★★★ “真实执行环境”里必定失败的隐患：硬编码 `pwsh`（R1379）
+
+**发现**：15:05 预检任务**从未跑过**（`LastRun=1999/11/30`），而它内部用 **`subprocess.run(["pwsh", …])`**；
+但本机**唯一的 `pwsh.exe` 在 Codex 运行时目录里**、**不在 User/Machine 注册表 PATH 里**（实测）⇒
+**计划任务与用户自开的 PowerShell 都会 FileNotFoundError**；只有在 Codex 会话里跑才碰巧能行。
+
+影响：今天 config 未变 ⇒ 重注册本是 no-op ⇒ **四测不受影响**；但 config 一变（或 10/10 换事件）就**不会自动纠正**。
+
+**修法**：新增 `var/_ps.py`（`HM_PS` → PATH 上的 `pwsh` → **回退 5.1**），三个调用点全接：
+`_4test_gate_precheck.py` / `_bsegment.py` / `_enter_event.py`。（`_register_*.ps1` 是 UTF-8 BOM + 基础 cmdlet ⇒ 5.1 可用。）
+
+**决定性验证**：用**注册表 PATH**（`where pwsh` rc=1）跑修后的预检 ⇒ **rc=0**，自动选中 5.1，**3 任务重注册 rc=0**，
+参数 `strategy=speedvalue` / `AllowNotReady=True` / `tid` **全在** ✓。闭包门随即抠出新依赖 `_ps.py` ⇒ **`$opsScripts` 44**。

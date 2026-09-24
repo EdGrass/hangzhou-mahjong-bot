@@ -14,6 +14,7 @@
 **\u7ea2\u7ebf**\uff1a\u4e0d\u4f1a\u81ea\u5df1\u8d77\u5f79\uff08\u5fc5\u987b\u4eba\u5de5 `--go`\uff09\uff1b\u4e0d\u5f3a\u505c\u4efb\u4f55\u5728\u6253\u5bf9\u5c40\uff1b\u4e0d\u6539\u9884\u767b\u8bb0\u9608\u503c\u3002
 """
 from __future__ import annotations
+import _ps  # noqa: E402  （★ R1379）
 import argparse, io, os, re, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -119,7 +120,7 @@ def main(argv=None):
             say("!! \u672a\u80fd\u4ece\u5207\u5f79\u8f93\u51fa\u89e3\u6790\u51fa\u8d77\u5f79\u65f6\u95f4\u6233 \u21d2 \u8bf7\u624b\u5de5\u6ce8\u518c\u770b\u62a4", fh); return 2
         ts = m.group(1)
         say("\u89e3\u6790\u5230\u8d77\u5f79\u65f6\u95f4\u6233\uff1a%s" % ts, fh)
-        shell = "pwsh"
+        shell = _ps.exe()
         rc, _ = run([shell, "-NoProfile", "-File", "var/_register_campaign3_watches.ps1", "-Since", ts, "-Go"], fh)
         if rc != 0:
             say("!! \u770b\u62a4\u6ce8\u518c rc=%s \u21d2 \u8bf7\u624b\u5de5\u91cd\u8dd1\uff08\u5f79\u5df2\u5207\uff09" % rc, fh); return 2

@@ -49,6 +49,7 @@ $opsScripts = @(
   "var/_bsegment.py",
   "var/_switch_campaign.py",
   "var/_campaign_ready.py",
+  "var/_ps.py",                  # ★ R1379：PowerShell 解析器（_4test_gate_precheck / _bsegment / _enter_event 都用）
   "var/_m10_latency_gate.py",  # ★ R1377：闭包依赖 —— M=10 延迟门禁（役前必跑）
   "var/_gang_now.py",  # ★ R1377：闭包依赖 —— 杠频读数（选臂包⑥）
   "var/_lowprio_run.py",  # ★ R1377：闭包依赖 —— 低优先运行包装器（读卡命令用）

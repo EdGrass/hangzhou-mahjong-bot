@@ -14,6 +14,7 @@
 \u7ea2\u7ebf\uff1a\u4e0d\u5f3a\u505c\u4efb\u4f55\u8fdb\u7a0b\uff1b**\u4e0d\u81ea\u5df1\u8d77\u5f79**\uff08\u53ea\u6ce8\u518c\u4efb\u52a1\uff09\u3002
 """
 from __future__ import annotations
+import _ps  # noqa: E402  （★ R1379）
 import argparse, datetime as dt, io, json, os, ssl, subprocess, sys, urllib.error, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -154,13 +155,13 @@ def main(argv=None):
                         "--token-file", a.token_file], cwd=ROOT, capture_output=True, text=True,
                        encoding="utf-8", errors="replace", timeout=120)
     print("\u5230\u4f4d\uff1arc=%s %s" % (p.returncode, (p.stdout or "").strip().splitlines()[-1:] or ""))
-    reg = [["pwsh", "-NoProfile", "-File", "var/_register_4test_switch.ps1", "-At", f(t), "-TaskName", a.prefix + n,
+    reg = [[_ps.exe(), "-NoProfile", "-File", "var/_register_4test_switch.ps1", "-At", f(t), "-TaskName", a.prefix + n,
             "-Strategy", a.strategy, "-TokenFile", a.token_file, "-TournamentId", a.tid, "-Go"] for n, t in sched[:3]]
     if start:
-        reg.append(["pwsh", "-NoProfile", "-File", "var/_register_tminus_ready.ps1", "-At", f(start - dt.timedelta(minutes=5)),
+        reg.append([_ps.exe(), "-NoProfile", "-File", "var/_register_tminus_ready.ps1", "-At", f(start - dt.timedelta(minutes=5)),
                     "-TaskName", a.prefix + "TminusReady", "-Tid", a.tid, "-TokenFile", a.token_file, "-Go"])
         for i in range(4):
-            reg.append(["pwsh", "-NoProfile", "-File", "var/_register_after_4test.ps1",
+            reg.append([_ps.exe(), "-NoProfile", "-File", "var/_register_after_4test.ps1",
                         "-At", f(start + dt.timedelta(hours=3 + 1.5 * i)),
                         "-TaskName", a.prefix + "After%d" % (i + 1), "-Go"])
     for c in reg:
