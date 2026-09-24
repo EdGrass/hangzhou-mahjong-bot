@@ -86,6 +86,7 @@ $opsScripts = @(
   "var/_switch_final.py",                # ★ R1407：10/7 换上最终臂（未选定/官方模式就拒绝）
   "var/_final_ready_check.py",           # ★ R1407：10/7·10/8 最终就绪校验（7 项）
   "var/_register_final_day.ps1",         # ★ R1407：上两个一次性任务的注册脚本
+  "var/_switch_test_strategy.py",      # ★ R1407：换测试房 keeper 策略（_switch_final 的闭包依赖）
   "var/_register_tminus_ready.ps1",
   "var/_prepare_submission.ps1",
   "var/_ps_syntax_check.ps1"
