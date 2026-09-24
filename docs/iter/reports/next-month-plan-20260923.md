@@ -3425,3 +3425,21 @@ python -X utf8 var/_bsegment.py --go               # 真执行（人工起役）
 （这类错误**不会报错**，只会被 `except` 吞掉并静默走错分支。）
 
 **`_resume_spec` 泛化**：收尾优先读 `var/.resume_spec.json`（入场前快照），否则回到役 2 默认 ⇒ 10/10 也能“原窗口/原臂”恢复。
+
+### V.117 ★★★★★ `var/_enter_event.py`：可复用的赛事入场（R1343）
+
+```powershell
+python -X utf8 var/_enter_event.py --tid <TID> --token-file <TOK> --strategy <ARM> [--prefix EV]        # dry-run
+python -X utf8 var/_enter_event.py --tid <TID> --token-file <TOK> --strategy <ARM> [--prefix EV] --go   # 真注册任务并报名/到位
+```
+
+| 能力 | 说明 |
+|---|---|
+| 快照恢复信息 | 从现场 `.ab_mode` 写 `var/.resume_spec.json` ⇒ 收尾时**原窗口/原臂**恢复 |
+| 报名/令牌/到位 | 未报名 ⇒ POST `…/register`；无令牌文件 ⇒ POST `…/token` 并落盘；然后 POST `/ready` |
+| 时间表 | 切换 = 开赛-40min；重试 +20；兜底 +30；到位保险 = 开赛-5min；收尾 = 开赛+3h 起每 1.5h×4 |
+| 任务 | 8 个一次性（复用 `_register_4test_switch` / `_register_tminus_ready` / `_register_after_4test`） |
+| **安全默认** | **A/B 跑着时禁止默认策略**（防把轮换中的候选臂带上场）⇒ 必须显式 `--strategy` |
+
+**实测**：dry-run 与手工四测时间表一致；`--go` 用 `ZZTEST_` 前缀跑通 8 个任务（动作串正确）并已删殉；
+`不传 --strategy` ⇒ exit 2。
