@@ -96,6 +96,8 @@ $opsScripts = @(
   "var/_verdict_by_elite.py",           # ★ R1437：按【房里有/没有 top32】分层读役次（读卡/计划 §V.66 命令②；此前漏在闭包外）
   "var/_elite_share_by_day.py",         # ★ R1437：上行工具引用的同级模块（缺它 clone 里必断）
   "var/_final_ready_check.py",           # ★ R1407：10/7·10/8 最终就绪校验（7 项）
+  "var/_submit_final.py",                # ★ R1448：10/8 提交自动化（门禁 fail-closed + commit + push）
+  "var/_register_final_submit.ps1",      # ★ R1448：上行一次性任务的注册脚本（10/8 10:00）
   "var/_register_final_day.ps1",         # ★ R1407：上两个一次性任务的注册脚本
   "var/_switch_test_strategy.py",
   "var/_final_pick_proposal.py",

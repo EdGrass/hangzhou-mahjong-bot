@@ -4903,3 +4903,28 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 
 正式赛是 16 人强场（对手密度更接近 ≥2 层）⇒ 只看 ≥1 层可能选到"弱/中场更好、最难场更差"的臂。
 两层都看、由 §V.66 序列与 §V.161/§V.165（只叠已判正层）共同定案。
+
+### §V.190 10/8 提交也自动化（唯一硬截止的那一步）
+
+**为什么要做**：10/8 12:00 是**硬截止**，而"提交"原先完全靠人工（操作卡最后一步：
+`_prepare_submission.ps1` → `-Go` → `git push`）。错过 = 没交上。
+
+**先决条件（本机实测）**
+- `git push --dry-run` 在 **非交互**（`GIT_TERMINAL_PROMPT=0`）下成功：`9d33fdc..0a1d8f2 HEAD -> main`
+  ⇒ **推送不需要人到场**；
+- 本地当时**领先 origin 13 个提交**（origin 停在 09-24 的 `9d33fdc`）⇒ 10/7 验收第 6 项
+  "本地 == origin/main" 本来会红。**已推送**（`9d33fdc..0a1d8f2`），复核：`origin/main == 本地`（0 0），
+  `_final_ready_check` **第 6 项已转 PASS**（`head=0a1d8f22 origin=0a1d8f22`）。
+
+**新增 `var/_submit_final.py` + 计划任务 `HangzhouMajFinalSubmit` @ 10/8 10:00**
+1. `var/.final_submitted` 存在 ⇒ 幂等 no-op；
+2. **门禁（fail-closed）**：`_prepare_submission.ps1`（**只检查**）rc 必须 == 0 —— 它内部已覆盖
+   交付物、4 个模型文件、69 个运行期脚本、**泄密门（无 64 位令牌串 / 无纯令牌小文件）**、文案与代码版本一致；
+3. `-Go`（`git add -f` + commit）→ `git push origin HEAD:main`（`GIT_TERMINAL_PROMPT=0`）；
+4. **提交后校验**：工作区干净 **且** `本地 == origin/main` ⇒ 才写 `var/.final_submitted`；任一条不过 ⇒ 不写（需人工）。
+
+**验证**：纯函数门禁 4 条 + 编码兜底 3 条 + 接线 2 条（共 9 条单测）；
+**任务上下文活体实测**（pythonw + `--go`，当时门禁 rc=1）：ExitCode=2 **ABORT**、HEAD 未变、无 marker、工作区干净 ✓；
+顺带修了日志乱码（PS 5.1 的 GBK 输出按 UTF-8 解会变 U+FFFD ⇒ 现在 utf-8→gbk 兜底，实测日志中文可读）。
+
+**人工只剩一件事**：10/10 前把令牌存成 `var/.token_final_20261010`（唯一无法自动化的输入）。

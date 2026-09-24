@@ -26549,3 +26549,14 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - `.verdict_last_役2` 缺失 ⇒ `last=0` ⇒ ready 即判，**不需要再等 `--step 10`**；非决定性才写它，此后每 +10 房重跑，
     决定性写 `.verdict_done_役2`（幂等）。
   - 已写进役 2 读卡（避免"台账 80 了怎么还没判"被误读）；当前 **r=76/76**（覆盖 100%/99%）⇒ 差 4 房/臂。
+
+- [R1448 | 2026-09-25 04:0x ★★★★**10/8 提交自动化 + 推送凭据实测可用 + 13 个提交已推 origin（验收第 6 项转 PASS）**]
+  - **实测推送凭据**：`git push --dry-run` 在非交互（`GIT_TERMINAL_PROMPT=0`）下成功 ⇒ **不需要人到场**。
+  - **发现本地领先 origin 13 个提交**（origin 停在 09-24 `9d33fdc`）⇒ 10/7 验收第 6 项"本地==origin"本会红。
+    **已推送**（`9d33fdc..0a1d8f2`），复核 `0 0`；`_final_ready_check` 第 6 项 **PASS**（head=0a1d8f22 origin=0a1d8f22）✓。
+    推送前重跑泄密门：待发布 **73 个文件均无 64 位令牌串**、无纯令牌/cookie 小文件 ✓。
+  - 新增 **`var/_submit_final.py`** + **`HangzhouMajFinalSubmit` @ 10/8 10:00**：门禁 fail-closed（`_prepare_submission` rc==0，
+    内含泄密门）→ `-Go` → `git push` → 提交后校验"工作区干净 且 本地==origin/main" → 才写 `.final_submitted`。
+  - **活体实测**（pythonw + `--go`，门禁 rc=1 时）：ExitCode=2 **ABORT**、HEAD 未变、无 marker、工作区干净 ✓；
+    并修日志乱码（GBK 兜底）⇒ 任务上下文日志中文可读 ✓。单测 +9（门禁/编码/接线）。
+  - ⇒ **人工只剩 10/10 的令牌文件**。

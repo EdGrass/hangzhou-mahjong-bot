@@ -53,3 +53,14 @@ git commit && git push                                          # 提交仓就�
   **每 90 秒就会把 keeper 拉回来**（日志实证）⇒ 25 分钟等不到 ⇒ 09:00 与 12:00 两次都会失败。
   现在改为：先写策略文件 → 杀 `_keeper.py`（只杀监督器，不碰对局进程）→ **只等对局进程**结束 → 再走 `_switch_test_strategy.py`。
 - **你仍然不用做任何事**；这两处修好后 10/7 的自动换臂才真的成立。
+
+## ★ 更新（R1448）：最后一步**已自动化**（10/8 10:00）
+
+上面"最后一步（10/8 12:00 前）"的三步现在由计划任务 **`HangzhouMajFinalSubmit` @ 10/8 10:00** 自动执行：
+检查（门禁，fail-closed）→ `-Go`（add -f + commit）→ `git push`（非交互，已实测凭据可用）→ 校验"工作区干净 且 本地==origin/main"
+→ 写 `var/.final_submitted`。任一条不过 ⇒ **不提交、不推送**，并写 `var/_submit_final.out`（不静默）。
+
+- 手动重跑：`python -X utf8 var/_submit_final.py --go`（先 `--dry-run` 只看门禁）；日志 `var/_submit_final.log`。
+- 前提：`var/_prepare_submission.ps1`（只检查）rc==0 —— 它要求**文案 v35 == 代码 v35**，
+  而 v35 补丁由役 3 起役时的 B 段自动落盘（10/7 前早已完成）。
+- 所以 10/8 那天**不需要你动手**；唯一剩下的人工输入是 10/10 的令牌文件（`var/.token_final_20261010`）。
