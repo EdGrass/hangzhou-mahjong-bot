@@ -1,4 +1,4 @@
-"""CLI 入口：运行 bot 或免认证冒烟自检。
+﻿"""CLI 入口：运行 bot 或免认证冒烟自检。
 
 用法：
     python run_bot.py --smoke [--server URL]            免认证冒烟（版本自检 + fan-calc）
@@ -121,6 +121,11 @@ STRATEGY_FACTORIES = {
     "speedgangtakefixedycbk": lambda: __import__("bot.ycbk_twins", fromlist=["SpeedGangTakeFixedYCBK"]).SpeedGangTakeFixedYCBK(),
     "speedmeldmore0chiycbk": lambda: __import__("bot.ycbk_twins", fromlist=["SpeedMeldMore0ChiYCBK"]).SpeedMeldMore0ChiYCBK(),
     "speedmeldtol2chiycbk": lambda: __import__("bot.ycbk_twins", fromlist=["SpeedMeldTol2ChiYCBK"]).SpeedMeldTol2ChiYCBK(),
+    # ★ R1360：**SpeedValue 家族的“接受更多副露”两臂**（模块+单测均已存在，但**漏了注册** ⇒ `--strategy` 根本选不到）。
+    #   为什么要补：它们正对着我们**相对幅度最大的缺口**（同席 TOP32 副露/轮 0.397 vs 我们 0.294，相对 −26%）；
+    #   同类先例：R1332 就是这么把 4 个 ycbk 孪生从“有类未注册”补上的。
+    "speedvaluemeldmore0chi": lambda: __import__("bot.speedvaluemeldmore0chi", fromlist=["SpeedValueMeldMore0Chi"]).SpeedValueMeldMore0Chi(),
+    "speedvaluemeldmore0chigang": lambda: __import__("bot.speedvaluemeldmore0chigang", fromlist=["SpeedValueMeldMore0ChiGang"]).SpeedValueMeldMore0ChiGang(),
     # C2xx 弃胡 EV 修正（2026-09-23）：p_conv 随河长衰减 / 再叠失败负项。
     # 两个臂是**阶梯式单变量**：p 轴（vs speedvalue）→ loss 轴（vs ...riverp）。
     "speedgiveupriverp": lambda: __import__(

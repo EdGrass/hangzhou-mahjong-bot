@@ -3722,3 +3722,29 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 4. 在 10/7 前每次役判词都带上这三个口径的值（一行），便于看斜率。
 
 复现：`python -X utf8 tools/ladder_snapshot.py --show`（当前实测：all rank=618 / 1085 房 / −19.1；today rank=45 / 49 房 / **+11.7**；week rank=150 / 310 房 / −15.0）。
+
+### V.132 ★★★★ 未来役次候选臂的“四项体检”抓出两个未注册臂（R1360）
+
+体检项 = **注册（在 `STRATEGY_FACTORIES` 里有名字）/ 可实例化 / 模型在场 / 有单测**。
+
+| 役 | 臂 | 结果 |
+|---|---|---|
+| 3（BC+V） | `speedvaluebc` · `speedvaluebaotouv5` | ✅ ✅ |
+| 4（分支图谱） | `speedvaluebcmeld` · `speedvaluebaotouvmeld` · `speedvaluemeldp45` · `speedvaluebcvmeld` | ✅×4 |
+| 5（副露构成） | `speedvaluemeld` ✅；**`speedvaluemeldmore0chi` / `...0chigang` ❌ 未注册** | **已修** |
+| 6/7 | `speedvaluerank` · `speedvalueplain` | ✅ ✅ |
+
+**为什么“未注册”是真问题**：模块在、单测在、单测全绿，但 **策略表里没有名字 ⇒ `--strategy` 选不到 ⇒ 永远上不了场**。
+（同类先例：R1332 就是这么把 4 个 ycbk 孪生从“有类未注册”补上去的；这两个 SpeedValue 同族漏掉了。）
+
+**为什么值得补**：它们正对**相对幅度最大的缺口**——同席 TOP32 副露/轮 0.397 vs 我们 0.294（**−26%）**；旧口径“碰接受率 58.6% vs 71.0%”同一轴（§V.40 的副露构成 30%）。
+补上后役 5 的副露轴多了两个可选臂。
+
+| 验证 | 结果 |
+|---|---|
+| 工厂 | 两键 `registered=True`、实例化名字正确；已注册臂 **169 → 171** |
+| 真机 draw 冒烟（n=40） | **两臂全部通过**（p50 11.3ms / 2.5ms，max 50.0ms / 4.3ms） |
+| 单测 | `test_speedvaluemeldmore0chi` + `...0chigang` **7 项 OK** |
+| `--help` / `--smoke` | 行为不变（smoke 仍只剩 v35） |
+
+**方法论**：**“有类 + 有单测” ≠ “能用”** —— 必须同时查**策略表里有没有名字**。
