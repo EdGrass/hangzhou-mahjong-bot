@@ -16,7 +16,7 @@
 | 16:30–00:30 / 30min | `HangzhouMaj4TestReplayFetch` | `var/replays/4test_rooms/<gid>.json` |
 | 19:00 / 21:00 / 22:30 / 00:30 | `HangzhouMajAfter4Test*` | 退官方模式 + **按原窗口**恢复役 2 |
 
-## 赛后 4 步（照抄）
+## 赛后 5 步（照抄）
 
 1. **名次 / 分数 / 分布**（本地台账，不联网）
    `python -X utf8 var/_4test_watch_detail.py --report`
@@ -24,10 +24,12 @@
    ③ 前 5 名分数与 `games_played`（进度差）；④ `stage/qualified` 是否出现（决定目标函数 E[分] 还是 P(晋级)，§V.153）。
 2. **官方复盘是否补齐**
    `Get-Content var\_4test_replayfetch.out -Tail 20`（期望 `完成：新增 N，已存在 M，失败 0`；失败就重跑同一命令，工具幂等）
-3. **我们 vs 同席强手（分/轮、番/胡、副露/轮）**
+3. **得分结构记分卡（分/轮 + 爆头账 + 逐局 vs 同桌最佳）**
+   `python -X utf8 tools/campaign_scorecard.py --dirs 4test_rooms`
+4. **机制率分解（胡率 / 听牌率 / 听牌局胡率 / 爆头态率）**
    `python -X utf8 tools/hu_gap_split.py 0 --dirs 4test_rooms`
-   ⚠ 分/房先 ÷2 再比；率类直接用。
-4. **回到役 2 判词**（四测期间 A/B 暂停，19:00 自动恢复）
+   ⚠ 分/局要按 `Rounds` 归一（四测=16、训练=8）；率类与**分/轮可直接比**。
+5. **回到役 2 判词**（四测期间 A/B 暂停，19:00 自动恢复）
    `python -X utf8 var/_gate2.py --since "2026-09-23 03:13:44" --baseline speedc151 --candidate speedvalue --mechanism pairs --min-rooms 80`
    读卡：`docs/iter/reports/yaku2-verdict-readcard.md`（四种分支 + `_bsegment.py` 一键切换）。
 
