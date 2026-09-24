@@ -3339,3 +3339,9 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 | **19:00 / 21:00 / 22:30 / 00:30** | `HangzhouMajAfter4Test[2-4]` | 退官方模式 + **原窗口**恢复役 2 |
 
 预检的逻辑：“该用哪个臂”= config 的确定性函数（不需人工判断）；**读不到 config 就不动任何任务**。
+
+### V.110 ★★★★ 预热名单补上 ycbk 孪生（R1334）——名单 38 → 42
+
+§V.109 的 15:05 预检可能把臂换成 `speedvalueycbk`，而 `HEAVY_WARMUP`（§V.106）只补了普通臂 ⇒ **闸门孪生不预热**。
+已补四个孪生（名单 38→**42**）；验证：四个孪生 `warmup_for_strategy==50`，命令行末尾确实是 **`--warmup-draws 50`**。
+⇒ **今天新注册的臂已在三处名单里对齐**：注册表（R1332）、`rules_guard` 识别（R1332）、预热名单（本节）。

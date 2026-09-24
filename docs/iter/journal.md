@@ -25260,3 +25260,11 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     **读不到 config 则不改任何任务**（不冒险）。实测：dry-run 打印 3 条命令 ✓；真跑一次（当前 false ⇒ 重注册为 speedvalue，幂等）rc=0 ✓；
     随后逐个正则核对 **3 个任务的 `-Strategy` 均为 `speedvalue`** ✓；15:05 任务已注册（NextRunTime 15:05，动作带**绝对 python 路径**）✓。
   - ④ **另**：编辑过的 `run_bot.py` 已用**入口级**方式验证（`python run_bot.py --smoke` 跑到第 3 步，唯一失败仍是已知 v35）⇒ 新增注册项没弄坏入口。
+
+- [R1334 | 2026-09-24 10:3x ★★★★**跨改动闭合：今日新注册的 ycbk 孪生也必须在预热名单里（否则“换闸门臂”这一手反而带来冷启动）**]
+  - ① **逻辑**：§V.109 的 15:05 预检可能把臂换成 **`speedvalueycbk`**（若 config=false→true）；
+    而 §V.106 的预热名单（`HEAVY_WARMUP`）当时只补了普通臂 ⇒ 闸门孪生**不会预热** ⇒ 一旦真的换臂，开局反而冷。
+  - ② **已补**：`speedvalueycbk` / `speedgangtakefixedycbk` / `speedmeldmore0chiycbk` / `speedmeldtol2chiycbk` ⇒ 名单 38 → **42**；
+    验证：四个孪生 `warmup_for_strategy` 均为 50，且 `build_run_bot_cmd('speedvalueycbk', …)` 末尾确实是 **`--warmup-draws 50`** ✓。
+  - ③ **意义**：这是一次“**新注册的臂是否也被其他名单覆盖**”的交叉检查 ——
+    今天新增了 4 个臂（注册表），那就必须同步检查预热名单、`rules_guard` 识别、`_registry_sweep` 三处（后两处已在 R1332 验过）。
