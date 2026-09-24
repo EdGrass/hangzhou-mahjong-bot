@@ -25307,3 +25307,11 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - ⑤ **验证**：① 当前（A/B、无哨兵）⇒ `verify_four_way` **exit 0** + dormant 警告；
     ② **活的场景**（注入 `official=<存在的文件>`）⇒ **仍然 FAIL**（两条：①↔② + run_bot≠spec）⇒ R647 保护**未削弱**；
     ③ 切换脚本 pwsh/5.1 解析均 0 错，DryRun 五步顺序 = `1 → 1b → 2(停keeper) → 2b-1(spec) → 2b-2(哨兵) → 2c(/ready) → 3(等) → 4(keepalive) → 5(校验)` ✓。
+
+- [R1339 | 2026-09-24 10:4x ★★★★**赛前五查全绿（含刚修的 ④）；并明确它在 10/10 切换后是“活的”后置校验**]
+  - ① **全绿证据**：① `_runbook_lint` **exit 0**、② `_runbook_syntax` **0**、③ `_runbook_ps_syntax` **0**、
+    ④ `verify_four_way --quiet` **0**（R1338 修正后）、⑤ `_mixed_room_check` **0**。
+  - ② **重要语义（写明）**：修正后的 `verify_four_way` 在**无 `.official_mode` 时是 dormant**（exit 0 + 警告），
+    **而在 10/10 切换完成后它变成“活的”检查**：那时 `.official_mode` 在位，它会比对
+    **spec ↔ 正在跑的官方 run_bot 的 `--strategy`**（以及 keeper 残留）⇒ **切换后跑一次就是一道真门禁**：
+    若它 FAIL，说明官方链正在跑的策略与声明不一致（当场可修）。已把这一条追加到 10/10 的操作意识里。

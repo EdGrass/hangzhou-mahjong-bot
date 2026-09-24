@@ -3386,3 +3386,16 @@ python -X utf8 tools/hu_gap_split.py 0 --dirs 4test_rooms
 
 **B）切换写入顺序**：原 `哨兵 → spec` 改为 **`spec(2b-1) → 哨兵(2b-2)`** —— 中间崩溃只会留下“无哨兵 + 新 spec”（安全），
 避免“哨兵在、spec 还是上一场”导致自愈链用错赛事。五步顺序已用 DryRun 逐行确认。
+
+### V.114 ★★★★ 赛前五查全绿 + `verify_four_way` 在切换后是“活的”后置校验（R1339）
+
+| # | 检查 | exit |
+|---|---|---|
+| ① | `var/_runbook_lint.py` | **0** |
+| ② | `var/_runbook_syntax.py` | **0** |
+| ③ | `var/_runbook_ps_syntax.ps1` | **0** |
+| ④ | `tools/verify_four_way.py --quiet` | **0**（R1338 修正后） |
+| ⑤ | `var/_mixed_room_check.py` | **0** |
+
+**语义提醒（对 10/10）**：上面 ④ 在**无 `.official_mode` 时是 dormant**（exit 0 + 警告）；**切换完成后它变成真门禁** ——
+那时它会比对 **spec ↔ 正在跑的官方 `run_bot --strategy`**（及 keeper 残留），FAIL 就说明官方链跑的策略与声明不一致，当场可修。
