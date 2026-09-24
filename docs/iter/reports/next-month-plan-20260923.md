@@ -3499,3 +3499,22 @@ python -X utf8 var/_enter_event.py --tid <TID> --token-file <TOK> --strategy <AR
 2. `@(...)` 数组**末元素不能带逗号** ⇒ `Missing expression after ','`（5.1 与 pwsh 7 一致）；
 3. `git ls-files` 对**非 ASCII 路径**加引号+转义 ⇒ `Test-Path` 报 `Illegal characters in path`
    （用 `-c core.quotepath=false` + `-LiteralPath` + 一次性集合；**不要**逐文件调 git：`$ErrorActionPreference='Stop'` 下 stderr 会顶成终止错误）。
+
+### V.120 ★★★★ 公网 clone 全量单测：66 条“假失败” → 0（R1346）
+
+| 项 | 修前 | 修后 |
+|---|---|---|
+| 副本全量单测 | 910 条：**failures=46, errors=20**（全是“取不到真实语料”这类假失败） | **824 条 · OK（skipped=52）** |
+| `test_speedc069` / `test_replay_guard` / `test_replay_model` | 按路径 exec 的 var/ 模块**未入仓** ⇒ FileNotFoundError | 已入仓（`$opsScripts` 31 → **35**） |
+| `test_speedc220` | `from _track_hands import track` ⇒ ImportError（模块未入仓） | 已入仓 |
+| 已追踪文件 | 561 | **607** |
+
+**做法**：
+1. **29 个模块**加 `setUpModule()`：无 `var/replays/**/*.dec.jsonl` ⇒ 整模块 `SkipTest`（本地有语料 ⇒ 行为不变，已逐项验证不触发）。
+2. `tests/test_hermetic_corpus_gate.py` 锁住这份**实测清单**（名字改了/门删了变红；清单完整性防空跑）。
+3. `tests/test_submission_closure.py` 增“**测试引用的 var/ 文件必须在 `$opsScripts` 里**”——**两种形态都查**：
+   引号里的文件名字面量（按路径 exec）**和** `import _xxx` / `from _xxx import`。
+   （只查第一种时漏掉 `_track_hands`，是副本里的 ImportError 顶出来的。）
+
+**纪律**：**依赖工作区状态的测试必须自带跳过门**——**假失败 ≠ 覆盖率**，它只会淹没真问题；
+且**“只有在公网副本里跑全量单测才能抓到 var/ 断链”**（本机 var/ 齐全 ⇒ 永远不暴露）。只跑 `run_bot.py --smoke` 看不见。

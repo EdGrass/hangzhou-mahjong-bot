@@ -25418,3 +25418,26 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     （修前是 `FAILED (errors=1)`）。
   - ⑧ **纪律沉淀**：**提交物必须做“依赖闭包 + 克隆验收”，且验收要跑到会真的 import 那些脚本的测试**——只跑 `run_bot.py --smoke`
     是**看不见** var/ 断链的（smoke 根本不碰 `_ensure_all`）。这条直接进了 `_prepare_submission.ps1` 与新版提交卡片。
+
+- [R1346 | 2026-09-24 11:4x ★★★★**公网 clone 全量单测 66 条“假失败” → 0；根因是“依赖工作区状态的测试”没有自带跳过门**]
+  - ① **发现（用公网副本跑全量，而不是只跑 --smoke）**：`git clone --depth 1` 出来的副本跑 `unittest discover` ⇒
+    **910 条里 66 条失败/错误**，但**没有一条是真缺陷**：全是“取不到真实吃牌窗口 / 语料里应存在单选项窗口”这类
+    —— 它们的护栏都要在**真实对局记录**（`var/replays/**/*.dec.jsonl`）上取窗口，而 `var/` 被 .gitignore ⇒ 副本里根本没有语料。
+  - ② **为什么这比“跳过”更糟**：假失败会**淹没真问题**（66 条红里躺着 1 条真的也看不出来），而且判官 clone 后照 README 跑测试会看到一片红。
+  - ③ **修法**：给 **29 个**这类模块加**模块级跳过门** `setUpModule()`（无 `var/replays/**/*.dec.jsonl` ⇒ `SkipTest`），并用
+    `tests/test_hermetic_corpus_gate.py` 把这份**实测清单**锁住（名字改了/门被删了立刻变红；清单完整性也断言，防空跑）。
+    **本地（有语料）行为不变**：实测 `setUpModule` 不跳过（`os.walk` 命中 .dec.jsonl，单次 0.09s；29 个模块共用同一模板）；
+    这种“整模块跳过”是**有意的**——代价是副本里看不见这些护栏，收益是不再把假失败当真缺陷。
+  - ④ **同一闭包问题的另一半（测试自己也依赖 var/）**：副本里还有 4 条**不是**语料问题而是**断链**：
+    `test_speedc069 → var/_c069_discard_train.py`、`test_replay_guard → var/_replay_guard.py`、`test_replay_model → var/_replay_model.py`
+    （三者都是**按路径 exec**）、`test_speedc220 → from _track_hands import track`（**import 形态**）⇒ 前三个此前**从未入仓**，
+    第四个也没入仓。已全部补进 `$opsScripts`（31 → **35**）。
+  - ⑤ **闭包门升级**：`tests/test_submission_closure.py` 新增“**测试按文件名/import 引用的 var/ 文件必须在清单里**”
+    —— 一开始我只按“引号里的文件名”判定，结果**漏掉了 import 形态**（test_speedc220），是副本里的 `ImportError` 把它顶出来的 ⇒ 现在两种形态都查。
+  - ⑥ **结果**：公网副本 `unittest discover` ⇒ **824 条 · OK（skipped=52）· 42s**，失败/错误 **66 → 0**；
+    引擎链 `_ensure_all/_feature_mode/_official_guard/_watchdog/_ab_driver` 全部可 import ✓；已追踪文件 561 → **607**。
+  - ⑦ **纪律沉淀**：**“依赖工作区状态的测试必须自带跳过门”**；并且**“只有在公网副本里跑全量单测才能抓到 var/ 断链”**
+    —— 本机 var/ 齐全，这类问题**永远不暴露**（R1345 的 `_feature_mode` 就是先例）。只跑 `run_bot.py --smoke` 是**看不见**的。
+  - ⑧ **诚实记录**：本轮最后一次**本地**全量重跑在“役 2 房间正在打 + 我先并发跑了两轮副本全量”的情况下，卡在某个 CPU 自旋的重活测试上
+    （20 分钟无输出、CPU 持续增长）⇒ 已停下，改到**无对局窗口**重跑；本轮本地结论以先前那次 **958 条 OK** 为准，
+    且新增的 29 个门**已逐项证明本地不触发**（见 ③）。
