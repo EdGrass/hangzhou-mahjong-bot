@@ -137,7 +137,10 @@ def main():
             print("进度: 最近盘面 %.1f 分钟前%s" % (age_min, ("   " + warn) if warn else ""))
     except Exception as e:
         print("进度检查失败:", e)
-    # ---- 看门狗"卡死"判定的最后一条（A/B 模式下通常已停更，仅作历史参考）----
+    # ---- 看门狗"卡死"判定的最后一条 ----
+    # ★ R1349：A/B 模式下 `_watchdog.py` 把排批交给 `_ab_driver.py` 后**只打一行就返回** ⇒ 该日志**停更**。
+    #   此时"最后一行含『卡死』"是**历史**，不是当前告警 —— 以前直接贴 ⚠ 标签，每看一次日报都会被吓一次（实测 2026-09-24 12:02：
+    #   日志停更 181.8 分钟而房间正常开、四进程俱在）。现在按**日志新鲜度**分流：不新鲜 ⇒ 标明“历史”并指向看进度/进程。
     try:
         _wlog = "var/_watchdog.out"
         if os.path.exists(_wlog):
@@ -145,7 +148,14 @@ def main():
                       if "状态=" in ln]
             if _lines:
                 _last = _lines[-1]
-                print("看门狗: " + _last[-120:] + ("   ⚠ 疑卡死（>20 分钟无房日志）" if "卡死" in _last else ""))
+                _age_min = (datetime.datetime.now()
+                            - datetime.datetime.fromtimestamp(os.path.getmtime(_wlog))).total_seconds() / 60.0
+                if _age_min > 20:
+                    print("看门狗: " + _last[-120:] +
+                          "   （**历史**：该日志已停更 %.0f 分钟（A/B 模式下 watchdog 交班给 _ab_driver）"
+                          "，活性看上一行『进度』与进程列表）" % _age_min)
+                else:
+                    print("看门狗: " + _last[-120:] + ("   ⚠ 疑卡死（>20 分钟无房日志）" if "卡死" in _last else ""))
     except Exception:
         pass
     # ---- 本轮新增：监督链与哨兵 ----

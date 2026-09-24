@@ -42,6 +42,8 @@ $opsScripts = @(
   "var/_ready_1024.py",
   "var/_ab_driver.py",
   "var/_verdict_watch.py",
+  "var/_gate2.py",                # ★ R1349：**役判词执行者**（心跳与 B 段都跑它）；本轮被闭包门抢出来“未入仓”
+
   "var/_after_4test.py",
   "var/_enter_event.py",
   "var/_bsegment.py",
