@@ -3620,3 +3620,21 @@ python -X utf8 tools/first_rate_readout.py --since "" --arms <本场臂> --min-r
 
 > 为什么要写这条：我们的历史痛点不是“不看数据”，而是**拿短窗口噪声当结论**（日间漂移 ±180 分/房，§ab_readout）。
 > 四测的价值在“**流程能不能跑通**”，它正是为 10/10 做的演练。
+
+### V.126 ★★★★ P0 v35 补丁的副本预演（R1353）—— 两个真问题提前抓出，役间 B 段已可“一条命令”
+
+```powershell
+# 预演（不碰活仓 bot/）
+python -X utf8 var/_apply_p0_404.py --check                 # 活仓（LF）
+git clone D:\hangzhouMaj $env:TEMP\hm_p0_rehearsal        # 副本
+cd $env:TEMP\hm_p0_rehearsal
+python -X utf8 var/_apply_p0_404.py --go                    # 副本（CRLF）：写盘 + 自动 smoke 验收
+```
+
+| 发现 | 根因 | 修法 | 验证 |
+|---|---|---|---|
+| 副本里 `--check` 报**「未找到结束锚点」** | `old_end` 锚点硬编码 LF，而 「Git for Windows 全局 `core.autocrlf=true`」⇒ clone 检出 CRLF（活仓 LF） | 按文件真实行尾匹配（再试另一种），**写回统一用该文件行尾** | 副本 `--check` ✓（16132→16224）、`--go` ✓、行尾保持 CRLF、`GUIDE_VERSION_KNOWN=35` ✓ |
+| 打完补丁后覆盖测试 **StopIteration** | `test_protocol_404_transient.py` 钉的是**补丁前**契约（持续 404>120s 即退出） | 改**两态互斥**：补丁前跑旧契约（新 2 条 skip），补丁后跑新契约（旧 1 条 skip） | 活仓 **6 OK（skipped=2）**；已打副本 **6 OK（skipped=1）**；GONE 连续 4 轮仍继续、NOT_FOUND 立刻放弃 均真跑通过 |
+
+**主要意义**：`run_bot.py --smoke` 从“存在失败项”（v35 BREAKING）变**「全部通过」**，且文件行尾不被改写、
+套件在打前打后**都是绿**。纪律：**“必成功的补丁”必须在副本里预演，且预演要跑到它自己的覆盖测试。**

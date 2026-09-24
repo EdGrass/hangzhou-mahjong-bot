@@ -16,6 +16,8 @@
   ③ **只有**连续 404 超过 120s 才退出；
   ④ 中途成功拿到详情 ⇒ 404 计时清零（两次 404 间隔 >120s 也不得误判）。
 """
+import inspect
+import itertools
 import unittest
 from unittest import mock
 
@@ -24,6 +26,9 @@ from bot.api import ApiError
 from bot.protocol import run_tournament
 from bot.speed import SpeedBase
 
+# ★ R1353：补丁是否已落地（B 段才落）—— 以“源码里有没有新引入的错误码”为判据（补丁前该字符串在该模块不存在，已核）。
+PATCHED = "TOURNAMENT_NOT_FOUND" in inspect.getsource(protocol_module)
+
 
 class _ScriptedClient:
     """按脚本回放 tournament() 响应。
@@ -31,8 +36,9 @@ class _ScriptedClient:
     脚本元素：404 = 抛 ApiError(404)；其余字符串 = 该轮 status（最后一项会重复）。
     """
 
-    def __init__(self, script):
+    def __init__(self, script, code="TOURNAMENT_GONE"):
         self.script = list(script)
+        self.code = code
         self.calls = 0
         self.ready_calls = 0
 
@@ -43,7 +49,7 @@ class _ScriptedClient:
         self.calls += 1
         item = self._item()
         if item == 404:
-            raise ApiError(404, '{"code":"TOURNAMENT_GONE"}')
+            raise ApiError(404, '{"code":"%s"}' % self.code)
         return {"status": item, "my_games": [], "ranking": []}
 
     def register(self, tid):
@@ -81,8 +87,9 @@ class TestTransient404(unittest.TestCase):
         self.assertIsNotNone(res)
         self.assertEqual(c.calls, 4)
 
+    @unittest.skipIf(PATCHED, "P0 补丁已落地 ⇒ 旧契约（持续 404 超 120s 即退出）已被取代（见下两条）")
     def test_persistent_404_over_grace_exits(self):
-        """③ 连续 404 超 120s ⇒ 才判房间真删并抛出。"""
+        """③（补丁前）连续 404 超 120s ⇒ 才判房间真删并抛出。"""
         ticks = iter(range(0, 10 ** 6, 30))
 
         def fake_time():
@@ -91,6 +98,22 @@ class TestTransient404(unittest.TestCase):
         c = _ScriptedClient([404])
         with self.assertRaises(ApiError):
             self._run(c, clock=fake_time)
+
+    @unittest.skipUnless(PATCHED, "P0 补丁未落地（役间 B 段前）⇒ 新契约测试暂不适用")
+    def test_gone_keeps_retrying_after_grace(self):
+        """补丁后：`TOURNAMENT_GONE` = 房**暂时**不可达 ⇒ **不得因“持续 >120s”退出**（实测曾把 29 次 GONE 误判成房已删）。"""
+        c = _ScriptedClient([404, 404, 404, 404, "finished"])
+        res = self._run(c, clock=lambda: float(next(itertools.count(0, 30))))
+        self.assertIsNotNone(res, "补丁后 GONE 仍被按“持续 >120s”误判退出")
+        self.assertEqual(c.calls, 5, "补丁后 GONE 应继续轮询直到取到详情")
+
+    @unittest.skipUnless(PATCHED, "P0 补丁未落地（役间 B 段前）⇒ 新契约测试暂不适用")
+    def test_not_found_exits_immediately(self):
+        """补丁后：`TOURNAMENT_NOT_FOUND` = 房**不存在** ⇒ **立刻放弃**（不重试）。"""
+        c = _ScriptedClient([404], code="TOURNAMENT_NOT_FOUND")
+        with self.assertRaises(ApiError):
+            self._run(c)
+        self.assertEqual(c.calls, 1, "NOT_FOUND 必须立刻放弃（不得重试）")
 
     def test_success_resets_404_timer(self):
         """④ 404 → 成功 → 再 404（两次间隔 180s）不得误判为持续 404。"""

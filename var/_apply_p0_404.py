@@ -51,17 +51,39 @@ NEW_404 = """            if e.status == 404:
 """
 
 
+def _eol_of(b):
+    """该文件的主行尾（CRLF / LF）。"""
+    return b"\r\n" if b"\r\n" in b else b"\n"
+
+
+def _to_eol(b, eol):
+    """把一段字节里的\n 统一成指定行尾（先归一再转换 ⇒ 幂等）。"""
+    return b.replace(b"\r\n", b"\n").replace(b"\n", eol)
+
+
 def _replace_bytes(path, old_start, old_end_marker, new_bytes):
-    """在 [old_start, old_end_marker] 之间整段替换（按字节，保住原有行尾）。"""
+    """在 [old_start, old_end_marker] 之间整段替换（按字节，保住原有行尾）。
+
+    ★ ★ **R1353（真 bug）**：原实现只给“新文本”适配了行尾，**结束锚点却硬编码成 LF** ⇒
+      在 **CRLF 检出的任何副本/机器**上都会报“未找到结束锚点”。实测：本机全局 `/etc/gitconfig` 的 `core.autocrlf=true`
+      （Git for Windows 默认）⇒ 同一份 LF 的 `bot/protocol.py` 在副本里变成 CRLF（15812 → 16132 字节）⇒
+      而这步是“**必须成功**”（B 段 25 秒窗口 + 10/8 提交要求 P0 入库）。
+      现在：先按文件真实行尾匹配，匹不到再试另一种行尾，**写回时统一用该文件的行尾**。
+    """
     b = open(path, "rb").read()
-    i = b.find(old_start)
-    if i < 0:
-        return None, "未找到起始锚点"
-    j = b.find(old_end_marker, i)
-    if j < 0:
-        return None, "未找到结束锚点"
-    j += len(old_end_marker)
-    return b[:i] + new_bytes + b[j:], None
+    eol = _eol_of(b)
+    for cand in (eol, b"\n" if eol == b"\r\n" else b"\r\n"):
+        s_ = _to_eol(old_start, cand)
+        e_ = _to_eol(old_end_marker, cand)
+        i = b.find(s_)
+        if i < 0:
+            continue
+        j = b.find(e_, i)
+        if j < 0:
+            return None, "未找到结束锚点（锚点行尾=%r，文件行尾=%r）" % (cand, eol)
+        j += len(e_)
+        return b[:i] + _to_eol(new_bytes, eol) + b[j:], None
+    return None, "未找到起始锚点（文件行尾=%r）" % (eol,)
 
 
 def main():
@@ -73,7 +95,8 @@ def main():
     # ---- (1) protocol.py：整段替换 404 分支 ----
     old_start = b"            if e.status == 404:"
     old_end = b"                time.sleep(2)\n                continue\n"
-    new_404 = NEW_404.replace("\n", "\r\n").encode("utf-8") if b"\r\n" in open(PROT, "rb").read() else NEW_404.encode("utf-8")
+    # ★ R1353：行尾适配统一交给 `_replace_bytes`（它会按目标文件的行尾写回）
+    new_404 = NEW_404.encode("utf-8")
     nb, err = _replace_bytes(PROT, old_start, old_end, new_404)
     if err:
         print("❌ protocol.py：%s" % err)
