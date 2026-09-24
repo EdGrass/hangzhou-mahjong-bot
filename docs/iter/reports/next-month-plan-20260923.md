@@ -4448,3 +4448,34 @@ my_games      = 20（第1轮 10 + 第2轮 10），**第3轮未分配对局**
 
 **释放出来的一个役位去哪**：按 §V.160 的优先顺序 ⇒ **役 5 做组合验证**（将役 3/役 4 通过的层叠成
 `speedvaluebcvmeld`（或剂量对齐版），与“当前最优层”同台比）；**V 剂量档仍在清单里，但排在组合验证之后**，时间不够则按 §V.162 的丢弃顺序丢掉。
+
+
+---
+
+### §V.168 关于“何时能恢复训练”的硬事实：**平台在赛事期间关闭自由匹配**（★ 行为纪律）
+
+**实测（2026-09-24 17:53）**
+
+```
+GET  /portal/api/features  → {"match_enabled": false, "replay_enabled": false,
+                                "substitute_enabled": true, "test_rooms_enabled": false}
+POST /api/match            → 403 {"code":"FEATURE_DISABLED","message":"free match is temporarily disabled"}
+```
+
+⇒ **“赛事结束”不是看时钟，而是看 `match_enabled`**。我 17:48 提前退官方模式（当时对我们确实已结束）后，
+A/B 驱动被 `_ensure_all` 自动拉起，但每批都撞 403：`_ab_driver.out` 显示
+17:48:50 / 17:49:20 / 17:50:05 / 17:51:05 / 17:51:51 / 17:52:50 / 17:53:06 均“**异常结束（无归档记录）⇒ 同臂重跑**”。
+**好消息**：失败批不写台账 ⇒ 完整性仍 **117 房 / 59:58**（无幻行）。
+
+**正确做法（项目自带机制，比硬停进程好）**：写 `var/.pause_mode` ⇒
+
+- `_ab_driver` 自己退出：`17:53:56 平台暂停模式（.pause_mode）→ A/B 驱动退出（基线 speedc151）`；
+- watchdog 走“暂停模式：不启/不杀任何进程”分支；
+- `_feature_mode.handle_pause_on_startup()` 会在 `match_enabled` 恢复 True 后**自动删除本标志**，紧接着 `_ensure_all`（5 分钟）把驱动重拉起来，且
+  **`.ab_mode` 窗口不变（started=2026-09-23 03:13:44）**。
+
+**纪律（写进操作下次的根据）**：
+
+1. 赛事期间不要提前「恢复训练」；若已提前退出官方模式，**必须先读 `features.match_enabled`**，为 false 就设 `.pause_mode`；
+2. 19:00 的定时收尾任务现在会输出“已恢复 ⇒ 无事可做”（不会与暂停标志打架）；
+3. **真正的恢复信号 = `match_enabled` 变 True**，恢复后无需人工（自动解除 + 自动重拉）。
