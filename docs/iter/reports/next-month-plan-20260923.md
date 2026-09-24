@@ -3952,3 +3952,16 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 
 **工具限制**：门户只保留当前 1 场赛事（历屋不可查），不带令牌读不到 config ⇒
 **每场赛事前都要跑一次并留档**（建议后续给工具加“追加 `var/format_history.jsonl`”）。
+
+### V.146 ★★★ 首次 16 轮房的结构性排查：bot 无轮数假设（R1376）
+
+| 检查点 | 证据 | 结论 |
+|---|---|---|
+| 当前局计数 | `bot/game.py:374-375` `round_no_local += 1`，仅用于日志 `rnd=` | 不参与决策 ✓ |
+| 服务器计数 | `bot/protocol.py:316-318` 只打日志 | 不参与决策 ✓ |
+| 末轮特判 / 最大轮数 | 全仓无 `max_round`、无“假设 8 轮” | 无 ✓ |
+| 弃胡衰减 | 按**河长** `p(river)`（`speedgiveupriver.py:38-61`） | 与轮数无关 ✓ |
+| 牌墙守卫 | 按**牌墙**（`speedgangtake.py:45`） | 与轮数无关 ✓ |
+
+⇒ **16 轮房不需要改代码**；唯一影响是“分/房”的**单位**（§V.145 的 2× 警示）。
+率类监控口径与 1s/3s 窗口预算也**不受轮数影响**。
