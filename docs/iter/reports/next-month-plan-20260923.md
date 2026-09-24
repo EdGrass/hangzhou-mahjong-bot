@@ -3518,3 +3518,24 @@ python -X utf8 var/_enter_event.py --tid <TID> --token-file <TOK> --strategy <AR
 
 **纪律**：**依赖工作区状态的测试必须自带跳过门**——**假失败 ≠ 覆盖率**，它只会淹没真问题；
 且**“只有在公网副本里跑全量单测才能抓到 var/ 断链”**（本机 var/ 齐全 ⇒ 永远不暴露）。只跑 `run_bot.py --smoke` 看不见。
+
+### V.121 ★★★★ 测试的输入不能随“运行时刻”变：固定种子 shuffle 变长列表（R1347）
+
+**现象**：本地全量 **11:01 时 958 条 OK**、**11:33 时 964 条 1 红**（`test_speedc151c::test_not_a_noop`，`diff=0`）——期间**没改 bot 代码**，只是多打了几个房间。
+
+**根因**：`_positions()` 对 `glob(var/replays/*/*_t0.dec.jsonl)` 做 `random.Random(151).shuffle(files)`。
+固定种子只保证“**同一个列表**”的洗牌不变；而文件列表**每打一房就变长** ⇒ 抽到的 60 个局面**随之漂移**。
+
+**修法**：改成**按文件名有序扫描**（新房间排在末尾 ⇒ 前 N 个局面与语料规模无关），差异数**单调只增不减**。
+实测有序取前 60 个局面 **diff=3**（120→8、200→15、400→39）⇒ 断言没被放松。顺手把 `test_speedmeldtier` 从分钟级拉回 **8.9s**。
+
+| 项 | 结果 |
+|---|---|
+| 改动点 | `test_speedc151c.py` ×1、`test_speedc151m.py` ×2、`test_speedmeldtier.py` ×1 |
+| 新门 | `test_hermetic_corpus_gate.py::test_no_shuffle_of_globbed_files`（禁 `shuffle(files)`） |
+| 3 个模块 | **14 项 OK（8.9s）** |
+| **本地全量** | **965 条 · OK（skipped=1, expected failures=1）· 749s** |
+
+**纪律（与 V.120 成对）**：**测试的输入必须与“运行时刻”无关**——
+① 缺语料 ⇒ **跳过**（不要假失败）；② 语料在增长 ⇒ 取样必须**确定性**（固定种子救不了变长的列表）。
+两条都由 `tests/test_hermetic_corpus_gate.py` 守住。
