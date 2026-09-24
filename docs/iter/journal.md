@@ -26560,3 +26560,11 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **活体实测**（pythonw + `--go`，门禁 rc=1 时）：ExitCode=2 **ABORT**、HEAD 未变、无 marker、工作区干净 ✓；
     并修日志乱码（GBK 兜底）⇒ 任务上下文日志中文可读 ✓。单测 +9（门禁/编码/接线）。
   - ⇒ **人工只剩 10/10 的令牌文件**。
+
+- [R1449 | 2026-09-25 04:0x ★★**役 3（首个三臂役）开跑前核对：N 臂配置与轮转都支持**]
+  - `ab_ctl.build_cfg(["speedvalue","speedvaluebc","speedvaluebaotouv5"], 1, bundles=["speedvalue"], started=...)` 实测输出
+    `{"arms": [...3 项...], "rooms":1, "started":..., "bundles":["speedvalue"]}`（两臂仍用旧 `a`/`b` 格式）✓；
+  - `var/_ab_driver.py`：`arms_of()` 明确"支持 N 臂…仍兼容旧的 a/b"，`pick_arm()` 用 `next_idx=(i+1)%len(arms)` 轮转，
+    并能从上次的臂（`_prev`）接着转 ✓ ⇒ **三臂役不需要改动任何调度代码**。
+  - 另核：`_mech_watch` 对役 3 两个候选都判 `--phase draw`（期望 tile 改动率 10–20%、action=0），
+    与预登记 §2 一致；V 臂实测足迹 13.5% 落在带内 ⇒ 不会假告警。
