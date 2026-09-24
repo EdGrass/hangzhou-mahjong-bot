@@ -3766,3 +3766,9 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 残留待办：若日后真要用 `...0chigang`，需 ① 新预登记（旧的已作废）；② 在 `_prep_register_combo.py` 补一行（它只注册 `...0chi`）；③ 考虑把该脚本加进 `$opsScripts`。
 
 **方法论**：“看起来漏了”之前先查“是不是刻意延后” —— 区分点：**它在不在即将上场的那一役里**。
+
+### V.134 ★★★ 两条自查纪律（R1362）
+
+1. **`utf-8-sig` 只能用来“读”**：用它**写** `.py` 会自动加 BOM（R1360 就这么给一个无 BOM 的 `run_bot.py` 加了 BOM）。
+   现状：`run_bot.py` 已去 BOM，**与“979 条 OK 那一版”（320fa0e）逐字节一致**。
+2. **战役期间不做越界的仓库级清理**：扫 BOM 时误删了 4 个无关文件的**既有** BOM，已全部还原。改动面必须与理由严格一一对应。

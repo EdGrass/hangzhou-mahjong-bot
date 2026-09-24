@@ -1,4 +1,4 @@
-﻿"""CLI 入口：运行 bot 或免认证冒烟自检。
+"""CLI 入口：运行 bot 或免认证冒烟自检。
 
 用法：
     python run_bot.py --smoke [--server URL]            免认证冒烟（版本自检 + fan-calc）
