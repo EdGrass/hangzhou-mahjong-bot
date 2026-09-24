@@ -121,3 +121,14 @@ python -X utf8 tools/first_rate_readout.py          # 自动取本役臂与 sinc
   ```
   ⇒ 净分/房 −30.5 vs −43.4（**z=−0.50**）、第1率 20.8% vs 15.7%（**z=−0.67**）⇒ **OK（不否决）**。
   退出码：0=OK／3=VETO／2=UNKNOWN（不阻塞）。
+
+## ★ 追加（R1447）：判词**什么时候真的会跑**（口径澄清）
+
+`var/_verdict_watch.py` 的触发条件是 **`有复盘`的房数 ≥ 80（两臂都要）+ 覆盖率 ≥ 70%**，
+**不是**台账房数 ≥ 80。代码：`ready = (r0 >= min_rooms and r1 >= min_rooms and min(c0,c1) >= MIN_COVER)`，
+其中 `r` = 有复盘的房数（`n` 才是台账房数）。
+
+- 所以若看到"台账已 80 房但还没判" ⇒ **先看覆盖**，多半是复盘没补上（看护 `HangzhouMajReplayGuard` 每 15 分钟补）。
+- 另外：`.verdict_last_役2` **不存在**时 `last=0` ⇒ 一旦 ready **立刻判**，不需要再等 `--step 10` 房。
+- 判成"非决定性"后才写 `.verdict_last_役2`（`低房数 第几次`），此后每多 10 房重跑一次；
+  **决定性**判词会写 `.verdict_done_役2`（幂等，只出一次）⇒ 采用看护据此触发。
