@@ -55,6 +55,7 @@ $opsScripts = @(
   "var/_c069_discard_train.py",  # ★ R1346：test_speedc069 按路径 exec（未入仓 ⇒ clone 里 FileNotFoundError）
   "var/_replay_guard.py",         # ★ R1346：test_replay_guard 按路径 exec
   "var/_replay_model.py",         # ★ R1346：test_replay_model 按路径 exec
+  "var/_track_hands.py",          # ★ R1346：test_speedc220 直接 `from _track_hands import track`
         # ★ R1345：_register_portal_watch.ps1 按路径注册的看护脚本
   "var/_switch_to_official.ps1",
   "var/_switch_back_to_test.ps1",

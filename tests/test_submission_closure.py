@@ -86,8 +86,17 @@ class TestSubmissionClosure(unittest.TestCase):
                     srcs[t] = f.read()
         missing = []
         for vf in var_names:
-            users = [t for t, s2 in srcs.items()
-                     if ('"%s"' % vf) in s2 or ("'%s'" % vf) in s2]
+            mod = vf[:-3] if vf.endswith(".py") else vf
+            users = []
+            for t, s2 in srcs.items():
+                # ① 按文件名字面量引用（os.path.join('var', '….py')）
+                if ('"%s"' % vf) in s2 or ("'%s'" % vf) in s2:
+                    users.append(t)
+                    continue
+                # ② 直接 import 同级模块（from _track_hands import track）
+                if re.search(r"^\s*(?:from\s+%s\s+import|import\s+%s\b)" % (re.escape(mod), re.escape(mod)),
+                             s2, re.M):
+                    users.append(t)
             if users and ("var/%s" % vf) not in ops:
                 missing.append("var/%s <- %s" % (vf, ", ".join(sorted(users)[:3])))
         self.assertEqual([], missing,
