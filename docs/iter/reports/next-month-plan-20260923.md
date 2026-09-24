@@ -3066,3 +3066,16 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 
 **已验证**：`_switch_to_official.ps1 -TournamentId t_6266386bfd56 -DryRun` 已跑通（**零副作用**），它会按新 tid 逐步打印（写哨兵 / 写 spec / POST /ready / 拉 keepalive）。
 红线不变：**绝不强停在打对局**（`ab_ctl stop` 自己等）；**一账号一房**；四测令牌**只跑四测**。
+
+### V.91 ★★★★ 开赛当天的“状态一览”也不再看错赛事（R1314）——过期默认值第 4 处
+
+| 项 | 旧 | 新 |
+|---|---|---|
+| `var/_official_status.py --tid` | `t_65d538e905c5`（09-17 二测） | 空 ⇒ **从 `var/.official_spec.json` 自取**；取不到 ⇒ 报错 **exit 2** |
+| `--token-file` | `var/.token_1024_20260917` | 同上（缺省回退 `var/.global_token`，并校验存在） |
+
+**顺手修掉的两个静默缺陷**：漏 `import io`（使新加的 spec 读取抛 `NameError` 并被 `except` 吞掉 ⇒ 误报“没有 tournament_id”）；
+入口没写 `sys.exit(main())`（报错也返回 exit 0，上游无法守门）。
+
+**实测**：裸跑 ⇒ 报错 + **exit 2**；`HM_OFFICIAL_SPEC` 指向临时 spec ⇒ **自取到 tid=t_069a55e84b26 并真发请求**（三测已结束 ⇒ 404，预期）；
+显式传参 ⇒ 正常（4测令牌尚未取得 ⇒ 403）。
