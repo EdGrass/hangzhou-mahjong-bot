@@ -152,6 +152,12 @@ STRATEGY_FACTORIES = {
     #    仅在"三条单轴都被判正"时作为正式赛最强配置参与 §V.44/§V.66 的选臂。
     "speedvaluebcvmeld": lambda: __import__(
         "bot.speedvaluebcvmeld", fromlist=["SpeedValueBCVMeld"]).SpeedValueBCVMeld(),
+    # ★ R1411：剂量对齐的三层部署臂（BC + V + 学习副露）——
+    #   若役 4 说副露激进档更好，最终臂就必须是“同剂量”的三层组合，而不是固定 0.45。
+    "speedvaluebcvmeldp40": lambda: __import__(
+        "bot.speedvaluebcvmeld", fromlist=["SpeedValueBCVMeld"]).SpeedValueBCVMeld(claim_p=0.40),
+    "speedvaluebcvmeldp35": lambda: __import__(
+        "bot.speedvaluebcvmeld", fromlist=["SpeedValueBCVMeld"]).SpeedValueBCVMeld(claim_p=0.35),
     # ★ R1278：BC 分支的役 4 候选 = 组合臂 + **对齐剂量**（claim_p=0.45，与 §V.35 的单轴剂量一致）
     #    为什么不是默认的 0.60：§V.35 已量到 0.60 只补 ~一半副露缺口（+10.5% vs 需要 ~+20%）。
     "speedvaluebcmeldp45": lambda: __import__(

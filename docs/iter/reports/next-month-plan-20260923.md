@@ -4371,3 +4371,31 @@ my_games      = 20（第1轮 10 + 第2轮 10），**第3轮未分配对局**
 2. 副露轴有**实测剂量梯度**：67.0% → 74.6%（默认）→ **84.8%（p40）**，与 §V.159 测到的“我们副露量少且转化差”直接对应；
 3. **风险有界**：两个 meld 臂从不把已有索取改成不索取（“仅基线收 0”）⇒ “只加不减”的设计属性得到真机证实；
 4. 役 4 的候选定为 **`speedvaluemeld` + `speedvaluemeldp40`**（两档同役，直接量“多要多少”）。
+
+
+---
+
+### §V.165 「最屌的模型」已就位：**三层部署臂 `speedvaluebcvmeld` + 剂量对齐变体**（★ 10/7 换臂的候选顶点）
+
+**现状**
+
+- `bot/speedvaluebcvmeld.py` 已存在且注册：`SpeedValueBCVMeld` = **BC（出牌排序）+ V（爆头可达性）+ 学习副露（claim_p=0.45）**，
+  文件头部自述定位就是“**部署用最强配置**（不做单变量判词）”。
+- 本轮**新增注册**（仅加注册表项，未改任何既有类）：`speedvaluebcvmeldp40` / `speedvaluebcvmeldp35`
+  —— 因为役 4 可能判“副露更激进更好”，那么最终臂就必须是**同剂量**的三层组合，而不是固定 0.45。
+
+**离线校验（验证三层真的都活着）**：证据 `var/_offline_triple_20260924.out`
+
+| 检查 | 结果 | 判读 |
+|---|---|---|
+| 三层 p40，window（41526 窗口） | 索取率 **84.8%**（与 `speedvaluemeldp40` 单独测得完全一致），仅基线收 0 | 窗口层在位且**剂量对齐**；仍“只加不减” |
+| 三层 p45，draw（14279 出牌） | 出牌不同 **22.5%**（BC 单独 15.8%、V 单独 14.3%） | 出牌两层（BC+V）**都在生效** |
+
+**最终臂的选择规则（写死，与 §V.161 一致）**：
+
+1. 役 3 判 BC / V（各自预登记阈值）；役 4 判副露默认档 / p40；
+2. **通过的层才往上叠**：层全过 → `speedvaluebcvmeld`（或 p40/p35 剂量版）；只过两层 → 对应双层臂（`speedvaluebcv` / `speedvaluebcmeld` / `speedvaluebaotouvmeld`）；只过一层 → 对应单层臂；
+3. 一层都没过 → 保留当前基线（不为了“换新”而换）；
+4. 上述组合臂均需过 `var/_campaign_ready.py --arms <最终臂>`（注册/实例化/模型在场）才能写进 `var/.final_arm.txt`。（本轮已实测实例化通过、MRO 与 claim_p 正确。）
+
+**回归**：`python -m unittest discover -s tests -p "test_speedvalue*.py"` **76 OK**（skipped=1）、`test_ultimate_combo.py` 3 OK、`test_submission_closure.py` 5 OK。
