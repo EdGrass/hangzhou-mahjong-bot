@@ -47,6 +47,11 @@ python -X utf8 var/_switch_campaign.py --baseline speedvalue --candidates speedv
 pwsh -NoProfile -File var/_register_campaign3_watches.ps1 -Since "<起役时间戳>" -Go
 ```
 
+> ★ 窗口内**顺带做一件事**：此时无对局 ⇒ 跑一次
+> `python -X utf8 -m unittest discover -s tests`（全量单元测试）+ `python -X utf8 run_bot.py --smoke`
+> 作为**提交前证据**。为什么要在窗口：R1182 已用 1,485 个提交延迟样本证明
+> **A/B 期间跑全套单测会真的抬高提交延迟（p99 2.8s、丢动作）**，所以这件事只能在窗口做。
+
 **顺序与抢窗口（实测口径）**：
 1. `tools/ab_ctl.py stop`（**只停驱动**）→ 在打的那一房自然打完（绝不强停）；
 2. 等 `run_bot`/`match_super`/`_ab_driver` 都消失 → **立刻**跑上面的 ②/③（watchdog 每 90s 可能拉回 keeper，拉回就等它那一批打完再试）；

@@ -3223,3 +3223,12 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 | 新门 | `tests/test_ps1_encoding.py`（纯字节级：非 ASCII 的 .ps1 必须带 BOM）—— **负控已测** |
 
 **规矩（今后照做）**：每次改工具后，**先找出覆盖它的测试并跑一遍**。本次 9 个目标测试文件全部 rc=0（~1.7s，不污染 dperf）。
+
+### V.101 ★★★★ `var/_verdict_watch.py` 的语义已被单测钉死（R1324）
+
+**新增 `tests/test_verdict_watch_rules.py`（5 条）**：决定性（rc 0/1）⇒ 写 sentinel；UNDECIDED ⇒ 不写 sentinel + 写 marker；
+“房数不足/覆盖 <70%” ⇒ 不写 sentinel；到役盒 ⇒ 判词含“已达役盒”（未到盒不含）。
+用 `skipUnless`（克隆后 `var/` 不存在）+ 专用 label 清理，不碰真实 `役2` 产物。
+
+**为什么不现在跑全量单测**：R1182 已证明 A/B 期间跑全套会抬高提交延迟（p99 2.87s / 丢动作） ⇒
+该事已写入 **B 段窗口的“顺带清单”**（无对局时跑，作为 10/8 提交前证据）。
