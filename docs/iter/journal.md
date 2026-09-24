@@ -25665,3 +25665,23 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - 本地全量：**979 条 · OK（skipped=4, expected failures=1）· 776s**（`var/_fulltest_r1362.log`）。
   - 公网副本：**839 条 · OK（skipped=55）· 50s**；已追踨 **613** 文件；run_bot.py BOM=False ✓。
   - 另确认：`_prep_register_combo.py` 的锚点（`"speedc151"` 行）**仍在**，幂等判据“尚未注册”=True ⇒ **将来真要用 `...0chi` 时它能照跑**。
+
+- [R1364 | 2026-09-24 13:5x ★★★★**四测前的“谁能干扰比赛”排雷表（**全部自动化 × 官方模式 = 逐条代码级核对**）**]
+  - 动机：16:00 四测是**首次带当前任务集跑官方模式**。任何一个自动任务如果在官方期间拉起测试房 keeper 就是 **E002**（同账号并发），
+    而一个“熔断”类逻辑如果在比赛中生效就是**直接退赛**。逐条查代码得出：
+  - **排雷表**（证据 = 文件行为）：
+
+| 自动化 | 官方模式下的行为 | 证据 | 风险 |
+|---|---|---|---|
+| `_watchdog.py`（常驻） | 暂停测试房自愉，**不启/不杀任何进程** | `_watchdog.py:205-210` `if official_mode(): log("“暂停测试房自愉，不启/不杀任何进程”)` | 无 ✓ |
+| `_ensure_all.py`（AutoHeal 5min） | **不拉测试房 keeper**；仅保证 `_watchdog` + `_official_keepalive` 活着 | `:75-90`（官方分支内 `return`，不走 keeper 分支） | 无（防 E002）✓ |
+| `_official_guard.py（OfficialGuard 60s） | 非官方**严格 no-op**；官方且 keepalive 缺 ⇒ 按 spec（含新鲜度校验）拉起 | `:99-125` | 无 ✓ |
+| `_replay_guard.py（ReplayGuard） | 只读台账 + 门户 GET + 写 `var/replays/recent/<gid>.json`（与 bot 无文件交集）；每次 ≤120 gid / ≤6min | 头部“红线”段 | 无 ✓ |
+| `_verdict_watch.py（VerdictWatch 10min） | 只读跑 `_gate2`（官方期间 A/B 台账不增长 ⇒ 不会出新判词） | 只读工具 | 无 ✓ |
+| `ladder_snapshot.py`（LadderSnapshot 30min） | 门户只读快照 | 只读 | 无 ✓ |
+| `_portal_watch.py`（PortalWatch 30min） | 门户只读（用 portal cookie，不动赛事令牌） | 只读 | 无 ✓ |
+| A/B 熔断器 | 逻辑在 `_ab_driver.py`；驱动**见官方哨兵即退出** ⇒ 官方期间不存在 | `_ab_driver` 哨兵分支 | 无 ✓ |
+| `_exit_official.py`（收尾） | 任一 bot 链进程在跑 ⇒ **rc=2 拒绝退出** | `BUSY_NAMES` + `_busy_official()` | 无（防捰断）✓ |
+
+  - **另确认**：`var/_breaker_watch.py` 是**只读预警**（头部明写“只读复刻，不替代驱动的判断”），且**未设计划任务** ⇒ 无风险。
+  - ⇒ **结论：四测期间，仓库内没有任何自动化会干扰比赛（启测试房/熔断/捶断）**；逐条都是代码级证据，不是口头保证。

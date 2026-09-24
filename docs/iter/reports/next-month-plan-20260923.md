@@ -3781,3 +3781,17 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 | 本地全量 | **979 条 · OK（skipped=4, expected failures=1）· 776s** |
 | 公网副本全量 | **839 条 · OK（skipped=55）· 50s**；613 文件 |
 | `_prep_register_combo.py` | 锚点仍在 ✓，幂等判据“尚未注册”=True ✓（将来可照跑） |
+
+### V.136 ★★★★ 四测前排雷：全部自动化 × 官方模式（R1364）
+
+| 自动化 | 官方模式下 | 证据 | 风险 |
+|---|---|---|---|
+| `_watchdog.py` | 暂停自愉，**不启/不杀任何进程** | `:205-210` | 无 |
+| `_ensure_all.py`（AutoHeal 5min） | **不拉测试房 keeper**；只保 watchdog + official_keepalive | `:75-90` | 无（防 E002） |
+| `_official_guard.py`（60s） | 非官方 no-op；官方保 keepalive（含 spec 新鲜度） | `:99-125` | 无 |
+| `_replay_guard.py` | 只读台账 + 门户 GET + 写 `replays/recent` | 头部红线 | 无 |
+| `_verdict_watch.py` / `ladder_snapshot.py` / `_portal_watch.py` | 只读 | — | 无 |
+| A/B 熔断 | 驱动见哨兵就退出 ⇒ 官方期间不存在 | `_ab_driver` | 无 |
+| `_exit_official.py` | bot 链还在跑 ⇒ **rc=2 拒绝退出** | `BUSY_NAMES` | 无（防捶断） |
+
+`_breaker_watch.py` = **只读预警**，且**无计划任务**。⇒ **四测期间仓库内无任何自动化会干扰比赛**。
