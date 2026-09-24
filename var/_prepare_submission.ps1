@@ -93,6 +93,29 @@ foreach ($f in $opsScripts) {
   if (Test-Path $f) { Write-Host ("  OK   {0}" -f $f) }
   else { Write-Host ("  FAIL 运行期脚本缺失：{0}（缺了就接不进比赛流程！）" -f $f); $bad++ }
 }
+Write-Host "`n=== 文案一致性门（申报正文声称的指南版本 == 代码里的）==="
+# ★ R1356：申报正文会被**直接粘贴进申报页**（它描述我们怎么连平台）⇒ 它声称的指南版本必须与**打包进去的代码**一致。
+#   实测：404 语义在 P0 补丁（v34→v35）前后是两套，若提交时忘了落补丁 ⇒ 会交一份“说的与做的不一样”的说明。
+$codeVer = ""
+$initPath = Join-Path $Root "bot/__init__.py"
+if (Test-Path $initPath) {
+  $m = [regex]::Match((Get-Content $initPath -Raw), "GUIDE_VERSION_KNOWN\s*=\s*(\d+)")
+  if ($m.Success) { $codeVer = $m.Groups[1].Value }
+}
+$docVer = ""
+$docPath = Join-Path $Root "docs/申报正文-最终.md"
+if (Test-Path $docPath) {
+  $m2 = [regex]::Match((Get-Content $docPath -Raw), "GUIDE_VERSION_KNOWN\s*=\s*(\d+)")
+  if ($m2.Success) { $docVer = $m2.Groups[1].Value }
+}
+if (-not $codeVer -or -not $docVer) {
+  Write-Host ("  FAIL 读不到版本（代码='{0}' 文案='{1}'）" -f $codeVer, $docVer); $bad++
+} elseif ($codeVer -ne $docVer) {
+  Write-Host ("  FAIL 文案声称 v{0}，但代码是 v{1} ⇒ **先落 P0 补丁再提交**（或把文案改回来）" -f $docVer, $codeVer); $bad++
+} else {
+  Write-Host ("  OK   文案与代码均为 v{0}" -f $codeVer)
+}
+
 Write-Host "`n=== 泄密门（令牌 / cookie 绝不进公开仓）==="
 $leak = @()
 foreach ($f in ($models + $opsScripts)) {

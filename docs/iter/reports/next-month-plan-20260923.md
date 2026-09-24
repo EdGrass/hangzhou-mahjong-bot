@@ -3649,3 +3649,25 @@ python -X utf8 var/_apply_p0_404.py --go                    # 副本（CRLF）�
 | 已打补丁的副本（`run_bot.py --smoke`） | **「冒烟结果: 全部通过」** |
 
 副本多出的 skip = 52 条无语料整模块（V.120）+ 2 条 P0 新契约（V.126，因未打补丁）⇒ 设计如此。
+
+### V.128 ★★★ 说明书逐条可执行性 + “文案 ↔ 代码”版本门（R1356）
+
+**判官视角实跑（公网副本，逐条执行说明书命令）**：
+
+| 命令 | 结果 |
+|---|---|
+| `python run_bot.py --help` | ✓ rc=0 |
+| `python tools/stability.py` | ✓ rc=0 · **稳定性矩阵: ALL PASS**（违规=0 · 守恒=True） |
+| `python var/_campaign_ready.py --arms speedvaluebc,speedvaluemeld,speedvaluerank` | ✓ 模块跑得通；**[1] 臂 = 注册/可实例化/模型在场/有单测 全绿** |
+| `python tools/preflight.py` | ✓ 除下一行外全绿（引擎单测 / 自愈链 / fan-calc 样本） |
+| `python run_bot.py --smoke` ＆ preflight | 唯一红项 = **v35 BREAKING 未落补丁**（R1353 已预演：落了就全绿） |
+
+**抓到的真缺陷**：申报正文两处写“瞬态 404 容忍 120s；持续 >120s 才判房间真删” —— 与 P0 补丁后的语义**相反**。
+已改成：`TOURNAMENT_GONE`（房暂时不可达）⇒ **不限时重试**；`TOURNAMENT_NOT_FOUND`（房不存在）⇒ **立即放弃**；其它 code ⇒ 保守重试。
+
+| 新增门 | 行为 |
+|---|---|
+| `var/_prepare_submission.ps1`（提交硬门） | 文案声称的 `GUIDE_VERSION_KNOWN` ≠ `bot/__init__.py` 里的 ⇒ **rc!=0**（实测现在报“先落 P0 补丁再提交”） |
+| `tests/test_submission_doc_version.py` | 两态感知：补丁未落地 ⇒ skip；落地后硬校（三分支已逐一验证：== pass / > fail / < skip） |
+
+**纪律**：“要粘进申报页的正文”是交付物的一部分 —— 版本/语义声明必须与代码一致，且要有**机械门**。
