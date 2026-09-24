@@ -49,11 +49,11 @@ powershell -ExecutionPolicy Bypass -File var/_switch_to_official.ps1 -Strategy <
 
 - 启动后 bot 自行**报名 → 到位 → 确认 → 自动对局**，全部动作由策略层产生，**无需任何人工输入**；
 - 每局动作的提交延迟有硬性预算（实测 p50 ≈ 15ms、p99 < 50ms，远低于响应窗口）；
-- 日志：`--log <file>` 双写；看门狗模式默认落 `logs/bot_live.log`。
+- 日志：`--log <file>` 双写；看门狗模式默认落 `logs/bot_live.log`（首次运行时自动创建）。
 
 ## 3. 策略（`--strategy <name>`）
 
-`--strategy` 可取 `run_bot.py --help` 列出的任意已注册策略名；**当前生产策略以 `var/_keeper_strategy.txt` 为准**（逐役按预登记实验择优；撰写本 README 时为 `speedvalue`）
+`--strategy` 可取 `run_bot.py --help` 列出的任意已注册策略名；**当前生产策略以 `var/_keeper_strategy.txt` 为准**（逐役按预登记实验择优；撰写本 README 时为 `speedvalue`；**该文件与 `var/.official_spec.json` / `logs/` 均由程序运行时生成**，刚 clone 下来不存在属正常）
 （V 加权出牌器：弃后精确向听最小 → 活进张/番/白板综合价值最大）。
 `--strategy` **建议显式传**（不传时用代码内默认值，用途仅为兼容旧脚本）。
 

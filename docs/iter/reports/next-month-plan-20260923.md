@@ -3671,3 +3671,12 @@ python -X utf8 var/_apply_p0_404.py --go                    # 副本（CRLF）�
 | `tests/test_submission_doc_version.py` | 两态感知：补丁未落地 ⇒ skip；落地后硬校（三分支已逐一验证：== pass / > fail / < skip） |
 
 **纪律**：“要粘进申报页的正文”是交付物的一部分 —— 版本/语义声明必须与代码一致，且要有**机械门**。
+
+### V.129 ★★ 双门复核（文案门后，2026-09-24 13:0x）
+
+| 门 | 结果 |
+|---|---|
+| 本地全量（未打补丁） | **979 条 · OK（skipped=4, expected failures=1）· 757s** |
+| 公网副本全量（未打补丁、CRLF） | **839 条 · OK（skipped=55）· 50s**；已追踨 613 文件 |
+
+README 已标注 `var/_keeper_strategy.txt` / `var/.official_spec.json` / `logs/` 为**运行时生成**。
