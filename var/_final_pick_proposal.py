@@ -55,7 +55,27 @@ def main():
         + "\u2605 \u5199\u5165\u65b9\u5f0f\uff08\u786e\u8ba4\u540e\uff09\uff1aecho <arm> > var/.final_arm.txt\n"
         + "-" * 78 + "\n"
     )
+    # ★ R1445：追补"分层读数"——**只作读数，不改 §V.66 判据**。
+    #   动机：top32 只出现在"房里有 top32"的房里 ⇒ 单独看 top32 行本就是强手房口径；
+    #   而"强手房 ≥1"与"强手房 ≥2（决赛相似层）"的优劣**可能方向相反**（役 2 本机实测：
+    #   ≥1 层 speedc151 更好、≥2 层 speedvalue 更好）。正式赛（16 人强场）更接近 ≥2 层 ⇒ 两层都要看。
+    strat = ""
+    try:
+        q = subprocess.run([sys.executable, "-X", "utf8",
+                            os.path.join(ROOT, "var", "_verdict_by_elite.py"),
+                            "--since", started, "--arms", ",".join(arms)],
+                           cwd=ROOT, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=600)
+        strat = (q.stdout or "").strip()
+    except Exception as e:
+        strat = "（分层读数不可得：%s）" % str(e)[:60]
     text = head + body + "\n"
+    if strat:
+        text += ("\n" + "=" * 78 + "\n"
+                 + "分层读数（R1445 追补：只作读数，**不改 §V.66 判据**）\n"
+                 + "★ 为何要看：正式赛是强场（16 人）⇒ 至少并读「强手房 ≥1」与「强手房 ≥2」两层；\n"
+                 + "  两层优劣**可能方向相反**（役 2 实测：≥1 层 c151 好、≥2 层 value 好）。\n"
+                 + "=" * 78 + "\n" + strat + "\n")
     if a.dry_run:
         print(text)
         return 0

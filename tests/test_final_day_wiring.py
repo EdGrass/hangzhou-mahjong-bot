@@ -96,5 +96,26 @@ class TestConfirmScriptInvariants(unittest.TestCase):
         self.assertIn("--refresh", s)
 
 
+@unittest.skipUnless(os.path.exists(os.path.join(ROOT, "var", "_final_pick_proposal.py")),
+                     "var/ 不在仓库里（gitignore）")
+class TestPickProposalStrata(unittest.TestCase):
+    """10/5 选臂提案必须带**分层读数**（R1445）。
+
+    为什么要钉：top32 只出现在"房里有 top32"的房里 ⇒ 单独的 top32 行本就是强手房口径；
+    而"强手房 ≥1"与"强手房 ≥2（决赛相似层）"的优劣**可能方向相反**（役 2 本机实测过），
+    正式赛是 16 人强场 ⇒ 提案若只给 §V.66 主序列（≥1 层），选臂时就会漏掉难点层的翻转。
+    """
+
+    def test_proposal_includes_verdict_by_elite(self):
+        src = read(os.path.join(ROOT, "var", "_final_pick_proposal.py"))
+        self.assertIn("_verdict_by_elite.py", src, "提案必须并读分层工具")
+        self.assertIn("分层读数", src, "必须有一段明确标注的分层读数")
+        self.assertIn("不改 §V.66 判据", src, "必须声明只加读数、不改判据")
+
+    def test_verdict_by_elite_has_two_layer(self):
+        src = read(os.path.join(ROOT, "var", "_verdict_by_elite.py"))
+        self.assertIn("强手房>=2", src, "分层工具必须产出 >=2 名 top32 那一层（预登记 §8 必报）")
+
+
 if __name__ == "__main__":
     unittest.main()
