@@ -15,8 +15,8 @@
 ```powershell
 cd D:\hangzhouMaj
 git status --porcelain                     # 应为空（或只有你刚改的东西）
-pwsh -NoProfile -File var/_prepare_submission.ps1          # 先看检查：应 rc=0、泄密门 OK
-pwsh -NoProfile -File var/_prepare_submission.ps1 -Go     # git add -A + **4 个模型 + 31 个运行期脚本**（均 git add -f）
+pwsh -NoProfile -File var/_prepare_submission.ps1          # 先看检查：应 rc=0（三道门全绿：泄密 / **文案↔代码版本** / 闭包）
+pwsh -NoProfile -File var/_prepare_submission.ps1 -Go     # git add -A + **4 个模型 + 37 个运行期脚本**（均 git add -f）
 git status --short                                        # 确认模型 4 个 + var/ 脚本都在暂存区
 python -X utf8 -m unittest tests.test_submission_closure  # ★ 闭包门：清单内文件必须全部已入仓（R1345）
 git commit -m "submit: 完整可运行源码 + 4 个模型权重 + 参赛说明"
@@ -25,7 +25,9 @@ git push origin main
 
 > ★ **R1345 教训**：`var/` 被 .gitignore 忽略，而**整条“接入官方平台”的链都在 var/ 里**。
 > 只 `git add -f` 模型（旧做法）会导致判官 clone 后**只能跑 run_bot.py，进不了比赛流程**。
-> 现在强制 add 的是 **31 个 = 19 个 .py + 12 个 .ps1**，并且 `tests/test_submission_closure.py` 会堵住
+> ★ **另有一道文案门（R1356）**：`_prepare_submission.ps1` 会比对“申报正文声称的 `GUIDE_VERSION_KNOWN`”与 `bot/__init__.py` 里的，
+> **不一致就 rc!=0** —— 也就是说：**没落 P0 v35 补丁就提不了交**（这是有意的硬门，不是 bug）。
+> 现在强制 add 的是 **37 个 = 25 个 .py + 12 个 .ps1**，并且 `tests/test_submission_closure.py` 会堵住
 > “清单引用了清单外的 var/ 文件”（依赖闭包）与“清单里的文件还没入仓”两种漏洞。
 
 ## 2. 从公网克隆验证（~判官视角，~3 分钟）
