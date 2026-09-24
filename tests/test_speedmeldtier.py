@@ -31,7 +31,9 @@ def _windows(limit=400):
     """真实副露窗口：(view, kind, pair)。"""
     out = []
     files = sorted(glob.glob(os.path.join(ROOT, "var", "replays", "*", "*.json")))
-    random.Random(20260921).shuffle(files)
+    # ★ R1347：**不要 shuffle**——固定种子 + 随时间增长的文件列表 ⇒ 抽到的样本会随新对局漂移
+    #（实测 2026-09-24：test_speedc151c::test_not_a_noop 在 11:01 绿、在 11:33 红，期间只多了几个房间）。
+    #改成“按文件名有序扫描”：新房间排在末尾 ⇒ 前 N 个局面**不受语料增长影响**，且差异只会变多不会变少。
     for f in files:
         try:
             p = json.load(io.open(f, encoding="utf-8"))

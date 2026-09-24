@@ -10,11 +10,14 @@
 """
 import io
 import os
+import re
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TESTS = os.path.join(ROOT, "tests")
 GUARD = ("def setUpModule", "skipUnless", "skipIf", "skipTest")
+
+_RE_SHUFFLE_FILES = re.compile(r"shuffle\(\s*files\s*\)")
 
 CORPUS_MODULES = (
     "test_replay_guard",
@@ -49,9 +52,33 @@ CORPUS_MODULES = (
 )
 
 
+
+def _modules():
+    return [os.path.join(TESTS, f) for f in sorted(os.listdir(TESTS))
+            if f.startswith("test_") and f.endswith(".py")]
+
+
 class TestHermeticCorpusGate(unittest.TestCase):
     def test_list_is_complete(self):
         self.assertGreaterEqual(len(CORPUS_MODULES), 25, "名单被削掉了？本门是空跑")
+
+    def test_no_shuffle_of_globbed_files(self):
+        """★ R1347：**不要对“扫出来的文件列表”shuffle**。
+
+        为什么：固定种子只能保证“同一个列表”的洗牌结果不变，而语料列表**每打一房就变长** ⇒
+        抽到的 60 个局面会随新对局漂移 ⇒ 同一份代码会**时红时绿**。实测：`test_speedc151c::test_not_a_noop` 11:01 绿、
+        11:33 红（期间只多了几个房间）。改成“按文件名有序扫描”后：前 N 个局面不受增长影响，
+        且差异只会变多不会变少（单调）。
+        """
+        bad = []
+        for p in _modules():
+            with io.open(p, encoding="utf-8-sig", errors="replace") as f:
+                src = f.read()
+            if _RE_SHUFFLE_FILES.search(src):
+                bad.append(os.path.basename(p))
+        self.assertEqual([], bad,
+                         "以下模块对“扫出来的文件列表”做了 shuffle ⇒ 样本会随语料增长漂移"
+                         "（改成按文件名有序扫描）：%s" % bad)
 
     def test_corpus_modules_are_guarded(self):
         bad, missing = [], []
