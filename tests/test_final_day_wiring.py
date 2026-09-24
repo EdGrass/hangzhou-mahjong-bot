@@ -14,6 +14,7 @@ from __future__ import annotations
 import io
 import os
 import re
+import sys
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -123,6 +124,31 @@ class TestPickProposalStrata(unittest.TestCase):
     def test_verdict_by_elite_has_two_layer(self):
         src = read(os.path.join(ROOT, "var", "_verdict_by_elite.py"))
         self.assertIn("强手房>=2", src, "分层工具必须产出 >=2 名 top32 那一层（预登记 §8 必报）")
+
+
+@unittest.skipUnless(os.path.exists(os.path.join(ROOT, "var", "_final_event_ready.py")),
+                     "var/ 不在仓库里（gitignore）")
+class TestEventReadyInsurance(unittest.TestCase):
+    """R1452：10/10 19:25 的 T-5 保险必须是"开关感知"的，且**绝不自动使用逃生阀**。"""
+
+    def setUp(self):
+        sys.path.insert(0, os.path.join(ROOT, "var"))
+        import _final_event_ready as F
+        self.F = F
+
+    def test_plan(self):
+        self.assertEqual("ready_only", self.F.plan(True))          # 已在官方模式 ⇒ 与旧行为一致
+        self.assertEqual("switch_then_ready", self.F.plan(False))  # 不在 ⇒ 先重试上线
+
+    def test_registrar_points_to_insurance(self):
+        src = read(os.path.join(ROOT, "var", "_register_final_event.ps1"))
+        self.assertIn("_final_event_ready.py", src, "19:25 任务必须调用保险脚本")
+
+    def test_never_auto_passes_allow_not_ready(self):
+        src = read(os.path.join(ROOT, "var", "_final_event_ready.py"))
+        self.assertIn("AllowNotReady", src, "逃生阀应写进人工提示")
+        self.assertNotIn(chr(34) + "-AllowNotReady" + chr(34), src,
+                         "绝不把 -AllowNotReady 作为参数自动传给切换脚本（人做决定）")
 
 
 if __name__ == "__main__":

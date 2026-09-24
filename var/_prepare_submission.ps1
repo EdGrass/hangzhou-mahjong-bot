@@ -102,6 +102,7 @@ $opsScripts = @(
   "var/_switch_test_strategy.py",
   "var/_final_pick_proposal.py",
   "var/_final_event_switch.py",            # ★ R1435：10/10 正式赛自动上线（缺令牌/最终臂即拒绝）
+  "var/_final_event_ready.py",            # ★ R1452：19:25 T-5 保险（开关感知：不在官方模式先重试上线）
   "var/_register_final_event.ps1",         # ★ R1435：10/10 两个一次性任务的注册脚本           # ★ R1434：10/5 最终臂选择提案（只读台账+榜单）
   "var/_register_final_pick_proposal.ps1",  # ★ R1434：上行一次性任务的注册脚本      # ★ R1407：换测试房 keeper 策略（_switch_final 的闭包依赖）
   "var/_register_tminus_ready.ps1",
