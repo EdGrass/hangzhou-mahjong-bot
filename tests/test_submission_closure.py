@@ -103,6 +103,30 @@ class TestSubmissionClosure(unittest.TestCase):
                          "测试引用了不在 `.\$opsScripts` 里的 var/ 文件 ⇒ clone 里跑测试会报 FileNotFoundError/ImportError"
                          "（把它们加进 $opsScripts 并 `-Go`）：%s" % missing)
 
+    def test_doc_referenced_var_scripts_are_in_list(self):
+        """★ R1355：**提交说明里叫用户跑的 var/ 脚本，必须真的在仓库里**。
+
+        为什么：README / 申报正文 / 参赛说明都是“使用说明”，判官会照着跑。
+        实测就抓到一处：说明里的自检命令 `var/_campaign_ready.py` **当时并未入仓** ⇒ clone 里直接“文件不存在”。
+        （运行期**状态**文件如 `_keeper_strategy.txt` / `.official_spec.json` 不在本门范围：它们由程序运行时生成）。
+        """
+        ops = set(ops_list())
+        docs = ["README.md", "docs/申报正文-最终.md", "docs/参赛说明.md"]
+        rx = re.compile(r"(var/[A-Za-z_0-9]+[.]ps1|var/[A-Za-z_0-9]+[.]py)")
+        bad = []
+        for d in docs:
+            p2 = os.path.join(ROOT, d.replace("/", os.sep))
+            if not os.path.exists(p2):
+                continue
+            with io.open(p2, encoding="utf-8", errors="replace") as f:
+                src = f.read()
+            for ref in sorted(set(rx.findall(src))):
+                if ref not in ops:
+                    bad.append("%s 引用了 %s" % (d, ref))
+        self.assertEqual([], bad,
+                         "说明文档里叫用户跑的 var/ 脚本不在 `.\\$opsScripts` 里 ⇒ clone 里“文件不存在”"
+                         "（把它加进 $opsScripts 并 `-Go`，或改写说明）：%s" % bad)
+
     def test_listed_files_are_tracked(self):
         try:
             tracked = set(subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True,

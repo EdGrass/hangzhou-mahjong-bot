@@ -48,6 +48,7 @@ $opsScripts = @(
   "var/_enter_event.py",
   "var/_bsegment.py",
   "var/_switch_campaign.py",
+  "var/_campaign_ready.py",     # ★ R1355：README/参赛说明都叫用户跑它做自检（此前未入仓 ⇒ clone 里“文件不存在”）
   "var/_apply_p0_404.py",
   "var/_4test_gate_precheck.py",
   "var/_daily.py",
