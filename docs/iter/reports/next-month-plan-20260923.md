@@ -3176,3 +3176,22 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 
 **为什么**：四测是“偶然查门户”才发现的（当时距报名截止只剩 ~5h）。有了它，
 **10/10 正式赛的 tid 一上线就会留下时间戳**，可立刻接上 `_format_fidelity.py` 与令牌流程。
+
+### V.98 ★★★★★ **纠正：V 轴无法机械孪生到 `speedc151`**（2026-09-24 10:0x，R1321）
+
+计划（R1198）曾写“**无论役 2 走哪一支，役 3 都有单变量臂**”，并据此补了 `bot/speedc151bc.py`。
+**本轮实测证明这句只对 BC 成立**：
+
+| 源码事实（本轮实测） | 值 |
+|---|---|
+| `hasattr(SpeedC151, "value_of")` | **False** |
+| `SpeedC151._pick_discard` | 自己的**键值排序版** |
+| `SpeedValue._pick_discard` | **重写为 value_of 评分版** |
+| `SpeedValueBaotouV5` 覆盖的成员 | **仅 `value_of`** |
+
+⇒ **V 只能挂在 SpeedValue 架构上**（它的集成点就是 `value_of`）；BC 之所以能孪生，是因为 BC 可在 c151 自己的弃牌路径里**重建候选集+评分**。
+若在 c151 上加 V，只能做成**键值并列项**（同 `_route_bonus`）⇒ **不同机制、不同剂量语义**，属新变体（需新预登记 + 足迹体检）。
+
+**对分支地图的修正**：若 §V.49 读到的第一列（役 2）落在 **判负**，则役 3 只能是二臂（`speedc151` vs `speedc151bc`）或先造 c151-V 新变体；
+它应当被当成**需人工重排的事件**，而不是自动 re-base。**而现有证据均指向 speedvalue**（见 §V.86/R1321），
+判负概率低 ⇒ 实际基线就是 speedvalue。

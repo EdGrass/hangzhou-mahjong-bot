@@ -25079,3 +25079,21 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     首跑 **LastResult=0**、历史文件 3 行、日志里记下 `四测 已报名=26 我已报名=False`（此时 `registered` 从 15 一路长到 26）。
   - ④ **注册/移除**：`pwsh -NoProfile -File var/_register_portal_watch.ps1 -Go`（默认 dry-run）；不想要就
     `schtasks /delete /tn HangzhouMajPortalWatch /f`。
+
+- [R1321 | 2026-09-24 10:0x ★★★★★**纠正计划里一句成立不了的话：“无论役 2 走哪一支，役 3 都有单变量臂”—— 对 BC 成立，对 **V 轴不成立**（结构性障碍）**]
+  - ① **硬证据（本轮实测）**：
+    | 事实 | 值 |
+    |---|---|
+    | `SpeedC151` 有 `value_of`？ | **False** |
+    | `SpeedC151._pick_discard` | 自己的**键值排序版**（向听/听牌张/真进张+路线加成/`_pref`/摸切） |
+    | `SpeedValue._pick_discard` | **重写为“逐候选算 `value_of`”** |
+    | `SpeedValueBaotouV5` 覆盖的成员 | **只有 `value_of`**（`_pick_discard` 仍是 SpeedValue 的） |
+  - ② **结论**：V 轴的**集成点只存在于 SpeedValue 架构**（`value_of`）。而 `speedc151bc` 之所以能孪生，是因为 BC 的机制是**在 c151 自己的弃牌路径里重建候选集 + 评分**（unbound 复用 `C067Policy._features/_score`）——
+    这套**无法直接搬到 V**：若要在 c151 上加 V，只能做成**键值里的并列项**（像 `_route_bonus`）——
+    那是一个**不同机制/不同剂量语义**的新变体（需自己的预登记 + 足迹体检），而不是"孪生臂"。
+  - ③ **对计划的修正**：R1198 写的“无论役 2 走哪一支，役 3 都有单变量臂”只对 **BC 轴**成立。
+    因此：**若役 2 判负（基线回到 c151），V 轴无法作为单变量参与役 3** ⇒ 役 3 将退化为二臂（`speedc151` vs `speedc151bc`），
+    或者先做一个新的 c151-V 变体（新机制）。
+  - ④ **实务建议（写入分支地图）**：若役 2 = 判负，它应当被当成**需人工重排的事件**，而不是自动 re-base；
+    而现有证据均指向 speedvalue（和牌率 z≈+1.4、第1率 25.0% vs 17.0%、强手房 −35.5 vs −39.5、
+    台账净胜 +42.8/房 t=1.05），且 §V.86 的到盒收口同样落在 speedvalue ⇒ **实际基线就是 speedvalue**，判负概率低。
