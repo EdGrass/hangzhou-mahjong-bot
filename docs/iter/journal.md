@@ -26283,3 +26283,10 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - 按臂：`speedvalue` 25.11% / 分轮 +0.03 / 爆头 24.4%；`speedc151` 24.50% / −0.17 / 22.9%（尚未判词，仅记录）。
   - 工具验证：`_seat_h2h` 与 `_pick_arm`（强手房排序 + 两半 Pareto 破平步骤）均在真数据上跑通；已写入计划 **§V.170**。
   - 自动链存活核对：AutoHeal（`.pause_mode` 自动解除靠它）Last 17:54:43 rc=0；AdoptWatch rc=0；VerdictWatch rc=0；MechWatch 下一次 18:27。
+
+- [R1419 | 2026-09-24 18:1x ★★★★**役 3 三臂链的参数与轮换已验证（switch dry-run + driver N-臂代码级）**]
+  - `_switch_campaign` 干跑（役 3 参数）：判据 bundle 显式=speedvalue ✓、检查全过 ✓，将执行
+    `ab_ctl start speedvalue,speedvaluebc,speedvaluebaotouv5 1 --bundles=speedvalue --started=<时戳>` —— 与预登记一致。
+  - `_ab_driver` 层：`arms_of()` 读 `arms[]`（兼容 a/b）；`pick_arm` 按 `next_idx % n` 轮换、每批自增；恢复时用 `_prev` 保持连续 ⇒ **a→b→c 可用**。
+  - 顺手记：台账里有 2 条旧“running”行（speedtma 09-10、speedc151 09-16），**在本役 since 窗口外、不影响判词**；若未来把 since 提前才需清理。
+  - 已写入计划 **§V.171**。

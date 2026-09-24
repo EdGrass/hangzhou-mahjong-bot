@@ -4520,3 +4520,31 @@ A/B 驱动被 `_ensure_all` 自动拉起，但每批都撞 403：`_ab_driver.out
 3. **工具验证**：`var/_seat_h2h.py`（同席对照）与 `var/_pick_arm.py`（选最终臂）**均已在真数据上跑通**：
    `_pick_arm` 输出“强手房分/房”排序 + 平局时的**两半 Pareto**破平步骤（并给出下一条命令），与 §V.66/V.161 的取舍一致。
 4. 本节不改任何阈值/臂；只把“我们到底落后在哪”用第三方数据钉死。
+
+
+---
+
+### §V.171 役 3 三臂切换链的**参数与轮换**也已验证（★ 关键路径）
+
+**1. 切役命令干跑（`var/_switch_campaign.py --baseline speedvalue --candidates speedvaluebc,speedvaluebaotouv5 --bundles speedvalue`，无 `--go`）**
+
+```
+任务切换（speedvalue → speedvaluebc,speedvaluebaotouv5）
+  判据 bundle  ：speedvalue（显式指定 ✓）
+  起役时间戳 ：<当前时刻>
+  检查全过 → 将执行：ab_ctl stop → ab_ctl start speedvalue,speedvaluebc,speedvaluebaotouv5 1
+                                          --bundles=speedvalue --started=<时戳>
+```
+
+⇒ **与预登记写的形态完全一致**（共享基线 + 两个单变量候选，`--bundles` 显式传 ⇒ 阈值保持 1.50）。
+
+**2. 驱动的 N 臂轮换（代码级）**
+
+`var/_ab_driver.py`：`arms_of(cfg)` 支持 `cfg["arms"]` 列表（兼容旧 `a/b`）；`pick_arm(st, arms)` 按
+`next_idx % n` 轮换，每批后 `st["next_idx"] = (i+1) % n`；中断恢复时用 `_prev` 保持连续 ⇒ **a→b→c→a 三臂轮换可用**。
+
+**3. 顺手记一笔台账残留（不影响本役）**
+
+`_switch_campaign` 提醒：`auto_ranking.jsonl` 里还有 **2 条旧“running”行**：
+`a_fb0a32b036e5 / speedtma / 2026-09-10`、`a_0aca4ad1f990 / speedc151 / 2026-09-16`。
+它们在本役 `since=2026-09-23` 窗口之外 ⇒ **不计入判词与完整性**；仅在“未来若把 since 提前到 9/23 之前”时才需清理。
