@@ -4633,3 +4633,21 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 
 **不变**：预登记的端点/阈值/役盒一字未改；本修只决定“**何时启动已固定的役 3 设计**”。
 单测：`tests/test_adopt_classify.py` **7 项全过**（含“最后一行优先”与两个方向的误判防护）。
+
+
+---
+
+### §V.176 10/7 换臂凭证升级为「**可直接执行的 10/10 命令**」（★ 交接细节）
+
+10/7 换的是**训练房策略**；10/10 还要把**同一个臂**传给 `_switch_to_official.ps1`。
+为避免临场拼参数/用错臂，`var/_switch_final.py` 成功后写入的 `var/.final_installed` 现在包含：
+
+```
+<时间> | arm=<最终臂> | keeper=[<pid>]
+10/10 正式赛命令（把 <TOK>/<TID> 换成当天的令牌文件与赛事 id）：
+  python -X utf8 var/_ready_1024.py --tid <TID> --token-file <TOK>        # T-30 / T-5 各一次（幂等）
+  powershell -NoProfile -File var/_switch_to_official.ps1 -Strategy <最终臂> -TokenFile <TOK> -TournamentId <TID>
+  # 仅当 preflight 因【未知 BREAKING】卡住且已人工确认无害时，才加 -AllowNotReady
+```
+
+验证：直接调用 `marker_text()` 输出正确 ✓；`tests/test_switch_final_marker.py` **2 项全过**（含“命令行里不得出现 -AllowNotReady”的防护）✓。

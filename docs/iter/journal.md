@@ -26318,3 +26318,8 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - 修法：新增纯函数 `classify()`，严格按读卡分类：ADOPT/REFUSE/REJECT/到役盒的 UNDECIDED ⇒ **proceed**；
     未到役盒的 UNDECIDED 与无法识别 ⇒ **wait**。预登记端点/阈值/役盒**一字未改**。
   - 单测：`tests/test_adopt_classify.py` **7 项全过**（含最后一行优先、空/无关文本保守）。已写入计划 **§V.175**。
+
+- [R1424 | 2026-09-24 18:4x ★★★**10/7 换臂凭证升级为“可直接执行的 10/10 命令”（+2 项单测）**]
+  - 10/7 换的是训练房策略，10/10 还要把同一个臂传给 `_switch_to_official.ps1` ⇒ `.final_installed` 现在直接带上两条命令（`_ready_1024` T-30/T-5 + `_switch_to_official -Strategy <装好的臂>`）。
+  - `-AllowNotReady` 仅作为尾部备注（仅当 preflight 因“未知 BREAKING”卡住且已确认无害）；单测钉死“命令行里不得出现它”。
+  - 新增 `tests/test_switch_final_marker.py` **2 项 OK**；已写入计划 **§V.176**。

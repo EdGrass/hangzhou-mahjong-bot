@@ -80,6 +80,22 @@ def arm_ok(name):
     return True, "ok"
 
 
+def marker_text(arm, keeper_pids):
+    """写入 `var/.final_installed` 的内容：安装凭证 + **10/10 当天可直接执行的正式赛命令**。
+
+    为什么把命令一并写进去：10/7 换臂与 10/10 上场是两件事（前者换训练房策略，
+    后者还要把同一个臂传给 `_switch_to_official.ps1`）。把后者预先写成可拷贝命令，
+    避免比赛当天临场拼参数。
+    """
+    return (
+        "%s | arm=%s | keeper=%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), arm, keeper_pids)
+        + "10/10 \u6b63\u5f0f\u8d5b\u547d\u4ee4\uff08\u628a <TOK>/<TID> \u6362\u6210\u5f53\u5929\u7684\u4ee4\u724c\u6587\u4ef6\u4e0e\u8d5b\u4e8b id\uff09\uff1a\n"
+        + "  python -X utf8 var/_ready_1024.py --tid <TID> --token-file <TOK>        # T-30 / T-5 \u5404\u4e00\u6b21\uff08\u5e42\u7b49\uff09\n"
+        + "  powershell -NoProfile -File var/_switch_to_official.ps1 -Strategy %s -TokenFile <TOK> -TournamentId <TID>\n" % arm
+        + "  # \u4ec5\u5f53 preflight \u56e0\u3010\u672a\u77e5 BREAKING\u3011\u5361\u4f4f\u4e14\u5df2\u4eba\u5de5\u786e\u8ba4\u65e0\u5bb3\u65f6\uff0c\u624d\u52a0 -AllowNotReady\n"
+    )
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--go", action="store_true")
@@ -150,7 +166,7 @@ def main(argv=None):
         return 2
     try:
         with io.open(MARKER, "w", encoding="utf-8") as f:
-            f.write("%s | arm=%s | keeper=%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), arm, k))
+            f.write(marker_text(arm, k))
     except Exception as e:
         log("\u26a0 \u5199 marker \u5931\u8d25\uff1a%s" % str(e)[:60])
     log("\u2605 \u6700\u7ec8\u81c2\u5df2\u6362\u4e0a\uff1a%s\uff08keeper=%s\uff09" % (arm, k))
