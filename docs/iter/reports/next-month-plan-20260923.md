@@ -3163,3 +3163,16 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 
 **实测**：解析 OK；无 flag ⇒ 无樫幅；`-AllowNotReady` ⇒ 樫幅；环境变量 ⇒ 樫幅；报错文本含逃生阀提示。
 （“跳过 throw”那一支未能在测试里真跑 —— 需要一次真的官方切换；本节以源码核查 + 樫幅为证）。
+
+### V.97 ★★★★ 新增门户看护 `HangzhouMajPortalWatch`（2026-09-24 10:0x，R1320）
+
+| 项 | 内容 |
+|---|---|
+| 工具 | `var/_portal_watch.py`（**只读**：GET 门户 tournaments + announcements） |
+| 产出 | 追加一行 JSON 到 `var/_portal_history.jsonl`；新赛事/新公告时打印 `★` |
+| 计划任务 | `HangzhouMajPortalWatch`，每 **30 分钟**，`IgnoreNew`，TTL 5 分钟 |
+| 首跑 | **LastResult=0**；历史 3 行；日志：`四测 已报名=26 我已报名=False` |
+| 移除 | `schtasks /delete /tn HangzhouMajPortalWatch /f` |
+
+**为什么**：四测是“偶然查门户”才发现的（当时距报名截止只剩 ~5h）。有了它，
+**10/10 正式赛的 tid 一上线就会留下时间戳**，可立刻接上 `_format_fidelity.py` 与令牌流程。

@@ -25068,3 +25068,14 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     （真正跑到它需要一次真的官方切换，那不能在测试里做）。
   - ④ **与既有计划的关系**：今日的 v35 仍邠 §V.51 B 段的 `_apply_p0_404.py --go` 修掉（那之后 preflight 应为 READY）；
     本节解决的是“**下一个**未知 BREAKING（v36）恰好在比赛当天出现”这个场景。
+
+- [R1320 | 2026-09-24 10:0x ★★★★**新增门户看护 `HangzhouMajPortalWatch`（每 30 分钟）—— 专治“赛事出现了我们却不知道”**]
+  - ① **动机（真实教训）**：四测 `t_6266386bfd56` 是**我偶然查门户才发现**的，当时距报名截止只剩 ~5 小时；
+    而 **10/10 正式赛的 tid 一旦上线，越早看到越好**（要跑 `_format_fidelity.py` 验赛制、要提前拿令牌、要排开役窗口）。
+  - ② **工具 `var/_portal_watch.py`（只读）**：`GET /portal/api/tournaments` + `/portal/api/announcements`（带门户 cookie），
+    把快照（赛事 id/名称/状态/开赛/截止/已报名/我已报名 + 公告 id/标题）**追加**到 `var/_portal_history.jsonl`；
+    若出现**新赛事/新公告**，打印 `★ 新赛事：…`。不发 POST、不碰对局、不改配置。
+  - ③ **计划任务已注册并首跑通过**：`HangzhouMajPortalWatch`（每 30 分钟，`MultipleInstances=IgnoreNew`，超时 5 分钟）；
+    首跑 **LastResult=0**、历史文件 3 行、日志里记下 `四测 已报名=26 我已报名=False`（此时 `registered` 从 15 一路长到 26）。
+  - ④ **注册/移除**：`pwsh -NoProfile -File var/_register_portal_watch.ps1 -Go`（默认 dry-run）；不想要就
+    `schtasks /delete /tn HangzhouMajPortalWatch /f`。
