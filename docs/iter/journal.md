@@ -26475,3 +26475,13 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     两个都 REFUSE ⇒ 走 NONE 行（`speedvalue`+`speedvaluemeldp45`）。
   - 小修：dry-run 时日志写"(dry-run) 将起下一役"（原先看起来像真起过役）。
   - 验证：`tests/test_adopt_pair.py` 8 条 ✓ + 闭包门 ✓（两个新文件已入 `$opsScripts`）。
+
+- [R1440 | 2026-09-25 03:5x ★★**起役链预检全通（P0 补丁可干净落地）+ 役 4→役 5 判定为"刻意的判断题"**]
+  - `tools/preflight.py` 现为 **NOT READY**，唯一 ✗ = `未知 BREAKING: 404 TOURNAMENT_GONE`
+    （判据 `breaking.version(35) > GUIDE_VERSION_KNOWN(34)`）；`var/_apply_p0_404.py --check` **干净通过**
+    （15812→15903、34→35）且**未写盘** ⇒ B 段第 2 步之后该 ✗ 恰好消失 ⇒ preflight 会转 READY。
+  - `_ps.exe()` 在**任务环境 PATH**（无 pwsh）下正确退回 `powershell.exe`，并 dry-run 出 `役3bc`/`役3v` 两台看护。
+  - 10 个臂（役 3/4/5 候选）全部注册 + 实例化通过。
+  - **役 4→役 5 的定性**：役 5 只在 `meld✓ 且 BC✓ 且 V✓`（2 层臂 vs 3 层组合）时有意义；其余情形
+    （meld✗，或 meld✓ 但只有一个新层）**栈已满 ⇒ 直接进 §V.66 选臂**。预登记 §5 刻意留 `<…>` 占位要求
+    "起役前填死" ⇒ 这一步**保持判断题、不自动化**；选项已提前算进 §V.186。
