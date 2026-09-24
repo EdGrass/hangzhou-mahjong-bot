@@ -26677,3 +26677,14 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - ⇒ **明天早上役盒那一刻的真实路径已提前验证**：到盒 ⇒ 落 sentinel ⇒ 采用看护 proceed ⇒ 自动起役 3
     （基线 speedvalue + 两候选 + P0 补丁 v34→v35）。
   - 这也覆盖了 R1460 的修复：若没有那句 `if boxed: 写 sentinel`，此刻链会**停在那儿等人**。
+
+- [R1462 | 2026-09-25 06:0x ★★★**发布态端到端验证：clone GitHub 仓库后内容完整**]
+  - 动机：提交要求是"**完整可运行 + 能接入官方平台**"，而 GitHub 上那份就是提交物 ⇒ 直接 clone 来验最硬的证据。
+  - 结果（`git clone` 到 TEMP，只读检查后已删除）：
+    clone HEAD **`df1d530`** == 权威目录 HEAD `df1d530` ✓；`run_bot.py` ✓；**`bot/*.py` 192 个**；**`var/*.py` 49 个**；
+    **模型 4/4**（`c073_orig_w2_net.pt / c121_meld_net.pt / c089_ranker_net.pt / baotou_v1.pt`）；
+    交付物 4/4（`requirements.txt / README.md / docs/参赛说明.md / docs/申报正文-最终.md`）；
+    9 个关键运行期脚本全在（`_switch_final / _final_event_switch / _final_event_ready / _submit_final / _adopt_pair /
+    _verdict_watch / _strong_veto / _gate2 / _schedule_guard`）✓。
+  - 附带教训：有**一条命令忘了先 `cd D:\hangzhouMaj`** ⇒ `git rev-parse HEAD` 跑在**worktree**（本任务 cwd）里，
+    报出旧提交 `7527c6e`（09/10 的 HANDOFF.md）—— **一切 git 操作都要显式 cd 权威目录**，否则读数会串。
