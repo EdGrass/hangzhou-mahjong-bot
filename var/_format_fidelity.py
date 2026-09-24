@@ -90,6 +90,8 @@ def main(argv=None):
     #   ⇒ 若是"淘汰/晋级"制，目标是 P(晋级) 而非 E[分]，波动率偏好会变（当前方案是 E[分] 最大化）。
     struct = {k: raw.get(k) for k in ("status", "stage", "stage_status", "qualified",
                                       "qualify_role", "stage_crashed")}
+    # ★ R1386：把“我方已完成局数”一并留档（信号 4：被淘汰者是否停打）
+    struct["my_games"] = len(raw.get("my_games") or []) if isinstance(raw.get("my_games"), list) else raw.get("my_games")
     print("赛程结构（新赛事）:", json.dumps(struct, ensure_ascii=False)[:400])
     bad = []
     for k in KEYS:
@@ -126,8 +128,11 @@ def main(argv=None):
             if last:
                 try:
                     d0 = json.loads(last)
+                    # ★ R1386：去重必须**连 struct 一起比** —— 否则四测期间 stage/qualified
+                    #   发生变化时（config 未变）会被当“重复”丢掉，而那正是我们要观察的信号。
                     dup = (d0.get("tid") == a.tid and d0.get("diffs") == diffs
-                           and d0.get("critical") == list(bad))
+                           and d0.get("critical") == list(bad)
+                           and d0.get("struct") == struct)
                 except Exception:
                     dup = False
             if dup:
@@ -135,7 +140,11 @@ def main(argv=None):
             else:
                 with io.open(HIST, "a", encoding="utf-8") as fh:
                     fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
-                print("  （已留档 → %s）" % os.path.relpath(HIST, ROOT))
+                try:
+                    _where = os.path.relpath(HIST, ROOT)      # ★ R1386：跨盘时 relpath 会抛，但**写入已成功** ⇒ 不能把“消息渲染失败”说成“留档失败”
+                except Exception:
+                    _where = HIST
+                print("  （已留档 → %s）" % _where)
         except Exception as e:
             print("  ⚠ 留档失败（不影响判定）：%s" % str(e)[:80])
     print()
