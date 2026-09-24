@@ -3302,3 +3302,13 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 **已补**：`speedvalue` / `plain` / `bc` / `bcv` / `c151bc` / `baotouv5|10|20` / `meld`+四剂量档 / `bcmeld` / `bcmeldp45` / `baotouvmeld` / `bcvmeld` / `rank` / `gangtakec151fixed`
 （集合 19→**38**）。**验证**：`warmup_for_strategy('speedvalue')==50`，且命令行里确实出现 `--warmup-draws 50`。
 本集合**仅在拉起该策略时被查询**（多写无副作用），且 **15:20 起役即生效**。
+
+### V.107 ★★★★ 预热修复已验证（R1330）—— `speedvalue` **50/50，0.85s**
+
+| 臂 | 预热完成 | 耗时 |
+|---|---|---|
+| **`speedvalue`**（四测上场臂） | **50/50** | **0.85s** |
+| `speedvaluebc` / `speedvaluebaotouv5` / `speedvaluemeld` / `speedvaluerank` | 20/20 各 | 0.26~0.48s |
+
+机制边界：只读历史 `*.dec.jsonl`、只调 `policy.decide(view)`、**逐局面异常均吞掉**；`run_bot` 打一行“预热完成: X/N”后继续
+⇒ **打开预热不可能使开赛失败**。`--warmup-draws` 单位是局面数（50 局 ≈ 1s）。
