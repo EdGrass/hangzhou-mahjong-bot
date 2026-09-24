@@ -26346,3 +26346,10 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     而 REFUSE 是决定性判词（写 sentinel）、读卡又说“进下一役” ⇒ 采用守护会**在没数据时推进下一役**。
   - 修法：`default_since()` 从 `var/.ab_mode.started` 取当前窗口（读不到才回退），任务无需改参数；新增 `tests/test_replay_guard_since.py` **4 项 OK**。
   - 现场：`--dry-run` ⇒ “战役房 119、未覆盖 1（a_8e389a54be53）”（新房已在待补列表）；已写入计划 **§V.177**。
+
+- [R1428 | 2026-09-24 19:0x ★★★**自动链“旧默认值”扫描（找到 1 处并已修，其余干净）+ 当前战役健康复核**]
+  - 扫描对象（役 3–役 5 会路过的每一环）：`_verdict_watch`（参数由看护任务显式传）、`_register_campaign3_watches.ps1`（`-Since` 必填）、`_switch_campaign`（任务不调用它，B 段显式传参）、
+    `ab_ctl start`（**无任务直接调用** ⇒ 不会用到其 `bundles=[]`/`started=now` 默认）、`_ensure_all`/`_watchdog`（按旗标分支）、`_official_guard`（按 spec）。
+  - **只有 1 处真隐患**：`_replay_guard` 默认 `--since` 写死役 2（已在 **R1427** 修成跟随 `.ab_mode`）。其余环节未发现类似问题。
+  - **当前健康复核（19:01）**：台账 **118 房（59:59 配平）、完整性干净**；看护进度 **speedc151 59/58、speedvalue 59/59**（覆盖 98% / 100%）；
+    进程：`_ab_driver`(52188) + `match_super`(47808, 18:55:22 跑 **speedvalue** 批) + `run_bot`(41444) ⇒ 轮换正常、正在打。
