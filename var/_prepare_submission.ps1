@@ -81,6 +81,8 @@ $opsScripts = @(
   "var/_register_4test_replay_fetch.ps1",
   "var/_register_4test_detail_snap.ps1",  # ★ R1391：四测详情（ranking/my_games）快照的注册脚本
   "var/_4test_watch_detail.py",             # ★ R1391：上行注册的看护（闭包依赖）  # ★ R1390：四测赛后官方复盘自动补拉（幂等重试）
+  "var/_adopt_when_ready.py",           # ★ R1406：判词到点自动执行 B 段（仅 ADOPT）
+  "var/_register_adopt_watch.ps1",        # ★ R1406：上行看护的注册脚本
   "var/_register_tminus_ready.ps1",
   "var/_prepare_submission.ps1",
   "var/_ps_syntax_check.ps1"
