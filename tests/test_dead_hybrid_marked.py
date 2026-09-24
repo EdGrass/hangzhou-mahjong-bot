@@ -17,8 +17,10 @@ DOCS = [
     "docs/iter/reports/next-month-plan-20260923.md",
     "docs/iter/reports/competition-runbook-20260923.md",
 ]
-KEYS = ("_prep_hybrid_state", "HM_HYBRID_STATE", ".hybrid_state")
-MARKERS = ("已否决", "不得", "已关闭")
+# ★ 扩成“主题词”：只要提到 hybrid 就必须带排除性标记（否则实测下面那种
+#   “hybrid `/state`”的纯文字提法会漏网）。
+KEYS = ("hybrid",)
+MARKERS = ("已否决", "不得", "已关闭", "不要再投入", "天花板")
 
 
 class TestDeadHybridMarked(unittest.TestCase):
@@ -31,7 +33,7 @@ class TestDeadHybridMarked(unittest.TestCase):
             with io.open(p, encoding="utf-8", errors="replace") as fh:
                 L = fh.read().splitlines()
             for i, l in enumerate(L, 1):
-                if any(k in l for k in KEYS):
+                if any(k.lower() in l.lower() for k in KEYS):
                     win = "\n".join(L[max(0, i - 3):i + 2])
                     out.append((d, i, any(m in win for m in MARKERS), l.strip()[:90]))
         return out
