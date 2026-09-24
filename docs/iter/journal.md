@@ -26243,3 +26243,11 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     跑通：`unittest discover -p "test_speedvaluebcvmeld_doses.py"` **2 项 OK**。
   - 起役门复检（`var/_campaign_ready.py --arms speedvaluebcvmeld,speedvaluebcvmeldp40`）：臂四项全绿、**只剩一项未过 = 指南 v35 BREAKING**——
     正是 B 段步骤 2 的 P0 补丁所修复的那项，顺序上不阻塞。
+
+- [R1414 | 2026-09-24 17:5x ★★★★**纪律修正：役 4 不能同役测两个副露剂量档（预登记已定 `p45` 且 B2′ 明确不再调剂量）⇒ 释放一个役位给组合验证**]
+  - 我在 §V.164 写的“役 4 = `speedvaluemeld` + `speedvaluemeldp40` 两档同役”**作废**：
+    预登记 `prereg-campaign4-speedvaluemeld-20260924.md` 早已在**起役前**把候选定为 **`claim_p=0.45`**（对齐同桌：0.45 ⇒ 索取率 82.0%），
+    并在 **7.4 B2′** 写死：**机制达标但主端点不达 ⇒ 本轴结案、不再调剂量**。我的提法既重复又冲突。
+  - 修正后：役 4 = `speedvalue` vs **`speedvaluemeldp45`**（双臂，1.7–2.5 天），判词走 B1/B2′/入口门兜底；
+    **释放的役位给役 5 = 组合验证**（`speedvaluebcvmeld` 或剂量对齐版 vs 当前最优层）；V 剂量档排在组合之后，不够则丢。
+  - 已写入计划 **§V.167**；与 §V.160/§V.165 的“通过几层才叠几层”规则一致。
