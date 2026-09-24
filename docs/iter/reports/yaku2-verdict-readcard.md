@@ -61,3 +61,14 @@ pwsh -NoProfile -File var/_register_campaign3_watches.ps1 -Since "<起役时间�
 
 > ★ 派生结论（本轮核实）：**正式赛那一次的切换不存在这个竞态** —— `_switch_to_official.ps1` 在**第二步**就写 `.official_mode`，
 > 而 `_watchdog.py` 在官方模式下**不启不杀任何进程**（已核）⇒ 等待房结束的期间不会被带走。本卡第 3 段的抢窗口只对**役间切换**有效。
+
+
+## ★ 第一率旁证（R1348，**不是判据**）
+
+```powershell
+python -X utf8 tools/first_rate_readout.py          # 自动取本役臂与 since
+```
+
+判据仍是 `_gate2.py`；第一率只作**方向/护栏**。原因（工具会直接算）：一房只贡献 1 个名次 ⇒
+要分辨 **5.4pp** 的第一率差需要**每臂 ~496 房**，本役盒只有 **80 房/臂** ⇒ **功率不够**。
+`_gate2` 用复盘的和牌率/番（样本量 = 局数）⇒ 功率高一个量级。

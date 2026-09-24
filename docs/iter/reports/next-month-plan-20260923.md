@@ -3539,3 +3539,33 @@ python -X utf8 var/_enter_event.py --tid <TID> --token-file <TOK> --strategy <AR
 **纪律（与 V.120 成对）**：**测试的输入必须与“运行时刻”无关**——
 ① 缺语料 ⇒ **跳过**（不要假失败）；② 语料在增长 ⇒ 取样必须**确定性**（固定种子救不了变长的列表）。
 两条都由 `tests/test_hermetic_corpus_gate.py` 守住。
+
+### V.122 ★★★★ 「只看第一率」的可复用读数 + 它的分辨率上限（R1348）
+
+```powershell
+python -X utf8 tools/first_rate_readout.py                       # 自动取 .ab_mode 的臂与 started
+python -X utf8 tools/first_rate_readout.py --since "" --arms speedvalue --min-rooms 20
+```
+
+**役 2 同窗口读数（since=2026-09-23 03:13:44）**：
+
+| 臂 | n | 均分/房 | 第一率 | 末位率 | 正分率 |
+|---|---|---|---|---|---|
+| `speedvalue` | 52 | **+2.0** | **25.0%** | 25.0% | 40.4% |
+| `speedc151` | 51 | −17.4 | 19.6% | 21.6% | 37.3% |
+
+差值：均分 **+19.4/房**、第一率 **+5.4pp（z=+0.66）**。
+
+**分辨率（本工具会直接算出来）**：要在 z≥1.96 下分辨 5.4pp 的第一率差 ⇒ **每臂约 496 房**（一房只有 1 个名次）；
+本役盒是 **80 房/臂** ⇒ **第一率在本役不可能当判据**（功率不够，不是不重要）。
+`_gate2.py` 的主/副端点用**复盘和牌率/番**（一房 ~几十局 ⇒ 样本量 = 局数），功率高一个量级 ⇒ **判词仍以 `_gate2` 为准**，
+第一率作**方向/护栏**旁证。25.0% = 4 人房随机线 ⇒ `speedvalue` 已回到随机线，**尚未越过**。
+
+**赛后分析链（已用二测真数据验通）**：
+```powershell
+python -X utf8 tools/fetch_tournament_replays.py --tid <TID> --token-file var/.token_<X> --out var/replays/official_<TID>
+python -X utf8 tools/hu_gap_split.py 0 --dirs <official_<TID>>
+python -X utf8 tools/first_rate_readout.py --since "" --arms <本场臂> --min-rooms 5
+```
+二测基线（`official_20260917`，10 文件，n=160 席局）：**我方听牌率 51.2% vs top32 61.5%（−10.21pp）**、胡率 −0.42pp、
+听牌后兑现 **+6.61pp**、爆头态率 4.4% vs 4.2% ⇒ 与 §V.5 一致：**缺口在听牌速度，不在兑现**。
