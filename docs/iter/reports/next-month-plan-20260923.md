@@ -3048,3 +3048,21 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 ```
 
 **时间红线**：**15:00 前报名/到位**；**16:00 前 bot 必须已在跑**（否则代打/超时反而伤成绩）。
+
+### V.90 ★★★★ **四测入场的“两段式”时间线**（2026-09-24 09:5x，R1313）——**先报名，后切模式**（少跑掉 3~4 小时 A/B）
+
+**关键区分**：“**报名/到位**”（`POST /ready`，幂等，**不占房间**）与“**切官方模式**”（写 `.official_mode`、停测试房自愈、拉 `_official_keepalive`）
+**是两件事**。前者只要在 15:00 前完成即可锁定入场；后者只需在 16:00 前完成 ⇒ **A/B 可以多跑到 ~15:30**。
+
+| 时间 | 动作 | 命令 |
+|---|---|---|
+| ≤**15:00** | **报名/到位**（不占房）；完事用只读工具复核 `my_registered` | `python -X utf8 var/_ready_1024.py --tid t_6266386bfd56 --token-file <四测令牌>` → `python -X utf8 var/_fourth_test_entry.py` |
+| 15:15 | 赛制保真（逐项 config + 赛程结构） | `python -X utf8 var/_format_fidelity.py --tid t_6266386bfd56 --token-file <四测令牌>` |
+| ~15:30 | **停 A/B**（它会等当前房自然打完，绝不强停） | `python -X utf8 tools/ab_ctl.py stop` |
+| 空档后 | **切官方模式**（先 `-DryRun`）——它再次幂等 POST /ready | `pwsh -NoProfile -File var/_switch_to_official.ps1 -Strategy <ARM> -TokenFile <四测令牌> -TournamentId t_6266386bfd56` |
+| 15:55 | 校验：`_official_keepalive` 在跑、`.official_mode` 在位、`var/_official_1024.out` 在写 | `python -X utf8 var/_official_status.py`（只读） |
+| **16:00** | 开赛 | — |
+| 赛后 | 退出官方模式 + **原窗口续跑役 2** | `python -X utf8 var/_exit_official.py` + `python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 \"--started=2026-09-23 03:13:44\"` |
+
+**已验证**：`_switch_to_official.ps1 -TournamentId t_6266386bfd56 -DryRun` 已跑通（**零副作用**），它会按新 tid 逐步打印（写哨兵 / 写 spec / POST /ready / 拉 keepalive）。
+红线不变：**绝不强停在打对局**（`ab_ctl stop` 自己等）；**一账号一房**；四测令牌**只跑四测**。
