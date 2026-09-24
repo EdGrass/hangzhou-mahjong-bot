@@ -66,3 +66,8 @@ python -X utf8 tools/hu_gap_split.py 0 --dir recent --by-arm --since "2026-09-23
 python -X utf8 var/_seat_h2h.py --since "2026-09-23 03:13:44" --by-arm --top 32
 python -X utf8 tools/first_rate_readout.py
 ```
+> ⚠ **口径警示（R1375）**：本场赛事 `Rounds=16`（役内 A/B 房为 `Rounds=8`）⇒
+> **分/房 大约是役内口径的 2×**（役内 ≈80 轮/房、本场 ≈160 轮/房）。
+> 要跟役内阈值（±50 分/房、+42 等）比，**先 ÷2 或统一折算成分/轮**；
+> **率类指标（第一率 / 听牌率 / 胡率）不受影响**，可直接跟二测基线并排。
+

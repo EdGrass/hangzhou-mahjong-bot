@@ -3589,6 +3589,8 @@ python -X utf8 tools/first_rate_readout.py --since "" --arms speedvalue --min-ro
 `_gate2.py` 的主/副端点用**复盘和牌率/番**（一房 ~几十局 ⇒ 样本量 = 局数），功率高一个量级 ⇒ **判词仍以 `_gate2` 为准**，
 第一率作**方向/护栏**旁证。25.0% = 4 人房随机线 ⇒ `speedvalue` 已回到随机线，**尚未越过**。
 
+⚠ **赛事（`Rounds=16`）的分/房约为役内（`Rounds=8`）的 2× ⇒ 跨口径比较前必须 ÷2（R1375）**。
+
 **赛后分析链（已用二测真数据验通）**：
 ```powershell
 python -X utf8 tools/fetch_tournament_replays.py --tid <TID> --token-file var/.token_<X> --out var/replays/official_<TID>
