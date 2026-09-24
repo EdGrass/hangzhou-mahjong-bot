@@ -3210,3 +3210,16 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 
 **新证据**：`_switch_to_official.ps1` 在第 2b 步就写 `.official_mode`，而 watchdog 在官方模式下不启不杀
 ⇒ **正式赛切换不存在“与 keeper 抢窗口”的竞态**（役间切换仍有，最坏多等一批 ≈15min）。
+
+### V.100 ★★★★★ `.ps1` 编码回归（R1323）—— BOM 丢失 ⇒ PowerShell 5.1 按 GBK 读 ⇒ 单测红
+
+| 事实 | 证据 |
+|---|---|
+| 触发 | `test_switch_official.py` **FAIL**（“PowerShell 语法解析失败：The string is missing the terminator: '”） |
+| 根因 | 该测试用 `shutil.which("powershell") or pwsh` → 优先 5.1；**5.1 对无 BOM 文件按 ANSI(GBK) 解码** |
+| 归因 | 同文件：5.1 ⇒ **2 错**；pwsh 7 ⇒ **0 错**；带 BOM 的旧版在 5.1 下 0 错 ⇒ **R1307/R1319 用 Python 重写时丢了 BOM** |
+| 全仓 | 10 个 .ps1 中 **6 个**中文 .ps1 缺 BOM（含 2 处先天：`_prepare_submission.ps1`、`_register_tminus_ready.ps1`） |
+| 修复 | 统一补 BOM + CRLF ⇒ **10/10 在 5.1 与 7 下 0 错**；`test_switch_official.py` **7/7 OK** |
+| 新门 | `tests/test_ps1_encoding.py`（纯字节级：非 ASCII 的 .ps1 必须带 BOM）—— **负控已测** |
+
+**规矩（今后照做）**：每次改工具后，**先找出覆盖它的测试并跑一遍**。本次 9 个目标测试文件全部 rc=0（~1.7s，不污染 dperf）。

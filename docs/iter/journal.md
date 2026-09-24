@@ -25108,3 +25108,20 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     （役间切换仍有小竞态：最坏情形是多等一批 keeper 房 ≈ 15 分钟。）
   - ③ **顺带排查**：门户看护 `HangzhouMajPortalWatch` 已在跑（每 30 分钟，首跑 rc=0），历史已有多行；
     它是 R1320 为“四测只剩 5h 才被发现”而加的。
+
+- [R1323 | 2026-09-24 10:0x ★★★★★**抓到一个本会话我自己引入的回归：重写 `.ps1` 时丢了 UTF-8 BOM ⇒ PowerShell 5.1 按 GBK 解码 ⇒ 单测变红（已修 + 已加回归门）**]
+  - ① **怎么发现的：“改完跑覆盖到的单测”**。我今日修过 `tools/ab_readout.py`、`tools/tminus_check.py`、`var/_switch_to_official.ps1`、
+    `var/_official_status.py`、`var/_ready_1024.py` 等 ⇒ 先查“哪些测试覆盖这些文件”（得到 10 个），再逐个跑 ⇒
+    `test_switch_official.py` **FAIL（1/7）**：`PowerShell 语法解析失败：The string is missing the terminator: '.`
+  - ② **根因（硬证据）**：`tests/test_switch_official.py` 用 `shutil.which("powershell") or shutil.which("pwsh")` ⇒ 本机**优先拿到 5.1**。
+    而 **Windows PowerShell 5.1 对无 BOM 的文件按 ANSI(GBK) 解码** ⇒ 中文串 mojibake、直接语法错。
+    实测：同一文件在 5.1 下 **2 错**、在 pwsh 7 下 **0 错**（所以我此前 4 次 DryRun 全部正常，没发现）；而带 BOM 的旧版（`bak_20260924_094449`）在 5.1 下 0 错 ⇒
+    **回归确实由 R1307/R1319 用 Python 重写文件时丢 BOM 引起**。
+  - ③ **全仓扫描（10 个 .ps1）发现另有 2 处先天同病**：`_prepare_submission.ps1`（**提交工具**，5.1 下 2 错）、
+    `_register_tminus_ready.ps1`（**收尾工具**，5.1 下 3 错）。共 **6 个中文 .ps1 缺 BOM**。
+  - ④ **修复与验证**：统一补 UTF-8 BOM（+ CRLF 规范化）⇒ **10/10 个 .ps1 在 5.1 与 7 下均 0 错**；
+    被影响的 `test_switch_official.py` ⇒ **7/7 OK**；`_switch_to_official.ps1 -DryRun` 与 `_register_tminus_ready.ps1` dry-run 行为抽查正常。
+  - ⑤ **新增回归门 `tests/test_ps1_encoding.py`**（纯字节级，不需 PowerShell）：**含非 ASCII 的 .ps1 必须带 BOM**。
+    **负控已测**：临时去掉一个 BOM ⇒ 该门**失败**；恢复后 OK。
+  - ⑥ **方法论**：这是“pwsh 能跑 ≠ 单测能过”的又一例，而且是本会话**我自己引入**的。
+    以后规矩：每次改工具后**先 grep 出覆盖它的测试再跑**（本次 9 个目标文件全部 rc=0，耗时仅 ~1.7s，不会污染 dperf）。
