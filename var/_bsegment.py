@@ -67,6 +67,8 @@ def main(argv=None):
     ap.add_argument("--candidates", default="speedvaluebc,speedvaluebaotouv5")
     ap.add_argument("--wait-min", type=int, default=25)
     ap.add_argument("--allow-not-ready", action="store_true")
+    ap.add_argument("--label", default="役3",
+                    help="役标签：默认 役3 → 原来的 _register_campaign3_watches.ps1（今晚路径不变）；其他标签 → 通用注册器")
     a = ap.parse_args(argv)
     py = sys.executable
     steps = [
@@ -79,7 +81,8 @@ def main(argv=None):
     print("=== B \u6bb5\uff08%s\uff09===" % ("\u771f\u6267\u884c" if a.go else "dry-run"))
     for name, cmd in steps:
         print("  %-16s %s" % (name, " ".join(cmd)))
-    print("  5) \u6ce8\u518c\u4e24\u5bf9\u770b\u62a4   pwsh -File var/_register_campaign3_watches.ps1 -Since <\u4e0a\u4e00\u6b65\u8f93\u51fa\u7684\u65f6\u95f4\u6233> -Go")
+    print("  5) " + ("注册两对看护   pwsh -File var/_register_campaign3_watches.ps1 -Since <上一步输出的时间戳> -Go" if a.label in ("役3", "3", "") else
+              "注册看护(通用) pwsh -File var/_register_campaign_watches.ps1 -Label %s -Since <时戳> -Baseline %s -Candidates %s -Go" % (a.label, a.baseline, a.candidates)))
     if not a.go:
         print("\uff08dry-run\uff1a\u672a\u6267\u884c\uff1b\u52a0 --go \u624d\u771f\u8dd1\uff09")
         return 0
@@ -121,7 +124,12 @@ def main(argv=None):
         ts = m.group(1)
         say("\u89e3\u6790\u5230\u8d77\u5f79\u65f6\u95f4\u6233\uff1a%s" % ts, fh)
         shell = _ps.exe()
-        rc, _ = run([shell, "-NoProfile", "-File", "var/_register_campaign3_watches.ps1", "-Since", ts, "-Go"], fh)
+        _legacy = a.label in ("役3", "3", "")
+        rc, _ = (run([shell, "-NoProfile", "-File", "var/_register_campaign3_watches.ps1", "-Since", ts, "-Go"], fh)
+                       if _legacy else
+                       run([shell, "-NoProfile", "-File", "var/_register_campaign_watches.ps1",
+                            "-Label", a.label, "-Since", ts, "-Baseline", a.baseline,
+                            "-Candidates", a.candidates, "-Go"], fh))
         if rc != 0:
             say("!! \u770b\u62a4\u6ce8\u518c rc=%s \u21d2 \u8bf7\u624b\u5de5\u91cd\u8dd1\uff08\u5f79\u5df2\u5207\uff09" % rc, fh); return 2
         say("\u2605 B \u6bb5\u5b8c\u6210\uff08\u8d77\u5f79\u65f6\u95f4\u6233 %s\uff09" % ts, fh)

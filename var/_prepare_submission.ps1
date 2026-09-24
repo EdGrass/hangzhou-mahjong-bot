@@ -74,6 +74,7 @@ $opsScripts = @(
   "var/_register_4test_switch.ps1",
   "var/_register_after_4test.ps1",
   "var/_register_campaign3_watches.ps1",
+  "var/_register_campaign_watches.ps1",  # ★ R1429：通用看护注册器（役 4/5：任意基线 + N 候选）
   "var/_register_gate_precheck.ps1",
   "var/_register_ladder_snapshot.ps1",
   "var/_register_portal_watch.ps1",

@@ -26353,3 +26353,12 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **只有 1 处真隐患**：`_replay_guard` 默认 `--since` 写死役 2（已在 **R1427** 修成跟随 `.ab_mode`）。其余环节未发现类似问题。
   - **当前健康复核（19:01）**：台账 **118 房（59:59 配平）、完整性干净**；看护进度 **speedc151 59/58、speedvalue 59/59**（覆盖 98% / 100%）；
     进程：`_ab_driver`(52188) + `match_super`(47808, 18:55:22 跑 **speedvalue** 批) + `run_bot`(41444) ⇒ 轮换正常、正在打。
+
+- [R1429 | 2026-09-24 19:1x ★★★★**把看护注册从“只能役 3”变成通用（役 4/5 可用）+ 役 3 判词读卡**]
+  - 问题：`_bsegment.py` 的第 5 步把 `_register_campaign3_watches.ps1`（役 3 专用）写死 ⇒ 役 4/5 要么手敲注册（必错）、
+    要么把役 3 的看护重复注册一遍（脏任务）。
+  - 修法：新增通用 `var/_register_campaign_watches.ps1`（`-Label -Since -Baseline -Candidates [-Mechanism] [-Go]`，一个候选一个任务）；
+    `_bsegment.py` 新增 `--label`：**默认 `役3` → 走原来的专用注册器（今晚路径一字不变）**，其他标签 → 走通用注册器。
+  - 验证：默认 dry-run 与之前完全一致 ✓；`--label 役4 --baseline speedvaluebc --candidates speedvaluebcmeldp45` dry-run 正确打印通用注册命令 ✓；
+    看护标签与任务命名已按 `役4speedvaluebcmeldp45` / `HangzhouMajVerdictWatch_役4_speedvaluebcmeldp45` 规范化 ✓；`_ps_syntax_check` 绿 ✓。
+  - 新增 **`docs/iter/reports/yaku3-verdict-readcard.md`**：个别读判词 / **强手房否决** / **四格→役 4** / 一键起役命令 / 纪律。
