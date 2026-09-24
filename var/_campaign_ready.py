@@ -113,9 +113,26 @@ def main():
     for f in a.prereg:
         p = f if os.path.isabs(f) else os.path.join(ROOT, f)
         ok = os.path.exists(p)
-        print("    %-70s %s" % (os.path.basename(p), "✅" if ok else "❌ 不存在"))
+        # ★ R1361：**“存在”不等于“有效”** —— 预登记会被标上 **[SUPERSEDED 已作废]**。
+        #   实测：`prereg-campaign3-meldmore-20260923.md` 头部就写着“已作废（§Q-2：已实测到天花板）”，
+        #   而旧版本只看 os.path.exists ⇒ 会把**作废的预登记当有效**。
+        #   判据用**精确标记**（`SUPERSEDED` / `已作废`）：不能用裸“作废”——
+        #   合法预登记里会出现“本文件取代**作废的**某某”这种句子（实测：bc 预登记）。
+        dead = False
+        if ok:
+            try:
+                with io.open(p, encoding="utf-8", errors="replace") as fh:
+                    head = fh.read(2000)
+                dead = ("SUPERSEDED" in head) or ("已作废" in head)
+            except Exception:
+                dead = False
+        tag = ("❌ 已作废（SUPERSEDED）" if dead
+               else ("✅" if ok else "❌ 不存在"))
+        print("    %-70s %s" % (os.path.basename(p), tag))
         if not ok:
             bad.append("缺预登记：%s" % f)
+        elif dead:
+            bad.append("预登记**已作废**（SUPERSEDED），不能据它上臂：%s" % f)
 
     if a.since:
         print("[3] 本役复盘覆盖（1 房 = 10 gid）")

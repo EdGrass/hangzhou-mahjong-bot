@@ -3748,3 +3748,21 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 | `--help` / `--smoke` | 行为不变（smoke 仍只剩 v35） |
 
 **方法论**：**“有类 + 有单测” ≠ “能用”** —— 必须同时查**策略表里有没有名字**。
+
+### V.133 ★★★★ **更正 V.132**：那两个臂是“延后注册”不是“漏注册”（R1361）
+
+**撤回**：V.132 把 `speedvaluemeldmore0chi` / `...0chigang` 未在策略表里判为“漏注册”并补上了。查证后发现**不准确**，已**撤回注册**（回到 169 臂基线）：
+
+1. 计划 §H 明写这组合臂由 **`var/_prep_register_combo.py`** 注册，该脚本头行：“**do not run during the current campaign**…
+   Run only AFTER the campaign-2 verdict … and the machine is idle” ⇒ **延后注册是设计**；
+2. 它们所属机制的预登记已标 **[SUPERSEDED 已作废]**（§Q-2：已实测到天花板）；
+3. 当前役序：役 3 = BC+V、副露构成轴在役 5（`speedvaluemeldp45`，**已注册**）⇒ **这两个臂不在当前役序内**。
+
+（R1332 的先例也不适用：ycbk 孪生是**同场保险**，必须当场可用；这批是排期内的延后注册。）
+
+**保留的真收获**：`_campaign_ready.py` **现在拒绝已作废的预登记**。原实现只看文件存在 ⇒ 拿一份已作废的预登记也能起役；
+实测：传 `prereg-campaign3-meldmore`（已作废）⇒ `❌ 已作废（SUPERSEDED）`；传有效的 `prereg-campaign3-speedvaluebc` ⇒ `✅`。
+
+残留待办：若日后真要用 `...0chigang`，需 ① 新预登记（旧的已作废）；② 在 `_prep_register_combo.py` 补一行（它只注册 `...0chi`）；③ 考虑把该脚本加进 `$opsScripts`。
+
+**方法论**：“看起来漏了”之前先查“是不是刻意延后” —— 区分点：**它在不在即将上场的那一役里**。
