@@ -36,10 +36,41 @@ def check_arm(name):
     return True, "ok"
 
 
+_TEST_TEXT_CACHE = None
+
+
+def _test_texts():
+    """缓存所有 `tests/test_*.py` 的正文（供“正文引用”判定）。"""
+    global _TEST_TEXT_CACHE
+    if _TEST_TEXT_CACHE is None:
+        _TEST_TEXT_CACHE = []
+        for fp in sorted(glob.glob(os.path.join(ROOT, "tests", "test_*.py"))):
+            try:
+                with io.open(fp, encoding="utf-8-sig", errors="replace") as fh:
+                    _TEST_TEXT_CACHE.append((os.path.basename(fp), fh.read()))
+            except OSError:
+                pass
+    return _TEST_TEXT_CACHE
+
+
 def check_tests(name):
-    """找 tests/test_<arm>.py 是否存在（不强跑，跑全量由调用方决定）。"""
+    """该臂**是否有测试覆盖**（两级判定，不强跑）。
+
+    ★ R1372：原实现只查同名文件 `tests/test_<臂名>*.py` ⇒ **假阴性**：
+    实测两例——`speedgiveupriverp`（被 `test_speedgiveupriver.py` 覆盖）、
+    `speedvaluebaotouv10/20`（被 `test_speedvaluebaotouv5.py` 覆盖）——都会在起役窗口被判“缺单测”而挡住。
+    现在：① 同名文件；或 ② **某个测试文件正文里引用了这个臂名**。
+    （②不是放水：仍然要求**确实有测试在测它**；完全无人提及的臂仍判 ❌。）
+    """
     hits = glob.glob(os.path.join(ROOT, "tests", "test_%s*.py" % name))
-    return (True, os.path.basename(hits[0])) if hits else (False, "缺单测文件")
+    if hits:
+        return True, os.path.basename(hits[0])
+    # ★ 大小写**不敏感**：测试里引用的往往是**类名**（如 `SpeedGiveupRiverP`）而不是策略名（`speedgiveupriverp`）。
+    #   实测教训：用 PowerShell `Select-String -SimpleMatch`（默认不区分大小写）会说“有引用”，而 Python `in`（区分）说“没有” ⇒ 两边结论相反。
+    for bn, txt in _test_texts():
+        if name.lower() in txt.lower():
+            return True, "%s（正文引用，大小写不敏感）" % bn
+    return False, "缺单测文件（既无同名文件、也无任何测试引用该臂）"
 
 
 def check_replay_coverage(since):

@@ -3900,3 +3900,22 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 按役 2 同类功率估，**它很可能到役盒仍不可判定**。⇒ 若判词为“不可判定”（非明确判负），
 建议 10/5–10/6 腾一役做 **V 第二枪**（换剂量档 10/20）；若明确判负则不重测（按 §V.44 选臂）。
 前提：需先为该剂量档写一份**有效预登记**（campaign7 只被了 `baotouv5`）。
+
+### V.144 ★★★★ 单测门的假阴性已修（两级 + 大小写不敏感）（R1372）
+
+`_campaign_ready.check_tests()` **原实现只查同名文件** ⇒ 假阴性 ⇒ 起役窗口挡住真有覆盖的臂。
+
+**现在的判定**：① `tests/test_<臂名>*.py` 存在；**或** ② 某个测试文件**正文里引用了这个臂名（大小写不敏感）**。
+（大小写不敏感很关键：测试里引用的往往是**类名** `SpeedGiveupRiverP`，而不是策略名 `speedgiveupriverp`。）
+
+| 臂 | 修后判定 |
+|---|---|
+| `speedgiveupriverp` | **✅**（`test_speedgiveupriver.py` 正文引用） |
+| `speedvaluebaotouv10/20` | **✅**（R1371 补了同名文件） |
+| `speedmeldpost` / `speedgangtakec151fixed` | **❌ 仍报**（大小写不敏感也无人提及）⇒ 门没被放水 |
+
+**当前役序内 14 个臂全部 ✅**；剩下 2 个 ❌ 均**不在当前役序**（§V.5 旧役3/4），**不现在补测**；
+将来若要用，需先按 §V.50 口径补单测。
+
+**方法论坑**：PowerShell `Select-String` **默认不区分大小写**，Python `in` 区分 ⇒ 同一个问题两边结论相反。
+**跨工具核对文本命中时必须显式声明大小写敏感性**。
