@@ -3931,3 +3931,22 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 
 **方法论坑**：PowerShell `Select-String` **默认不区分大小写**，Python `in` 区分 ⇒ 同一个问题两边结论相反。
 **跨工具核对文本命中时必须显式声明大小写敏感性**。
+
+### V.145 ★★★★ 四测赛制保真：三项差异逐条查清 + **`Rounds` 的 2× 口径陷阱**（R1375）
+
+`var/_format_fidelity.py --tid t_6266386bfd56 --token-file var/.token_4test_20260924` ⇒ **rc=2**：
+
+| 字段 | 训练基线 | 四测 | 级别 | 处置 |
+|---|---|---|---|---|
+| `Rounds` | 8 | **16** | ❌ 关键 | **计分口径 ×2**（见下） |
+| `Kind` | auto | **""** | ❌ 关键 | 代码不读它 ⇒ 只跟 API status/stage 走 ✓ |
+| `OnlineConfirm` | False | **True** | ⚠ 警告 | runbook §8.4 已覆盖：keepalive 长轮询 = 已认证请求；15:20/15:55 各 ready 一次；阶段自动 confirm ✓ |
+
+其余逐项一致：`M=10` / `BaseScore=1` / `YouCaiBiKao=False` / 三个窗口 3-1-1。
+
+**★ 2× 口径陷阱**：役内房间（Rounds=8）≈ **80 轮/房**，四测/正式赛（Rounds=16）≈ **160 轮/房**
+⇒ 同一 per-轮 edge 在四测里表现为 **~2× 分/房**。四测赛后要跟役内阈值（±50/房、+42）比，
+**必须 ÷2 或折算成分/轮**；**率类指标（第一率/听牌率/胡率）不受影响**。
+
+**工具限制**：门户只保留当前 1 场赛事（历屋不可查），不带令牌读不到 config ⇒
+**每场赛事前都要跑一次并留档**（建议后续给工具加“追加 `var/format_history.jsonl`”）。
