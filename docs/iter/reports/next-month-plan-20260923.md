@@ -3150,3 +3150,16 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 **已整份重写**：仓库链接 + 程序介绍 + **依赖表（numpy/torch/psutil + 4 权重）** + 平台接入 + 启动命令 + 稳定性 + 全自动声明 + 仓库验证；
 并把“571 个单元测试（全通过）”这类**未当场验证的断言**改成可执行命令。
 **验证**：旧错四项 grep 均 **0 命中**；`numpy`/`torch`/`4 个小型权重` 均已在文中。
+
+### V.96 ★★★★ 官方切换脚本的“无逃生阀”已修（R1319）——`-AllowNotReady` / `HM_ALLOW_NOT_READY=1`
+
+**链条**：`preflight.py` 见到服务器有**未知 BREAKING**（如今天的 v35）⇒ **NOT READY / exit 1** ⇒
+`_switch_to_official.ps1` 原本 `if ($pf -notmatch 'READY') { throw }` ⇒ **正式赛开不起来**（而且无任何绕过方式）。
+
+| 情形 | 行为 |
+|---|---|
+| 默认 | **仍然 throw**（行为不变），但现在会**先打出 preflight 末 6 行**，并在报错里告诉你逃生阀叫什么 |
+| `-AllowNotReady` 或 `HM_ALLOW_NOT_READY=1` | 打印响亮樫幅 ⇒ **不中止**（仅记录）；`rules_guard` 等其他门禁**照旧执行** |
+
+**实测**：解析 OK；无 flag ⇒ 无樫幅；`-AllowNotReady` ⇒ 樫幅；环境变量 ⇒ 樫幅；报错文本含逃生阀提示。
+（“跳过 throw”那一支未能在测试里真跑 —— 需要一次真的官方切换；本节以源码核查 + 樫幅为证）。

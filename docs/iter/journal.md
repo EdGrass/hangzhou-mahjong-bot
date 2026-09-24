@@ -25054,3 +25054,17 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     新文件里 `numpy`、`torch`、`4 个小型权重` 均已出现。
   - ④ **教训**（同类第 4 次）：本作发现过的“陈旧指路/陈旧默认值”现在已包括：HANDOFF 入口（§V.81）、正式赛执行清单入口（R1308）、
     `tminus_check`/`_official_keepalive`/`_switch_to_official`（R1307）、`_official_status`（R1314）、`_ready_1024`（R1315）、**申报正文（本节）**。
+
+- [R1319 | 2026-09-24 10:0x ★★★★**发现一条会让 10/10 当天“起不来”的链：preflight 非 READY 时官方切换脚本直接 throw、且无逃生阀（已修）**]
+  - ① **机制（今日实测）**：`tools/preflight.py` 只要问到服务器有**未知 BREAKING 指南变更** 就输出 **NOT READY**（exit 1）；
+    而 `var/_switch_to_official.ps1` 第 45 行是 `if ($pf -notmatch 'READY') { throw ... }` ⇒ **没有任何绕过方式**。
+    ⇒ 若平台在 10/10 前上了 **v36**（哪怕只是无害的 changed），正式赛就**开不起来**（脚本第一步就死）。
+    这不是假设：今天 preflight 就是因为 **v35**（9/23 上线）而 NOT READY。
+  - ② **修法（保留默认严格，只加显式逃生阀）**：新增 `-AllowNotReady`（或 `HM_ALLOW_NOT_READY=1`）：
+    启用时**打印响亮横幅**并在 preflight 失败时**不中止**（依然跑 rules_guard 等其他门禁）；未启用时行为**不变**（仍 throw）。
+    同时失败路径改为：**先打出 preflight 末 6 行**（让人当场看到原因），再 throw，并在报错里**直接告诉操作者逃生阀叫什么**。
+  - ③ **实测**：PowerShell 解析 OK；`-DryRun` 无 flag ⇒ 无横幅；`-AllowNotReady -DryRun` ⇒ **横幅出现**；`$env:HM_ALLOW_NOT_READY=1` ⇒ 横幅出现；
+    报错文本已含“可显式加 -AllowNotReady 重跑”。**诚实说明**：“跳过 throw”那一支本轮只能靠源码核查 + 横幅验证
+    （真正跑到它需要一次真的官方切换，那不能在测试里做）。
+  - ④ **与既有计划的关系**：今日的 v35 仍邠 §V.51 B 段的 `_apply_p0_404.py --go` 修掉（那之后 preflight 应为 READY）；
+    本节解决的是“**下一个**未知 BREAKING（v36）恰好在比赛当天出现”这个场景。
