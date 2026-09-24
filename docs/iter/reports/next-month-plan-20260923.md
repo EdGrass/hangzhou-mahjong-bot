@@ -3292,3 +3292,13 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 需临时把事件目录复制进 `recent/`（完了删）或用 `_replay_endpoint.py` 写 ≤40 行 ad-hoc。
 
 **自愈（已核）**：`.official_mode` 在位时，`_ensure_all.py`（每 5 分钟）与 `_official_guard.py`（**每 60 秒**）按 spec 参数拉回 keepalive（幂等）。
+
+### V.106 ★★★★★ 四测/正式赛的**预热名单补齐**（R1329）——原名单里没有 `speedvalue` 系列
+
+`_official_keepalive.py` 拉起 `run_bot` 时，按 `HEAVY_WARMUP` 决定是否带 **`--warmup-draws 50`**；该名单写于 09-18/19，
+只列了 `speedc135/c15x/c20x` 族 ⇒ 我们现役臂**不预热**。而 `bot/speedvalue.py:79` 在 `value_of` 里每条候选都调 `real_ukeire`（+`fan_calc`）
+⇒ 冷启动只会比 `speedc151`（**已知 4/160 次 >3s**）更重。
+
+**已补**：`speedvalue` / `plain` / `bc` / `bcv` / `c151bc` / `baotouv5|10|20` / `meld`+四剂量档 / `bcmeld` / `bcmeldp45` / `baotouvmeld` / `bcvmeld` / `rank` / `gangtakec151fixed`
+（集合 19→**38**）。**验证**：`warmup_for_strategy('speedvalue')==50`，且命令行里确实出现 `--warmup-draws 50`。
+本集合**仅在拉起该策略时被查询**（多写无副作用），且 **15:20 起役即生效**。

@@ -25200,3 +25200,16 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     退出官方模式并用**原窗口**恢复役 2（比赛还在跑时 `_exit_official` 会拒绝，属预期）。
   - ⑤ **顺带核实官方链自愈**：`.official_mode` 在位时，`_ensure_all.py`（每 5 分钟）与 `_official_guard.py`（**每 60 秒**，独立任务）
     会按 `.official_spec.json` 的参数把 keepalive 拉回来（两者都用 `_has()` 幂等，不双开）⇒ **断线最坏 ~1 分钟**。
+
+- [R1329 | 2026-09-24 10:1x ★★★★★**抢在切换前修掉一个会影响开赛开局的漏项：`HEAVY_WARMUP` 里有 `speedc151` 却没有 `speedvalue` 系列**]
+  - ① **发现**：`var/_official_keepalive.py` 启动 `run_bot` 时会按 `HEAVY_WARMUP` 决定是否带 **`--warmup-draws 50`**（预热）。
+    而这份名单写于 **09-18/19**，只列了 `speedc135/c15x/c20x` 族 ⇒ **我们现役的 `speedvalue` 系列全部不在名单里**。
+  - ② **为什么这是真问题**：`bot/speedvalue.py:79` 在 `value_of` 里**每条候选都调 `real_ukeire`**，并额外调
+    `mahjong.fan.calc`（`_max_fan`）⇒ **冷启动代价只会比 c151 更重**；而 `speedc151` 正是因为实测
+    **4/160 次决策 >3s** 才被列入预热的（同一条 `real_ukeire` 路径）。不预热 ⇒ 开赛最初几手走**冷缓存**，可能超窗丢动作。
+  - ③ **修复**：把我们的现役/排队臂补进名单（`speedvalue` / `plain` / `bc` / `bcv` / `c151bc` / `baotouv5|10|20` /
+    `meld` + 四个剂量档 / `bcmeld` / `bcmeldp45` / `baotouvmeld` / `bcvmeld` / `rank` / `gangtakec151fixed`）：集合 **19 → 38**。
+    本集合**只在拉起该策略时被查询** ⇒ 多写无副作用。
+  - ④ **验证（实执行）**：`warmup_for_strategy('speedvalue') == 50`；并直接拼了一次命令行 ⇒
+    `… run_bot.py <tok> --strategy speedvalue … **--warmup-draws 50**`（参数确实被带上）。
+  - ⑤ **时机**：这是 **`var/` 文件**（非 `bot/`）⇒ 役中可改；且**15:20 拉起 keepalive 时立即生效**（四测首局就受益）。
