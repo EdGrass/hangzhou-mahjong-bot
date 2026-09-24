@@ -26668,3 +26668,12 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **闭环核对**：到盒判词文件里确有"已达役盒"，而 `classify()` 对"UNDECIDED + 已达役盒"返回 **proceed** ✓
     ⇒ 修复后：到盒 ⇒ 落 sentinel ⇒ 采用看护 proceed ⇒ **自动起役 3**（基线 speedvalue + 两候选）。
   - 验证：接线测试 +2（boxed 分支必须写 sentinel；classify 接受到盒文本）；`_verdict_watch.py` 编译 ✓。
+
+- [R1461 | 2026-09-25 06:0x ★★★**端到端演练："到役盒 ⇒ 自动起役 3"（R1460 修复后的真实路径）**]
+  - 用**合成到盒判词**（`已达役盒` + `★ 判定：UNDECIDED`）＋哨兵，跑 `_adopt_when_ready --dry-run`：
+    `判词分类：proceed（UNDECIDED 且已达役盒⇒ 按 §V.66/67 破平后进下一役）` ⇒
+    `★ 判词终态 [UNDECIDED] ⇒ 执行 B 段：_bsegment.py --go --baseline speedvalue --candidates speedvaluebc,speedvaluebaotouv5` ✓
+    （dry-run：未执行、marker 未创建 ⇒ 零副作用）。
+  - ⇒ **明天早上役盒那一刻的真实路径已提前验证**：到盒 ⇒ 落 sentinel ⇒ 采用看护 proceed ⇒ 自动起役 3
+    （基线 speedvalue + 两候选 + P0 补丁 v34→v35）。
+  - 这也覆盖了 R1460 的修复：若没有那句 `if boxed: 写 sentinel`，此刻链会**停在那儿等人**。
