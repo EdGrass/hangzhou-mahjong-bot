@@ -143,7 +143,7 @@ def main():
         _want = ""
         try:
             _want = io.open(os.path.join(ROOT, "var", "_keeper_strategy.txt"),
-                            encoding="utf-8").read().strip()
+                            encoding="utf-8-sig").read().strip()
         except Exception:
             _want = ""
         _room2s = {}

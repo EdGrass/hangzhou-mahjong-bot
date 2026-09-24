@@ -26,6 +26,15 @@ AB = os.path.join(ROOT, "var", ".ab_mode")
 OFFICIAL = os.path.join(ROOT, "var", ".official_mode")
 
 
+def _read(path):
+    """★ R1344：一律 `utf-8-sig` —— Windows PowerShell 5.1 的 `Set-Content -Encoding UTF8` 会写 **BOM**，
+    裸 `utf-8` 读会让 `json.loads` 抛 `Unexpected UTF-8 BOM: line 1 column 1`（就会把官方 spec 误判成“不可读”）。
+    """
+    with io.open(path, encoding="utf-8-sig") as fh:
+        return fh.read()
+
+
+
 def _argv_strategy(basename):
     """返回运行中的 <basename> 进程的 --strategy 值（可能多个）。"""
     out = []
@@ -61,12 +70,12 @@ def check(spec=None, kstrat=None, ab=None, official=None, procs=None):
     off_path = official if official is not None else OFFICIAL
     decl = None
     try:
-        decl = json.loads(io.open(spec, encoding="utf-8").read()).get("strategy")
+        decl = json.loads(_read(spec)).get("strategy")
     except Exception:
         pass
     kfile = None
     try:
-        kfile = io.open(kstrat, encoding="utf-8").read().strip()
+        kfile = _read(kstrat).strip()
     except Exception:
         pass
     if procs is None:
@@ -81,7 +90,7 @@ def check(spec=None, kstrat=None, ab=None, official=None, procs=None):
     off = os.path.exists(off_path)
     roster = []
     try:
-        roster = list(json.loads(io.open(ab_path, encoding="utf-8").read()).get("arms") or [])
+        roster = list(json.loads(_read(ab_path)).get("arms") or [])
     except Exception:
         roster = []
     rows = [("① spec.strategy", decl), ("② _keeper_strategy.txt", kfile),
@@ -130,7 +139,7 @@ def main():
     rows_roster = []
     rows_running = []
     try:
-        rows_roster = list(json.loads(io.open(AB, encoding="utf-8").read()).get("arms") or [])
+        rows_roster = list(json.loads(_read(AB)).get("arms") or [])
         rows_running = sorted(set(x for k, v in rows if k.startswith("④") for x in (v or [])))
     except Exception:
         pass

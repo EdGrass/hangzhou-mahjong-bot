@@ -3443,3 +3443,34 @@ python -X utf8 var/_enter_event.py --tid <TID> --token-file <TOK> --strategy <AR
 
 **实测**：dry-run 与手工四测时间表一致；`--go` 用 `ZZTEST_` 前缀跑通 8 个任务（动作串正确）并已删殉；
 `不传 --strategy` ⇒ exit 2。
+
+### V.118 ★★★★★ BOM 族隐患：PS 5.1 写 BOM × 裸 utf-8 读（R1344）
+
+**根因**：`var/_switch_to_official.ps1` 用 `Set-Content -Value $specObj -Encoding UTF8` 写 `.official_spec.json`，
+而 **PS 5.1 的 `-Encoding UTF8` 会写 BOM**（实测 `EF BB BF`）；下游 `json.loads` 抛
+`Unexpected UTF-8 BOM` ⇒ ① `_ensure_all.official_argv()` 误判“缺 spec” ⇒ **不带参数**拉 keepalive ⇒ **默认策略 + 默认令牌参赛**；
+② `_official_guard.spec_freshness()` 拒绝自愈；③ T-1h 的 `verify_four_way` 误报。
+
+**修法**：根因 = `.ps1` 改用 `[System.IO.File]::WriteAllText($specPath, $specObj, (New-Object System.Text.UTF8Encoding($false)))`（无 BOM）；
+纵深 = 读 `.official_spec.json`/`_keeper_strategy.txt`/`.ab_mode` 的 **19 处 `open()` 一律 `utf-8-sig`**（写方保持无 BOM）。
+
+| 验证 | 结果 |
+|---|---|
+| 带 BOM 的 spec × `official_argv` | 返回 `['--strategy','speedvalue',…]` ✓（修前 = `[]` ⇒ 默认参数那条路） |
+| 带 BOM 的 spec × `spec_freshness` / `verify_four_way` | 判“新鲜” ✓ / 读出 `speedvalue` ✓ |
+| PS 5.1 跑新写法 | 首 3 字节**非** BOM ✓ |
+| `_switch_to_official.ps1 -DryRun` | 零副作用（spec mtime 不变、无 `.official_mode`）✓ |
+| 新门 `tests/test_bom_state_readers.py` | **6/6** ✓（含防空跑断言 + “写入方不得用 utf-8-sig”） |
+| `tests/test_switch_official.py` | **7/7** ✓（脆正则 → 语义断言，见下） |
+| `tests/test_verify_four_way.py` | **7/7** ✓（R1338 的 dormant/官方两分） |
+| 全套回归 | **958 条 · OK（skipped=1, expected failures=1）· 713s** |
+
+**同轮清掉的同族红灯（R1338 遗留）**：
+1. `test_dry_run_is_read_only` 用正则钉**人写的步骤标签** `步骤2b/5`，R1338 重编号成 `2b-1/2b-2` 后变红 ⇒
+   改成**语义断言**（花括号配对取 `if ($DryRun) {…}` 分支体，断言其中无写盘/起进程动作，并断言两处真写盘在 `} else {` 之后）。
+2. `test_fails_when_spec_and_keeper_file_diverge` ⇒ 拆成两条：**无** `.official_mode` = dormant 不算失败（但必须留提示行）、**有** = 必须 FAIL。
+   **依据**：`official_argv()` 只在 `if official_mode():` 分支被调用（`_ensure_all.py` 75/81）、`_official_guard` 非官方模式严格 no-op、
+   `_official_keepalive` 只写 spec ⇒ 非官方模式下 spec 被自愈读到的概率为 0。
+
+**纪律沉淀**：**“改 .ps1 的写盘 = 必须查它的读取方编码”**；同理 `.py` 写状态文件时不得用 `utf-8-sig`。
+这条与 R1323（`.ps1` 自身需要 BOM 才能被 PS 5.1 正确解码）**方向相反**，务必分清：**脚本正文要 BOM，脚本写出的数据文件不要 BOM**。

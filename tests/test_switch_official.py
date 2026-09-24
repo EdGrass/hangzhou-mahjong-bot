@@ -60,11 +60,48 @@ class TestSwitchWiring(unittest.TestCase):
         self.assertRegex(s, r"if \(\$dr\)[\s\S]{0,200}exit 3",
                          "_ab_driver 仍在跑时必须非零退出（E002 防护）")
 
+    @staticmethod
+    def _dryrun_bodies(s):
+        """取出所有 `if ($DryRun) { ... }` 的**分支体**（花括号配对扫描）。
+
+        为什么不用正则钉 `步骤2b/5` 这类标签：R1338 把步骤重编号成 2b-1/2b-2（先写 spec 再写哨兵）后，
+        旧正则仍盯 `步骤2b/5` ⇒ **测试变红而代码是对的**（脆测试，不是缺陷）。
+        这里改成钉**语义**：dry-run 分支里不得出现任何写盘 / 起进程动作。
+        """
+        out, key = [], "if ($DryRun) {"
+        i = s.find(key)
+        while i != -1:
+            j = i + len(key) - 1          # j 指向 "分支开始的 '{'"
+            depth, k = 0, j
+            while k < len(s):
+                if s[k] == "{":
+                    depth += 1
+                elif s[k] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                k += 1
+            out.append(s[j + 1:k])
+            i = s.find(key, k)
+        return out
+
     def test_dry_run_is_read_only(self):
         s = read()
         self.assertIn("[switch]$DryRun", s)
-        # 哨兵写入必须被 dry-run 分支挡住
-        self.assertRegex(s, r"if \(\$DryRun\) \{\s*\n?\s*Info \"步骤2b/5: \[dry-run\][\s\S]{0,200}else \{")
+        bodies = self._dryrun_bodies(s)
+        self.assertTrue(bodies, "必须存在 `if ($DryRun) { ... }` 分支（否则本测是空跑）")
+        for b in bodies:
+            for bad in ("Set-Content", "Add-Content", "Out-File", "WriteAllText",
+                        "Start-Process", "Stop-Process", "_ready_1024.py"):
+                self.assertNotIn(bad, b,
+                                 "dry-run 分支里不得出现 %s（否则 -DryRun 会写线上文件 / 起真正赛进程）：%r"
+                                 % (bad, b.strip()[:200]))
+        # 两处真正的写盘必须落在 `} else {` 之后（即非 dry-run 分支）
+        for needle in ("WriteAllText($specPath", "Set-Content -Path $flag"):
+            k = s.find(needle)
+            self.assertNotEqual(k, -1, "找不到写盘语句 %s" % needle)
+            self.assertNotEqual(s.rfind("} else {", 0, k), -1,
+                                "%s 必须在 `} else {` 之后（即被 DryRun 守卫）" % needle)
         # POST /ready 必须被 dry-run 分支挡住
         self.assertRegex(s, r"if \(-not \$DryRun\) \{\s*\n\s*\$rd = & python -X utf8 var/_ready_1024\.py")
 

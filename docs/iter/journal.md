@@ -25355,3 +25355,39 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     `.resume_spec.json` 写入**当前役 2**（`speedc151,speedvalue` / bundles `speedc151` / started `2026-09-23 03:13:44`）✓；
     测试任务**全部删除（剩 0）**，四测任务集**未被触碰** ✓。
   - ⑤ **意义**：10/10 入场从“手工搭 10 个任务（今日踩了 2 个自己的坑）”变成**一条命令**；同时四测收尾现在按 `.resume_spec.json` 恢复。
+
+- [R1344 | 2026-09-24 11:1x ★★★★★**BOM 族隐患：PS 5.1 写的 spec 被裸 utf-8 读 ⇒ 自愈会拿“默认策略 + 默认令牌”去参赛（R647 同类，触发面更大）**]
+  - ① **发现（扫描来的，不是猜的）**：`var/_switch_to_official.ps1` 用 `Set-Content -Path $specPath -Value $specObj -Encoding UTF8` 写 `.official_spec.json`，
+    而 **Windows PowerShell 5.1 的 `-Encoding UTF8` 会写 BOM**——本机实测首 3 字节 = `EF BB BF`；且四测/正式赛的 10 个一次性任务用的正是
+    `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`（= 5.1），不是我平时手敲的 pwsh 7（pwsh 7 的 `-Encoding utf8` 无 BOM ⇒ **人为复现不出来**）。
+  - ② **后果链（同一份 JSON，只差一个 BOM）**：实测 `json.loads(无 BOM)` = OK、`json.loads(带 BOM)` = **`JSONDecodeError: Unexpected UTF-8 BOM`** ⇒
+    ① `_ensure_all.official_argv()` 读不到 spec ⇒ 误判“缺 spec” ⇒ **不带参数**拉起 `_official_keepalive.py` ⇒ 回落**默认策略 + 默认令牌**
+    （= R647 那次“换令牌后静默不参赛”的同一条路径，但这次**连人不需要犯错**，机器自己就会走进去）；
+    ② `_official_guard.spec_freshness()` ⇒ “spec 解析失败” ⇒ **拒绝**自愈拉起 keepalive（比赛期间 keepalive 挂了就不自愈）；
+    ③ T-1h 的 `tools/verify_four_way.py` ⇒ 误报“spec 不可读”。
+    **触发面**：`_switch_to_official.ps1` 先写 spec（步骤 2b-1）、再写哨兵（2b-2），而 keepalive 启动后会**自己重写** spec（无 BOM）
+    ⇒ 若 keepalive 没起来（preflight/规则门/进程启动失败都算），带 BOM 的 spec 会**一直留在盘上**，此后每 5 分钟的 `_ensure_all` 都踩它。
+  - ③ **修法（两层，根因 + 纵深）**：**根因**——`.ps1` 改用
+    `[System.IO.File]::WriteAllText($specPath, $specObj, (New-Object System.Text.UTF8Encoding($false)))` 写**无 BOM** UTF-8；
+    **纵深**——把读 `.official_spec.json` / `_keeper_strategy.txt` / `.ab_mode` 的 **19 处 `open()` 一律改 `utf-8-sig`**（对无 BOM 文件行为不变，
+    包括 `_ensure_all` / `_official_guard` / `verify_four_way` / `preflight` / `tminus_check` / `ab_ctl` / `_official_keepalive` / `_enter_event`
+    / `_daily` / `ab_readout` / `arm_smoke` / `ab_mech_verdict` / `pair_signature` / `readout_bundle` / `turn8_tenpai` 等，写方**保持无 BOM**）。
+    顺手修掉 `_official_guard.spec_freshness()` 的**未关闭句柄**（每次调用漏一个，60 秒级的看护不允许）。
+  - ④ **验证（行为级，不是只编译过）**：`py_compile` 全绿；PS 5.1 语法解析 **0 错**；**真造一份带 BOM 的 spec** 后跑三个真消费者 ⇒
+    `official_argv` 返回 `['--strategy','speedvalue','--token-file',...]` ✓（**修前返回 `[]` ⇒ 就是“默认参数”那条路**）、
+    `spec_freshness` 判“新鲜” ✓、`verify_four_way` 读出 `speedvalue` ✓；PS 5.1 里跑新写法 ⇒ 首 3 字节**不是** BOM ✓；
+    `_switch_to_official.ps1 -DryRun` 实测**零副作用**（`spec` mtime 不变、`.official_mode` 未创建）且打印正确（`strategy=speedvalue`/`tid=t_6266386bfd56`）✓。
+  - ⑤ **新增门**：`tests/test_bom_state_readers.py`（**6 项**）—— 源码级“状态文件读取方一律 `utf-8-sig`、**写入方不得用 `utf-8-sig`**（那会写 BOM）”，
+    外加**防空跑断言**（扫描器必须同时看得到读方与写方）+ PS 写方不含 `Set-Content … $specPath` + 上面三个行为级用例。
+  - ⑥ **副产出（同族红灯，R1338 留下的）**：`tests/test_switch_official.py::test_dry_run_is_read_only` **本来就是红的**——它用正则钉
+    `步骤2b/5` 这个**人写的标签**，而 R1338 把两步重编号成 `2b-1/2b-2`（先写 spec、再写哨兵）⇒ **测试脆、代码是对的**（用 `_switch_to_official.ps1.bak_20260924_094449` 对照确认：旧文件 MATCH、新文件 NO MATCH）。
+    已改成**语义断言**：花括号配对取出所有 `if ($DryRun) {…}` 分支体，断言其中**不含**任何写盘/起进程动作
+    （`Set-Content`/`WriteAllText`/`Start-Process`/`Stop-Process`/`_ready_1024.py`），并断言两处真写盘都落在 `} else {` 之后 ⇒ **7/7 绿**。
+  - ⑦ **同轮裁决（R1338 遗留的“1/6 失败”）**：`test_fails_when_spec_and_keeper_file_diverge` 拆成**两条**——
+    **无** `.official_mode` ⇒ **dormant，不算失败**（且必须留一行 dormant 提示，不能静默丢弃差异）；**有** `.official_mode` ⇒ 必须 FAIL。
+    依据是**本轮亲自核过**的消费者清单：`official_argv()` 只在 `main()` 的 `if official_mode():` 分支内被调用（`_ensure_all.py` 75/81 行）、
+    `_official_guard` 非官方模式**严格 no-op**、`_official_keepalive` 只**写** spec 从不读它取策略 ⇒ 非官方模式下“spec 被自愈路径读到”的概率确实为 0。
+    ⇒ `test_verify_four_way` **7/7 绿**（顺带用 `_w()` 把测试自己的未关闭句柄警告也清了）。
+  - ⑧ **全套回归**：`python -X utf8 -m unittest discover -s tests -p "test_*.py"` ⇒ **958 条 · OK（skipped=1, expected failures=1）· 713s**（`var/_fulltest_r1344.log`）。
+  - ⑨ **四测前复查**（改过切换脚本 ⇒ 必须复查）：15 个 `HangzhouMaj*` 任务全 Ready，3 个切换任务仍是 `-Strategy speedvalue`、`-AllowNotReady` 在位，
+    `tid=t_6266386bfd56`；役 2 完整性 ✓（49/50 房，无异常）。

@@ -219,7 +219,7 @@ def stop(force=False):
     if base:
         cur = ""
         try:
-            cur = io.open(os.path.join(ROOT, "var", "_keeper_strategy.txt"), encoding="utf-8").read().strip()
+            cur = io.open(os.path.join(ROOT, "var", "_keeper_strategy.txt"), encoding="utf-8-sig").read().strip()
         except Exception:
             pass
         if cur != base:

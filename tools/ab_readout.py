@@ -489,7 +489,7 @@ def main():
         a, b = arms[arm_list[0]], arms[arm_list[-1]]
     try:
         _cfg = json.loads(io.open(os.path.join(ROOT, "var", ".ab_mode"),
-                                  encoding="utf-8").read())
+                                  encoding="utf-8-sig").read())
     except Exception:
         _cfg = {}
     _bundles = set(_cfg.get("bundles") or [])

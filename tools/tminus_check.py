@@ -46,7 +46,7 @@ def main():
     if not a.strategy:
         try:
             a.strategy = io.open(os.path.join(ROOT, "var", "_keeper_strategy.txt"),
-                                 encoding="utf-8").read().strip()
+                                 encoding="utf-8-sig").read().strip()
         except Exception:
             a.strategy = ""
         if not a.strategy:

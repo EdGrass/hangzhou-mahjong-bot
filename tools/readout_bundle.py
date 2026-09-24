@@ -44,7 +44,7 @@ def main():
     if not since:
         try:
             import json
-            cfg = json.loads(io.open(os.path.join(ROOT, "var", ".ab_mode"), encoding="utf-8").read())
+            cfg = json.loads(io.open(os.path.join(ROOT, "var", ".ab_mode"), encoding="utf-8-sig").read())
             since = cfg.get("started")
         except Exception:
             since = None

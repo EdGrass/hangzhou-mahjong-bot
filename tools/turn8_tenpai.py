@@ -55,7 +55,7 @@ def main(argv=None):
     since = a.since
     if not since:
         try:
-            since = json.loads(io.open(os.path.join(ROOT, "var", ".ab_mode"), encoding="utf-8").read()).get("started") or ""
+            since = json.loads(io.open(os.path.join(ROOT, "var", ".ab_mode"), encoding="utf-8-sig").read()).get("started") or ""
         except Exception:
             since = ""
     launches = arm_launches()

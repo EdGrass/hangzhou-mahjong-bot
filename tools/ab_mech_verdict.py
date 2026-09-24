@@ -179,7 +179,7 @@ def main():
     arms = [x for x in a.arms.split(",") if x] if a.arms else None
     if not arms:
         try:
-            cfg = json.loads(io.open(os.path.join(ROOT, "var", ".ab_mode"), encoding="utf-8").read())
+            cfg = json.loads(io.open(os.path.join(ROOT, "var", ".ab_mode"), encoding="utf-8-sig").read())
             arms = [str(x) for x in (cfg.get("arms") or [cfg.get("a"), cfg.get("b")]) if x]
         except Exception:
             arms = None
