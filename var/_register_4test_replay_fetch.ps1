@@ -11,9 +11,9 @@
 #       不杀进程、不改 bot/、不碰在途 A/B（与 19:00 的 `_after_4test.py` 恢复动作互不干扰）。
 param(
   [switch]$Go,
-  [string]$At = "2026-09-24 19:10:00",
+  [string]$At = "2026-09-24 16:30:00",
   [int]$EveryMinutes = 30,
-  [int]$DurationHours = 5,
+  [int]$DurationHours = 8,
   [int]$DurationMinutes = 0,
   [string]$Tid = "t_6266386bfd56",
   [string]$TokenFile = "D:\hangzhouMaj\var\.token_4test_20260924",

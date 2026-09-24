@@ -26020,3 +26020,22 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - ④ **实测**（赛前）：`--dry-run` 与**任务同形命令实跑**各一次 ⇒ 均 `GET /api/tournaments/t_6266386bfd56 -> 200`、
     `status=registering my_games=0`、日志确实落 `_4test_replayfetch.out`；注册后 `NextRunTime=2026-09-24 19:10:00`、触发 XML `Interval=PT30M / Duration=PT5H`。
   - ⑤ 红线：只发 GET + 只写 `var/replays/4test_rooms/`与日志；与 19:00/21:00/22:30/00:30 的 `_after_4test.py`（恢复役 2）互不干扰。
+
+- [R1391 | 2026-09-24 14:5x ★★★★**实测证明“赛事视角数据会过期”：三测详情已 404 ⇒ 四测期间必须把 ranking 全榜 + my_games 抓下来（否则赛后无法重建名次分布）**]
+  - ① **证据（今天实测，不是推测）**：
+    ①-1 三测 tid `t_069a55e84b26`（由 `GET /api/me` 用三测令牌解析得到）现在 `GET /api/tournaments/t_069a55e84b26` ⇒ **404**；
+    ①-2 门户赛事列表 `var/_portal_history.jsonl` 末行只剩 `t_6266386bfd56`（四测 registering）⇒ 三测已被清；
+    ①-3 但**单场复盘还在**：`GET /portal/api/games/t_069a55e84b26_s2_b20_t0/events`（Cookie 认证）⇒ **200 / 298 KB**；
+    相邻 `..._b20_t1` ⇒ 404 `GAME_NOT_FOUND`；第三次请求撞 **429 RATE_LIMITED**（该端点限额紧 ⇒ 补拉必须串行 + 退避）。
+    ⇒ 结论：**对局数据留得住，赛事视角留不住**（`ranking` 全榜 / `my_games` gid 清单 / stage 轨迹）。
+  - ② **缺口**：`_format_fidelity` 只留 status/stage/qualified 与 `my_games` **计数**；`bot/protocol.py summary()` 只在**终态**把**我这一行**排名写进日志。
+    两者都无法支撑“我们 vs 96 人的名次分布 / 谁在涨分 / 第一率”这类赛后分析，而这些数据过期即失。
+  - ③ **补法（只新增，不改既有链路）**：新增 `var/_4test_watch_detail.py`（1 个 GET；把 status/stage/qualified/**ranking 全榜**/**my_games**/**me 行** 追加一行到 `var/4test_detail.jsonl`，
+    **只在签名（sha1 前 16 位）变化时追加**，`--force` 可强制；网络失败只打印不抛）+ `var/_register_4test_detail_snap.ps1`，
+    注册 **`HangzhouMaj4TestDetailSnap`**：`15:00` 起每 10 分钟、持续 4h45m（→19:45）。
+  - ④ **同时加固补拉窗口**：把 `HangzhouMaj4TestReplayFetch` 从“19:10 起 5h”改成 **16:30 起 8h（→00:30）** ——
+    因为“详情可能赛后立刻 404”，赛中就增量拉既能保住数据，也能**提前暴露**该工具自认“未在真数据上跑过”的 room→gid 路径假设。
+  - ⑤ **实测**：`_4test_watch_detail.py` 连跑两次 ⇒ 第一次 `已追加→ var\4test_detail.jsonl`，第二次 `无变化 ⇒ 不追加`；
+    两个任务的动作**原样各跑一次**均 rc=0、输出落 `_4test_detail.out` / `_4test_replayfetch.out`；触发 XML `PT10M/PT4H45M` 与 `PT30M/PT8H`；
+    两个注册脚本与新 py 一并补进 `$opsScripts`（闭包门要求）。
+  - ⑥ 红线：全部只读 GET + 追加；不杀进程、不改 `bot/`、不碰在途 A/B。
