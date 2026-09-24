@@ -60,14 +60,29 @@ def main():
     ap.add_argument("--by-arm", action="store_true",
                     help="改按**臂**分组（读台账 room→strategy），输出我方在各臂上的机制读数")
     ap.add_argument("--since", default="", help="只算该时间之后开的房（按台账 ts，如 2026-09-23 03:13:44）")
+    ap.add_argument("--dirs", default="",
+                    help="逗号分隔的 glob（相对 var/replays/），如 official_1024_20260924_*；给了它就忽略 --dir")
     a = ap.parse_args()
     top = board_top(32)
     idx = room_index() if (a.by_arm or a.since) else {}
     strat = {k: v[0] for k, v in idx.items()} if a.by_arm else {}
-    files = sorted(glob.glob(os.path.join(ROOT, "var", "replays", a.dir, "*.json")))
+    if a.dirs:
+        # R1335: 支持任意目录 glob（如官方赛 official_1024_20260924_*）；不传 --dirs 时行为不变。
+        files = []
+        for _g in [x.strip() for x in a.dirs.split(",") if x.strip()]:
+            files += glob.glob(os.path.join(ROOT, "var", "replays", _g, "*.json"))
+        files = sorted(set(files))
+    else:
+        files = sorted(glob.glob(os.path.join(ROOT, "var", "replays", a.dir, "*.json")))
     if a.since:
         files = [f for f in files
                  if (idx.get(os.path.basename(f).split("_r")[0], ("", ""))[1] >= a.since)]
+    if not files:
+        # R1335: 0 文件必须报错（否则下面会输出一堆 +0.00pp，看上去像没有缺口）。
+        print("\u274c 没找到复盘文件（%s）⇒ 本工具不给结论" % (a.dirs or a.dir))
+        print("   本工具读的是房间快照 .json（如 recent/ 或 fetch_tournament_replays 的 --out 目录）；"
+              "官方赛本地录的 *.jsonl 是事件流，请用 tools/official_latency_audit.py 那一类工具。")
+        return 2
     if a.limit:
         files = files[-a.limit:]
     S = collections.defaultdict(collections.Counter)
@@ -114,7 +129,7 @@ def main():
                 if bev[seat]:
                     c["bao"] += 1
     print("=" * 118)
-    print("胡率缺口两段分解（门户 %s 四家全信息，文件 %d）" % (a.dir, len(files)))
+    print("胡率缺口两段分解（门户 %s 四家全信息，文件 %d）" % ((a.dirs or a.dir), len(files)))
     print("=" * 118)
     print("%-8s %8s %8s %9s %10s %9s %11s %11s %10s" % (
         "组", "席局", "胡率", "听牌率", "未听牌率", "均听巡",
@@ -149,7 +164,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
-
-
-
+    sys.exit(main())

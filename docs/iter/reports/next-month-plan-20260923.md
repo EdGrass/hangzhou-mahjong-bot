@@ -3345,3 +3345,22 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 §V.109 的 15:05 预检可能把臂换成 `speedvalueycbk`，而 `HEAVY_WARMUP`（§V.106）只补了普通臂 ⇒ **闸门孪生不预热**。
 已补四个孪生（名单 38→**42**）；验证：四个孪生 `warmup_for_strategy==50`，命令行末尾确实是 **`--warmup-draws 50`**。
 ⇒ **今天新注册的臂已在三处名单里对齐**：注册表（R1332）、`rules_guard` 识别（R1332）、预热名单（本节）。
+
+### V.111 ★★★★ **赛后分析路径纠正 + `hu_gap_split --dirs`**（R1335）
+
+**纠正（§V.105 已就地标注）**：官方赛**本地录的**是 `*.jsonl`（每房一对 `*.jsonl` + `*.dec.jsonl`，实测 40 文件 = 4 房）——
+那是**事件流/决策流**，不是房间快照 `.json` ⇒ **不能**喂给 `hu_gap_split`/`_seat_h2h`（它们读快照）。
+**正确路径**：**赛后**从门户拉快照 →
+
+```powershell
+python -X utf8 tools/fetch_tournament_replays.py --tid t_6266386bfd56 --token-file var/.token_4test_20260924 --out var/replays/4test_rooms
+python -X utf8 tools/hu_gap_split.py 0 --dirs 4test_rooms
+```
+
+（赛前 `--dry-run` 已验：HTTP 200、`my_games=0` ⇒ 链路通；赛后重跑即得 `.json` 快照。）
+
+**`hu_gap_split.py` 两处改动（都是新增，默认行为不变）**：
+1. `--dirs`（逗号分隔 glob，相对 `var/replays/`）；不传时走原 `--dir` 分支；
+2. **0 文件 ⇒ exit 2 + 明说**（否则会输出一堆 +0.00pp，看上去像“没有缺口”）；另补上入口 `sys.exit(main())`。
+
+**实测**：`--dir recent` **exit 0** / `--dirs recent` **exit 0**（两者读数一致）/ 只有 `.jsonl` 的事件目录 **exit 2**（报错文本指向正确工具）。

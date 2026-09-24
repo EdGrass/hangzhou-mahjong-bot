@@ -25268,3 +25268,13 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     验证：四个孪生 `warmup_for_strategy` 均为 50，且 `build_run_bot_cmd('speedvalueycbk', …)` 末尾确实是 **`--warmup-draws 50`** ✓。
   - ③ **意义**：这是一次“**新注册的臂是否也被其他名单覆盖**”的交叉检查 ——
     今天新增了 4 个臂（注册表），那就必须同步检查预热名单、`rules_guard` 识别、`_registry_sweep` 三处（后两处已在 R1332 验过）。
+
+- [R1335 | 2026-09-24 10:3x ★★★★**赛后分析路径纠正（事件目录是 .jsonl 不是快照）+ `hu_gap_split --dirs` + 0 文件 fail-loud**]
+  - ① **纠正**：我之前在 §V.105 写的“把事件目录拷进 recent/ 就能算”是**错的**：实测官方赛目录里是
+    **`*.jsonl`（事件流 + `.dec.jsonl` 决策流，40 文件 = 4 房）**，而 `hu_gap_split`/`_seat_h2h` 读的是**房间快照 `.json`**。
+    正确路径：**赛后** `tools/fetch_tournament_replays.py --tid <TID> --token-file <TOK> --out var/replays/<name>`（从门户拉 `<gid>.json`）
+    → `python -X utf8 tools/hu_gap_split.py 0 --dirs <name>`。赛前 `--dry-run` 已验：HTTP 200 + `my_games=0`（预期，赛后重跑）。§V.105 已**就地标注**。
+  - ② **`hu_gap_split.py` 改动（都是新增）**：新增 `--dirs`（逗号分隔 glob，相对 `var/replays/`；不传时行为不变）；
+    **0 文件 ⇒ exit 2 + 明说“我读的是快照 .json”**（防“看起来像没有缺口”）；另补上入口 `sys.exit(main())`（否则 return 2 传不出去）。
+  - ③ **实测**：`--dir recent` **exit 0**、`--dirs recent` **exit 0**（两者读数一致）、只有 `.jsonl` 的事件目录 **exit 2**（报错指向
+    `official_latency_audit.py` 那一类工具）。过程中我自己一次把该文件写坏（缩进），已从 `.bak_*` 恢复后重做并 AST 验证。
