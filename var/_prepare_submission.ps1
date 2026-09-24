@@ -87,6 +87,8 @@ $opsScripts = @(
   "var/_mech_watch.py",                  # ★ R1416：役中机制端点守护（定期重抽离线足迹）
   "var/_register_mech_watch.ps1",        # ★ R1416：上行守护的注册脚本
   "var/_switch_final.py",                # ★ R1407：10/7 换上最终臂（未选定/官方模式就拒绝）
+  "var/_final_arm_confirm.py",            # ★ R1436：10/7 换臂前自动补 .final_arm.txt（人工 echo 断点的替身）
+  "var/_final_switch_retry.ps1",          # ★ R1436：10/7 12:00 换臂重试（判词晚到也能升级）
   "var/_final_ready_check.py",           # ★ R1407：10/7·10/8 最终就绪校验（7 项）
   "var/_register_final_day.ps1",         # ★ R1407：上两个一次性任务的注册脚本
   "var/_switch_test_strategy.py",

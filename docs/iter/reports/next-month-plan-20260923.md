@@ -4709,3 +4709,18 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 - 新增 `var/_register_final_event.ps1` 注册两个一次性任务：**`HangzhouMajFinalEventSwitch` @ 10/10 18:50**（上线）、
   **`HangzhouMajFinalEventReady` @ 10/10 19:25**（再补一次 ready，tid 由 spec/门户自解析）。
 - 纪律：不传 `-AllowNotReady`（preflight 不 READY 就停）；等空档交给现成脚本（不强杀对局）；不改 `bot/`。
+
+### §V.182 10/7 换臂链也做到零人工（`.final_arm.txt` 自动落盘 + 12:00 可升级）
+
+§V.181 之后剩下的唯一人工断点是「10/5 提案 → **人工 echo 写 `var/.final_arm.txt`**」；若没人写，10/7 09:00 的
+`_switch_final.py` 会（按设计）**拒绝换臂** ⇒ 正式赛少叠一层。
+
+- `var/_final_arm_confirm.py`（10/7 08:30 / `HangzhouMajFinalArmConfirm`）：机械落地 §V.161/§V.165 的
+  "**只叠已判正的层**" —— 基线（`.ab_mode.bundles[0]`；A/B 已停则 `_keeper_strategy.txt`）+ 提名，
+  合格 = 该臂**最新**判词的最后一条 `★ 判定：` 以 `ADOPT` 开头；**有合格层取判词最新者，否则保持基线**。
+  **人工已写 ⇒ no-op**（绝不抢人的裁决）；落盘前必须通过真实实例化校验。
+- `var/_final_switch_retry.ps1`（10/7 12:00 / `HangzhouMajFinalSwitchRetry`）：`confirm --refresh` +
+  `_switch_final.py`。`--refresh` **只升级本脚本自己写过的臂、绝不降级、不碰人工裁决** ——
+  覆盖"判词在 09:00 之后才落地"的时序风险。
+- 两者都可**离线排练**：`_final_arm_confirm.py --dry-run`、`_final_switch_retry.ps1 -DryRun`。
+- **至此 10/7 换臂与 10/10 上线均为零人工**；唯一剩余人工输入 = 10/10 前把令牌存成 `var/.token_final_20261010`。

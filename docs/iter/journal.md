@@ -26406,3 +26406,21 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - 新增 `var/_register_final_event.ps1`：注册 **`HangzhouMajFinalEventSwitch` @ 10/10 18:50** 与 **`HangzhouMajFinalEventReady` @ 10/10 19:25**（均 pythonw、限 60min）。
   - 验证：缺最终臂 ⇒ 拒绝 ✓；有假臂但缺令牌 ⇒ 拒绝 ✓；两任务已注册（Next 10/10 18:50 / 19:25）✓；`_ps_syntax_check` 绿 ✓。
   - 注：注册脚本第一版把 PowerShell 的保留变量 `$args` 当了参数名 ⇒ 报错未注册；已改名为 `$argStr` 并重新注册成功。
+
+- [R1436 | 2026-09-25 03:2x ★★★★**把 10/7 换臂前最后一个"人工断点"自动化：`.final_arm.txt` 不再靠人 echo**]
+  - **缺口**：10/7 09:00 的 `_switch_final.py` 是**故障关闭**的（缺 `.final_arm.txt` 就拒绝）；而 10/5 的 `_final_pick_proposal.py`
+    只出**提案**，把它写成 `.final_arm.txt` 一直是**人工 echo** —— 整条链上唯一一个"无人值守就会断"的地方。
+  - 新增 `var/_final_arm_confirm.py`：基线取 `.ab_mode.bundles[0]`（已采用链的尖端；A/B 已停则退到 `_keeper_strategy.txt`）
+    + 候选提名 → **合格 iff** 提到该臂的**最新**一份 `_verdict_*.txt` 的最后一条 `★ 判定：` 以 `ADOPT` 开头 →
+    **有合格 candidate 取判词最新者，否则取基线**。落盘前用 `run_bot.STRATEGY_FACTORIES` **真实实例化**校验，
+    不过则**拒写**并留 `.FINAL_ARM_UNRESOLVED`。臂名匹配走**整词**正则（否则 `speedvaluebc` 会被 `speedvaluebcvmeld` 的判词误命中）。
+  - `--refresh`（10/7 12:00 重试用）：**只升级"本脚本自己写过"的臂**（回执里"结论"行 == 文件内容），人工/外来裁决一律尊重、
+    **不降级**（重算只得到基线就保持现状）。
+  - 新增 `var/_final_switch_retry.ps1`：10/7 12:00 先 `confirm --go --refresh` 再 `_switch_final.py --go`（对"臂变了"幂等）。
+    带 `-DryRun` **排练档**（两条都只走 `--dry-run`）⇒ 随时可活体验收，不用等 10/7。
+  - **注册**：`HangzhouMajFinalArmConfirm` @ **10/7 08:30**、`HangzhouMajFinalSwitchRetry` @ **10/7 12:00**（NextRunTime 已核）✓。
+  - **验证**：单测 **20** 条（含"人工已写不覆盖""最新判词否决陈旧 ADOPT""refresh 不降级""未注册臂拒写"）✓；
+    接线门 **8** 条 ✓；闭包门绿 ✓；`pythonw --go` 实测 ExitCode=0、内容正确、真文件未被碰 ✓；包装脚本 `-DryRun` 端到端 ✓。
+  - **本轮真踩的两个坑**：① 第一次接线把新增行插进了**头部注释**（`findIndex` 命中了注释里的 "HangzhouMajFinalCheck2"），
+    而 `_ps_syntax_check` 照样报 OK —— 属"**语法合法、语义全错**"；② 新写的 `.ps1` 忘加 BOM ⇒ PS 5.1 按 ANSI 解码中文注释
+    ⇒ **把 `param` 块吃掉** ⇒ `$Root` 为 null（`Set-Location` 报 null）。两条都已钉进 `tests/test_final_day_wiring.py` 的静态断言。
