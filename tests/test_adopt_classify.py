@@ -42,5 +42,22 @@ class TestAdoptClassify(unittest.TestCase):
         self.assertEqual("proceed", A.classify(txt)[0])
 
 
+
+class TestVerdictTag(unittest.TestCase):
+    """判词标签 —— 日志不能一律写 "ADOPT"（classify 对所有终态都 proceed，本机实测被带偏过）。"""
+
+    def test_tags(self):
+        self.assertEqual("ADOPT", A.verdict_tag(M + "ADOPT speedvalue（和牌率 z=+1.8）"))
+        self.assertEqual("REFUSE", A.verdict_tag(M + "REFUSE / CONTINUE —— 第一率护栏未过"))
+        self.assertEqual("REJECT", A.verdict_tag(M + "REJECT speedvalue（和牌率 z=-2.1）"))
+        self.assertEqual("UNDECIDED", A.verdict_tag(M + "UNDECIDED（和牌率 z=+0.9）⇒ 继续攒房"))
+
+    def test_last_line_wins_and_empty(self):
+        t = M + "REFUSE 旧\n" + M + "ADOPT speedvaluebc\n"
+        self.assertEqual("ADOPT", A.verdict_tag(t))
+        self.assertEqual("无判词", A.verdict_tag(""))
+        self.assertEqual("无判词", A.verdict_tag("一些无关文字"))
+
+
 if __name__ == "__main__":
     unittest.main()

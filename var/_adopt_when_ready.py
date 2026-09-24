@@ -113,6 +113,19 @@ def verify_campaign(baseline, candidates):
     return ok, out
 
 
+def verdict_tag(text):
+    """判词文本 ⇒ 判词标签（ADOPT / REFUSE / REJECT / UNDECIDED / 无判词）。
+
+    为什么单独抽：`classify()` 对**所有终态**都返回 proceed（REFUSE/REJECT/到盒 UNDECIDED 也要进下一役），
+    所以日志**不能**一律写 "判词 ADOPT" —— 本机实测原来就是这么写的，凌晨读日志会被带偏。
+    """
+    line = (last_verdict_line(text) or "").strip()
+    if not line:
+        return "无判词"
+    w = re.split(r"[\s（(]", line, 1)[0]
+    return w if w in ("ADOPT", "REFUSE", "REJECT", "UNDECIDED") else line[:12]
+
+
 def adopted_arm(line):
     """判词行 ⇒ 被判 ADOPT 的臂名（非 ADOPT ⇒ ""）。
 
@@ -206,6 +219,7 @@ def main(argv=None):
     if os.path.exists(marker):
         print("已采用过（%s 存在）⇒ no-op" % marker)
         return 0
+    txt = ""
     if not a.force:
         if not os.path.exists(sentinel):
             print("判词未决定性（缺 %s）⇒ 不动" % os.path.basename(sentinel))
@@ -240,7 +254,7 @@ def main(argv=None):
 
     cmd = [sys.executable, "-X", "utf8", os.path.join(ROOT, a.bsegment), "--go",
            "--baseline", a.baseline, "--candidates", a.candidates]
-    log("★ 判词 ADOPT ⇒ 执行 B 段：%s" % " ".join(cmd))
+    log("★ 判词终态 [%s] ⇒ 执行 B 段：%s" % (verdict_tag(txt if not a.force else ""), " ".join(cmd)))
     if a.dry_run:
         print("（dry-run：未执行）")
         return 0
