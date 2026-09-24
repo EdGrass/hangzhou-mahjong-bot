@@ -113,6 +113,8 @@ def main():
     ap.add_argument("--dirs", required=True,
                     help="\u9017\u53f7\u5206\u9694\u7684 glob\uff08\u76f8\u5bf9 var/replays/\uff09\uff0c\u5982 4test_rooms")
     ap.add_argument("--top32", type=int, default=32, help="\u699c\u5355\u524d N \u4f5c\u4e3a\u5f3a\u624b\u7ec4\uff1b0=\u4e0d\u53d6\u699c\uff08\u53ea\u5206 \u6211\u65b9/\u5176\u4ed6\uff09")
+    ap.add_argument("--exclude", default="",
+                    help="逗号分隔的子串：文件名含任一即排除（如 `_s2_` 看第1轮）")
     ap.add_argument("--min-rounds", type=int, default=16, help="\u8fdb\u5165\u201c\u9010\u4eba\u5206/\u8f6e\u201d\u8868\u6240\u9700\u6700\u5c11\u8f6e\u6570")
     a = ap.parse_args()
 
@@ -124,6 +126,9 @@ def main():
         if not pat.lower().endswith(".json"):
             pat = os.path.join(pat, "*.json")
         files += sorted(glob.glob(pat))
+    if a.exclude:
+        _ex = [x.strip() for x in a.exclude.split(",") if x.strip()]
+        files = [f for f in files if not any(x in os.path.basename(f) for x in _ex)]
     if not files:
         print("\u274c \u6ca1\u627e\u5230\u590d\u76d8\u6587\u4ef6\uff08var/replays/%s/*.json\uff09\u21d2 \u4e0d\u7ed9\u7ed3\u8bba" % a.dirs)
         return 2

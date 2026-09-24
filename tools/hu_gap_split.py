@@ -60,6 +60,8 @@ def main():
     ap.add_argument("--by-arm", action="store_true",
                     help="改按**臂**分组（读台账 room→strategy），输出我方在各臂上的机制读数")
     ap.add_argument("--since", default="", help="只算该时间之后开的房（按台账 ts，如 2026-09-23 03:13:44）")
+    ap.add_argument("--exclude", default="",
+                    help="逗号分隔的子串：文件名含任一即排除（如 `_s2_` 看第1轮）")
     ap.add_argument("--dirs", default="",
                     help="逗号分隔的 glob（相对 var/replays/），如 official_1024_20260924_*；给了它就忽略 --dir")
     a = ap.parse_args()
@@ -70,8 +72,16 @@ def main():
         # R1335: 支持任意目录 glob（如官方赛 official_1024_20260924_*）；不传 --dirs 时行为不变。
         files = []
         for _g in [x.strip() for x in a.dirs.split(",") if x.strip()]:
-            files += glob.glob(os.path.join(ROOT, "var", "replays", _g, "*.json"))
+            # ★ R1403：允许直接给**文件 glob**（如 `4test_rooms/t_*_s2_*.json`）⇒ 能按阶段/批次切片；
+            #   给目录名时行为不变（自动补 /*.json）。与 `campaign_scorecard` 同口径。
+            _pat = os.path.join(ROOT, "var", "replays", _g)
+            if not _pat.lower().endswith(".json"):
+                _pat = os.path.join(_pat, "*.json")
+            files += glob.glob(_pat)
         files = sorted(set(files))
+        if a.exclude:
+            _ex = [x.strip() for x in a.exclude.split(",") if x.strip()]
+            files = [f for f in files if not any(x in os.path.basename(f) for x in _ex)]
     else:
         files = sorted(glob.glob(os.path.join(ROOT, "var", "replays", a.dir, "*.json")))
     if a.since:
