@@ -112,6 +112,33 @@ def verify_campaign(baseline, candidates):
     return ok, out
 
 
+def classify(txt):
+    """判词文本 → (action, reason)；action ∈ {"proceed", "wait"}。
+
+    依据：`docs/iter/reports/yaku2-verdict-readcard.md` 的四条分支。
+    关键认识：**役 3 的基线由役 3 的预登记固定（speedvalue）**，
+    所以除了“未到役盒的 UNDECIDED”（应继续攒房），**其余终态都应进下一役**：
+      * ADOPT            → 直接进；
+      * REFUSE（护栏/机制不许）→ 读卡：本役不采用、按 §V.66/67 收口后进下一役；
+      * REJECT           → 读卡：默认仍以 speedvalue 为役 3 基线（除非人工明确重排）；
+      * UNDECIDED 且已达役盒 → 读卡：按破平序列收口后进下一役；
+      * UNDECIDED 未达役盒 → **继续攒房**（wait）。
+    """
+    line = last_verdict_line(txt) or ""
+    up = line.upper()
+    if up.startswith("ADOPT"):
+        return "proceed", "ADOPT"
+    if up.startswith("REFUSE"):
+        return "proceed", "REFUSE（护栏/机制不许）⇒ 读卡：本役不采用、进下一役"
+    if up.startswith("REJECT"):
+        return "proceed", "REJECT⇒ 读卡：默认仍以 speedvalue 为役 3 基线"
+    if up.startswith("UNDECIDED"):
+        if "已达役盒" in (txt or ""):
+            return "proceed", "UNDECIDED 且已达役盒⇒ 按 §V.66/67 破平后进下一役"
+        return "wait", "UNDECIDED 未达役盒 ⇒ 继续攒房"
+    return "wait", "判词不可识别/为空（%s）" % (line[:40] or "无")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--label", default="役2")
@@ -142,9 +169,9 @@ def main(argv=None):
         except Exception as e:
             log("!! 读判词失败（%s）⇒ 不动" % str(e)[:80])
             return 0
-        line = last_verdict_line(txt)
-        if not line or not line.upper().startswith("ADOPT"):
-            log("判词非 ADOPT（%s）⇒ 不动" % (line or "无判词行"))
+        act, why = classify(txt)
+        log("判词分类：%s（%s）" % (act, why))
+        if act != "proceed":
             return 0
 
     cmd = [sys.executable, "-X", "utf8", os.path.join(ROOT, a.bsegment), "--go",
