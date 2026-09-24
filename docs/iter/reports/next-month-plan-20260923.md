@@ -3772,3 +3772,12 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 1. **`utf-8-sig` 只能用来“读”**：用它**写** `.py` 会自动加 BOM（R1360 就这么给一个无 BOM 的 `run_bot.py` 加了 BOM）。
    现状：`run_bot.py` 已去 BOM，**与“979 条 OK 那一版”（320fa0e）逐字节一致**。
 2. **战役期间不做越界的仓库级清理**：扫 BOM 时误删了 4 个无关文件的**既有** BOM，已全部还原。改动面必须与理由严格一一对应。
+
+### V.135 ★★ 撤回后的终态双门（2026-09-24 13:4x）
+
+|门 | 结果 |
+|---|---|
+| `run_bot.py` vs 320fa0e（已验证版） | **逐字节一致**（diff 为空）；BOM=False |
+| 本地全量 | **979 条 · OK（skipped=4, expected failures=1）· 776s** |
+| 公网副本全量 | **839 条 · OK（skipped=55）· 50s**；613 文件 |
+| `_prep_register_combo.py` | 锚点仍在 ✓，幂等判据“尚未注册”=True ✓（将来可照跑） |
