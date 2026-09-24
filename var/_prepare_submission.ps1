@@ -90,7 +90,9 @@ $opsScripts = @(
   "var/_final_ready_check.py",           # ★ R1407：10/7·10/8 最终就绪校验（7 项）
   "var/_register_final_day.ps1",         # ★ R1407：上两个一次性任务的注册脚本
   "var/_switch_test_strategy.py",
-  "var/_final_pick_proposal.py",           # ★ R1434：10/5 最终臂选择提案（只读台账+榜单）
+  "var/_final_pick_proposal.py",
+  "var/_final_event_switch.py",            # ★ R1435：10/10 正式赛自动上线（缺令牌/最终臂即拒绝）
+  "var/_register_final_event.ps1",         # ★ R1435：10/10 两个一次性任务的注册脚本           # ★ R1434：10/5 最终臂选择提案（只读台账+榜单）
   "var/_register_final_pick_proposal.ps1",  # ★ R1434：上行一次性任务的注册脚本      # ★ R1407：换测试房 keeper 策略（_switch_final 的闭包依赖）
   "var/_register_tminus_ready.ps1",
   "var/_prepare_submission.ps1",

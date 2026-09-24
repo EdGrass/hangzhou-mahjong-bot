@@ -4694,3 +4694,18 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 2. 役 3 读卡已补上该护栏行（口径：≥1s 超窗 = 0；并记真损失 409）；
 3. **候选轴备案**：若 10/5–10/6 有富余役位，可考虑一条“窗口时序/感知延迟”轴（需新预登记）；
    **优先级仍在 BC/V/副露之后**（那三条有同席强手差距作依据，这条目前只有“丢动作数”）。
+
+
+---
+
+### §V.181 10/10 正式赛也自动化（人工只剩“放一个令牌文件”）
+
+依据运行手册 §8：上线 = `换新令牌 + 新赛事 id` → `_ready_1024`（T-30/T-5）→ `_switch_to_official.ps1 -Strategy <最终臂> ...`。
+中间两步都是现成脚本，**只差“令牌文件”这一个人工输入**。
+
+- 新增 `var/_final_event_switch.py`：读 `.final_arm.txt`（**10/7 换上的那个臂**）+ 令牌文件（默认 `var/.token_final_20261010`）
+  → 门户解析唯一 `registering` 赛事的 tid（与 `_ready_1024.py` 同口径）→ 调**现成** `_switch_to_official.ps1`（**不传 `-AllowNotReady`**）→ 事后校验哨兵与 keepalive。
+  **缺最终臂 / 缺令牌 / 解不到唯一 tid ⇒ 一律拒绝并记日志**（实测两条拒绝路径 ✓）。
+- 新增 `var/_register_final_event.ps1` 注册两个一次性任务：**`HangzhouMajFinalEventSwitch` @ 10/10 18:50**（上线）、
+  **`HangzhouMajFinalEventReady` @ 10/10 19:25**（再补一次 ready，tid 由 spec/门户自解析）。
+- 纪律：不传 `-AllowNotReady`（preflight 不 READY 就停）；等空档交给现成脚本（不强杀对局）；不改 `bot/`。

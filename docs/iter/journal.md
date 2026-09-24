@@ -26399,3 +26399,10 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     写 `var/_final_pick_proposal.txt`（含：窗口/臂/签名基线、工具原文、“只叠已判正层”与“写入方式”提醒），并记一行日志。
   - **注册 `HangzhouMajFinalPickProposal` @ 10/5 09:00**（一次性，pythonw）；新文件已补进 `$opsScripts`。
   - **验证**：当前役 2 试跑 ⇒ 提案文件生成，内容为 `speedvalue(-34.8) vs speedc151(-40.5)，Δ=-5.6 < 2×SE=58.7 ⇒ 不可区分⇒进入两半 Pareto`（与工具原文一致）✓。
+
+- [R1435 | 2026-09-24 20:0x ★★★★**10/10 上线也自动化：人工只剩“把当天令牌存成 var/.token_final_20261010”**]
+  - 新增 `var/_final_event_switch.py`：读 `.final_arm.txt`（10/7 换上的臂）+ 令牌文件 → 门户解析唯一 registering 赛事 tid →
+    调现成 `_switch_to_official.ps1`（**不带 `-AllowNotReady`**）→ 校验 `.official_mode` + keepalive；任一前提不足就拒绝。
+  - 新增 `var/_register_final_event.ps1`：注册 **`HangzhouMajFinalEventSwitch` @ 10/10 18:50** 与 **`HangzhouMajFinalEventReady` @ 10/10 19:25**（均 pythonw、限 60min）。
+  - 验证：缺最终臂 ⇒ 拒绝 ✓；有假臂但缺令牌 ⇒ 拒绝 ✓；两任务已注册（Next 10/10 18:50 / 19:25）✓；`_ps_syntax_check` 绿 ✓。
+  - 注：注册脚本第一版把 PowerShell 的保留变量 `$args` 当了参数名 ⇒ 报错未注册；已改名为 `$argStr` 并重新注册成功。
