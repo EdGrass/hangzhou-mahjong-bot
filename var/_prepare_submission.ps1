@@ -77,6 +77,7 @@ $opsScripts = @(
   "var/_register_gate_precheck.ps1",
   "var/_register_ladder_snapshot.ps1",
   "var/_register_portal_watch.ps1",
+  "var/_register_4test_format_watch.ps1",  # ★ R1389：四测赛制观察定时器的注册脚本（只新增任务，不碰既有链路）
   "var/_register_tminus_ready.ps1",
   "var/_prepare_submission.ps1",
   "var/_ps_syntax_check.ps1"

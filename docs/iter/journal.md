@@ -25993,3 +25993,16 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     另核：`var/.keeper.lock` 已是死 pid 但 `Stop-Process … -ErrorAction SilentlyContinue` 容错 ✓；`.resume_spec.json` = 役 2 原窗口（`2026-09-23 03:13:44`, `speedc151,speedvalue`, bundles `speedc151`）⇒ 19:00 收尾可按原窗口恢复。
   - ⑥ **役 2 现场**：112 房（56/56 完美配平），`ab_integrity` 干净；切场后到 19:00 暂停，19:00/21:00/22:30/00:30 四次自动恢复。
   - ⑦ 顺手修 `var/_4test_gate_precheck.py` 的**文档与代码相反**：注释写“默认 dry-run”，实际**无参 = 真注册**（15:05 任务就是无参调用）⇒ 注释与 `--help` 改为“默认真跑”（行为不变，已 `py_compile` + `--dry-run` 回归）。
+
+- [R1389 | 2026-09-24 14:5x ★★★★**补上“四测赛制观察”缺的唯一一件：§V.153 的观察清单从“有工具”变成“有定时器”（不补则今天 19:00 后证据永久丢失）**]
+  - ① **缺口（拿现场状态查出来的）**：R1386 把四条信号写进 `_format_fidelity` 留档，并写明“四测期间**只要定时跑**就能自动留档”；
+    但全机 `Get-ScheduledTask` 里**没有任何任务在跑它**（唯一相关的 `HangzhouMajReplayGuard` 只补 A/B 房复盘，读的是 `auto_ranking.jsonl`）。
+    而门户**只保留当前 1 场赛事** ⇒ 四测（`t_6266386bfd56`）的 stage/qualified 轨迹**过点即失**。
+  - ② **修法（只新增任务 + 新增脚本，不碰既有链路）**：新增 `var/_register_4test_format_watch.ps1`（模板抄 `_register_portal_watch.ps1`：BOM+CRLF、`Get-Command python.exe` 解析绝对路径，PS 5.1 可跑），
+    注册 **`HangzhouMaj4TestFormatWatch`**：`15:00` 起**每 10 分钟**、持续 **4h45m**（→19:45，覆盖 16:00 开赛 / 19:00 收尾 / 收尾后终态），
+    单次上限 5 分钟、`MultipleInstances=IgnoreNew`、`StartWhenAvailable`；动作 = `var/_format_fidelity.py --tid t_6266386bfd56 --token-file var/.token_4test_20260924`，
+    输出 `var/_4test_format.out`，证据落 `var/format_history.jsonl`；并把该脚本补进 `$opsScripts`（与其余 6 个 `_register_*.ps1` 同类，保证提交闭包不缺口）。
+  - ③ **实测证据（不是“应该能跑”）**：① 注册后 `NextRunTime=2026-09-24 15:00:00`、触发 XML `Interval=PT10M / Duration=PT4H45M / StopAtDurationEnd=true`；
+    ② **把任务动作原样跑一次** ⇒ rc=2（= 预期的 `Rounds`/`Kind` 关键差异码）、输出确实落在 `_4test_format.out`；
+    ③ 再跑一次 ⇒ 打印“（与上一条相同 ⇒ 不重复留档）”且 `format_history.jsonl` 行数不变 ⇒ R1386 的 struct 去重键真的生效（不会 27 次刷屏）。
+  - ④ 代价与红线：每 10 分钟 1 次门户 GET（远低于 12/s 桶）、每次至多一行 JSON；不杀进程、不改 `bot/`、不与在途 A/B / official keepalive 抢文件（唯一共享的 `format_history.jsonl` 是追加式）。
