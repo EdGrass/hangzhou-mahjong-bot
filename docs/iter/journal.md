@@ -26236,3 +26236,10 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     `_ab_driver` 17:48:40 起、`match_super(speedc151)` 17:51:05 起，`ab_ctl` 确认驱动+match_super 在位，**窗口未变（started=2026-09-23 03:13:44）**。
   - 提前 ~70 分钟恢复的理由：官方已判 `qualified=False`（不可能再上场），继续保持官方模式只会空转+拖延；役 2 还差 21/22 房。
   - 四测产物齐备：`4test_detail.jsonl` 9 条、`format_history.jsonl`、`var/replays/4test_rooms/` **20 个官方复盘**、自录 40 文件。
+
+- [R1413 | 2026-09-24 17:5x ★★★**给剂量对齐的三层臂补上单测（起役门要求）；门检结果只剩“指南 v35”一项（B 段会打补丁）**]
+  - 新增 `tests/test_speedvaluebcvmeld_doses.py`（钉死三件事）：① `speedvaluebcvmeld` / `p40` / `p35` **已注册；
+    ② `claim_p` 分别 = 0.45/0.40/0.35；③ 三层真的都挂上（MRO 含 `SpeedValueBCV/BC/Meld/SpeedValue`，且 `_want_claim` 不是 `SpeedValue` 原版）。
+    跑通：`unittest discover -p "test_speedvaluebcvmeld_doses.py"` **2 项 OK**。
+  - 起役门复检（`var/_campaign_ready.py --arms speedvaluebcvmeld,speedvaluebcvmeldp40`）：臂四项全绿、**只剩一项未过 = 指南 v35 BREAKING**——
+    正是 B 段步骤 2 的 P0 补丁所修复的那项，顺序上不阻塞。
