@@ -24996,3 +24996,15 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     ③ 显式 `--tid t_6266386bfd56 --token-file var/.global_token` ⇒ 正常按参数跑（403，四测令牌尚未取得）。
   - ⑤ **方法论意义**：这是同一类问题的第 4 处（R1307 修了 3 处）。两次都证明：**宽的 `except` 会把真实错误变成“看起来正常的空值”** ——
     与本作一贯的“宁可报错，不可静默降级”一致；新增的 `sys.exit` 也让该工具真正能做门禁。
+
+- [R1315 | 2026-09-24 09:5x ★★★★★**过期默认值第 5 处——而且是最危险的一处：`var/_ready_1024.py`（**开赛当天真正 POST /ready 的那个工具**）默认写死二测**]
+  - ① **危害（直接对应“被剔出分桌”）**：它的 `--tid` 默认 = `t_65d538e905c5`（09-17 二测）、令牌默认 = `.token_1024_20260917`。
+    裸跑就会把到位确认打到**已结束的二测**，而正式赛那场**反而没到位** ⇒ 指南 §2.6“分桌实到”硬条件不满足。
+  - ② **修法**：`--tid` 缺省 ⇒ **先 `var/.official_spec.json`**（当前赛事），**再回退到“门户当前唯一 registering 赛事**”；
+    `--token-file` 缺省 ⇒ 同源（spec 的 token_file）否则 `var/.global_token`；都取不到 ⇒ **报错 exit 2**；且打印“目标：tid=… token_file=… (来源)”。
+  - ③ **连带修正（测试中发现）：(tid, token) 必须同源**。第一版回退会出现“tid 来自门户（四测）+ token 来自 spec（三测）”的**错配对**（实测报
+    `403 tournament not in token scope`）。现在：tid 来自门户时**不再拿 spec 里属于别场的令牌**，改用 `.global_token` 并显式告警。
+  - ④ **实测（全部只读 `--status`，绝未发 POST）**：① 裸跑 ⇒ `目标：tid=t_6266386bfd56 token_file=var/.global_token (tid←门户 registering赛事(应牌友要求的四测)；token←.global_token)`，
+    随后 API 回 **`403 FORBIDDEN: not a participant`**（语义正确：**我们还没报名**）；② 显式 `--tid t_6266386bfd56 --token-file var/.global_token` ⇒ 同样报文−—两者均 **exit 2 且在任何 POST 之前就停下**（工具原本就是先 GET 后 POST，错配对不会误打）。
+  - ⑤ **新事实（对四测入场很关键）**：全局令牌对四测返回的不是“无权限”而是 **`not a participant`** ⇒ 说明全局令牌可以对该 tid 发声，
+    **但前提是先在门户完成报名（参与关系）**；这与 `_fourth_test_entry.py` 的设计（报名用 `POST /portal/api/tournaments/<tid>/token`）一致。

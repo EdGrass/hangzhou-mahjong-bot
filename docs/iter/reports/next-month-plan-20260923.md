@@ -3079,3 +3079,18 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 
 **实测**：裸跑 ⇒ 报错 + **exit 2**；`HM_OFFICIAL_SPEC` 指向临时 spec ⇒ **自取到 tid=t_069a55e84b26 并真发请求**（三测已结束 ⇒ 404，预期）；
 显式传参 ⇒ 正常（4测令牌尚未取得 ⇒ 403）。
+
+### V.92 ★★★★★ `_ready_1024.py`（到位确认）的过期默认值已修（R1315）——**最危险的一处**
+
+`var/_ready_1024.py` 是开赛当天唯一会 **POST `/ready`** 的工具（指南 §2.6：分桌实到 = ready ∧ 开赛前 90s 内在线）。它的缺省值原本是
+**二测的 tid + 二测令牌** ⇒ 裸跑会把到位确认打到**已结束的赛事**，而正式赛那场反而没到位。
+
+| 项 | 新行为 |
+|---|---|
+| `--tid` | 缺省时先读 `var/.official_spec.json`；再回退到“**门户当前唯一 registering 赛事**”；都没有 ⇒ **exit 2** |
+| `--token-file` | **与 tid 同源**：tid 来自 spec ⇒ 用 spec 的 token_file；tid 来自门户 ⇒ 用 `var/.global_token` 并**显式告警“spec 里的令牌属于别场、已忽略”** |
+| 输出 | 先打 **`目标：tid=… token_file=… (来源)`**，再 GET 校验，最后才 POST（错配对绝不会误打） |
+
+**实测**（全部 `--status` 只读）：裸跑 ⇒ `tid=t_6266386bfd56`（四测）+ `.global_token`，API 回 **`403 not a participant`**（我们还没报名 —— 语义正确）；
+显式传参 ⇒ 同样结果。★ 新事实：全局令牌对该 tid 的报文是 **`not a participant`**（而非无权限）
+⇒ **先在门户报名是前提**；这与 `var/_fourth_test_entry.py`（`POST /portal/api/tournaments/<tid>/token`）设计一致。
