@@ -25902,3 +25902,14 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     **rc=0**；它自动选中 `C:\windows\System32\WindowsPowerShell\v1.0\powershell.exe`，**3 个任务重注册均 rc=0**；
     重查参数：**strategy=speedvalue / AllowNotReady=True / tid=True 全在** ✓（顺带把 15:05 那一步**真正预演**了一次）。
   - ⑤ **闭包门又立功**：`_ps.py` 是新依赖 ⇒ 门报“不在清单上” ⇒ 补入 ⇒ **`$opsScripts` 43 → 44**。
+
+- [R1380 | 2026-09-24 14:5x ★★★★**“PATH 依赖”整类审计：`pwsh` 是**唯一**缺失项（已修），脚本对 PATH 的依赖已归零**]
+  - ① **用“注册表 PATH”（= 计划任务继承的环境）逐个去查我们会用到的外部程序：
+    `python` ✓ / `pythonw` ✓ / `git` ✓ / `cmd` ✓ / `powershell`（5.1）✓ / `nvidia-smi` ✓；
+    **`pwsh` ✗ 不可见**（唯一）—— 即 R1379 修的那个。
+  - ② **全量审计 44 个待发布脚本里“按裸名调用外部程序”的地方**（`subprocess.run/Popen/check_output/call`、`os.system/popen`）：
+    **命中 = 0 处** ✓。
+  - ③ **拉起进程的地方全部用 `sys.executable`**（绝对路径）：
+    `_ensure_all.py` / `_watchdog.py` / `tools/ab_ctl.py` / `_official_guard.py` 逐个查过 ✓。
+  - ⇒ **结论：脚本对 PATH 的依赖已归零**（除 `_ps.py` 那个**带 5.1 回退**的解析器）；
+    这是对 R1379 那类“**只在真实执行环境才暴露**”缺陷的**类级封口**，而不是修一个算一个。

@@ -4009,3 +4009,20 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 
 **决定性验证**：用**注册表 PATH**（`where pwsh` rc=1）跑修后的预检 ⇒ **rc=0**，自动选中 5.1，**3 任务重注册 rc=0**，
 参数 `strategy=speedvalue` / `AllowNotReady=True` / `tid` **全在** ✓。闭包门随即抠出新依赖 `_ps.py` ⇒ **`$opsScripts` 44**。
+
+### V.150 ★★★★ “PATH 依赖”整类审计（R1380）
+
+用**注册表 PATH**（计划任务继承的环境）逐个查：
+
+| 程序 | 在注册表 PATH | 备注 |
+|---|---|---|
+| `python` / `pythonw` | ✓ | 用户自装 Python312 |
+| `git` | ✓ | Git for Windows |
+| `cmd` / `powershell`(5.1) | ✓ | System32 |
+| `nvidia-smi` | ✓ | System32 |
+| **`pwsh`** | **✗** | **唯一缺失** ⇒ R1379 已用 `_ps.py` 回退 5.1 |
+
+**44 个待发布脚本里“按裸名调用外部程序”的地方 = 0 处**；
+拉起进程全部用 `sys.executable`（`_ensure_all` / `_watchdog` / `ab_ctl` / `_official_guard` 逐个查过）。
+
+⇒ **脚本对 PATH 的依赖已归零**（除那个带回退的 `_ps.py`）。
