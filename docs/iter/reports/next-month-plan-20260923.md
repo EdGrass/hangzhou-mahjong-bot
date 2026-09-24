@@ -3399,3 +3399,17 @@ python -X utf8 tools/hu_gap_split.py 0 --dirs 4test_rooms
 
 **语义提醒（对 10/10）**：上面 ④ 在**无 `.official_mode` 时是 dormant**（exit 0 + 警告）；**切换完成后它变成真门禁** ——
 那时它会比对 **spec ↔ 正在跑的官方 `run_bot --strategy`**（及 keeper 残留），FAIL 就说明官方链跑的策略与声明不一致，当场可修。
+
+### V.115 ★★★★★ `var/_bsegment.py`：B 段一键执行（R1341）
+
+```powershell
+python -X utf8 var/_bsegment.py                    # dry-run：只打印五步
+python -X utf8 var/_bsegment.py --go               # 真执行（人工起役）
+```
+
+五步：`ab_ctl stop（等自然结束）→ 空档 → _apply_p0_404 --go → preflight（非 READY 则停）→ _switch_campaign --go（解析起役时间戳）
+→ _register_campaign3_watches -Since <同一个时间戳> -Go`。
+
+**写脚本时自己抓到的 bug（已修并验证）**：时间戳解析若对**整个输出**做正则搜索，会先命中
+“台账残留”列里的**旧时间戳**（样本里是 2026-09-10），把看护注册到错误 `since`。现在只在“起役时间戳”
+那一行内匹配，并用**含干扰的真实形状样本**验证 ⇒ 解析出 `2026-09-24 10:37:17` ✓。
