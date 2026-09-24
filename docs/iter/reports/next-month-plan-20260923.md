@@ -3680,3 +3680,22 @@ python -X utf8 var/_apply_p0_404.py --go                    # 副本（CRLF）�
 | 公网副本全量（未打补丁、CRLF） | **839 条 · OK（skipped=55）· 50s**；已追踨 613 文件 |
 
 README 已标注 `var/_keeper_strategy.txt` / `var/.official_spec.json` / `logs/` 为**运行时生成**。
+
+### V.130 ★★★ 役 3 起役就绪体检实测（R1358，2026-09-24 13:07）
+
+```powershell
+python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
+  --prereg docs/iter/reports/prereg-campaign3-speedvaluebc-20260924.md `
+  --prereg docs/iter/reports/prereg-campaign7-speedvaluebaotouv-20260924.md
+```
+
+| 项 | 结果 |
+|---|---|
+| [1] 臂（注册/可实例化/模型在场/有单测） | `speedvaluebc` ✅ · `speedvaluebaotouv5` ✅ |
+| [2] 预登记（两份） | ✅ ✅（且均已入仓） |
+| [3] 复盘覆盖 | 未传 `--since` ⇒ 跳过（B 段会传） |
+| [4] 在打闸门 | ⏳ **正确拦住**（pid=44976 / room=a_e5252fedf85a） |
+| [5] 指南版本/冒烟 | 唯一 **❌ v35**（预期；R1353 已预演落地即绿） |
+
+**结论**：役 3 起役**除 P0 补丁外无隐藏缺口**。`_switch_campaign.py` dry-run 实测**先校验后动手**（从进程表拦住在打局；rc=2；`.ab_mode`/台账零改动），
+命令构造 = `ab_ctl start speedvalue,speedvaluebc,speedvaluebaotouv5 1 --bundles=speedvalue --started=<now>`。

@@ -25590,3 +25590,17 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - 公网副本（未打补丁、CRLF）：全量 ⇒ **839 条 · OK（skipped=55）· 50s**；已追踨 **613** 文件。
   - skip 增量来源：+2 条 = P0 新契约（未打补丁）；+1 条 = 文案-代码版本门（补丁未落地时跳过）。
   - **README 标注**：`var/_keeper_strategy.txt` / `var/.official_spec.json` / `logs/` 均为**运行时生成** ⇒ 判官刚 clone 下来找不到它们属正常（先前说明里没说，容易误以为“缺文件”）。
+
+- [R1358 | 2026-09-24 13:0x ★★★**役 3 起役的“最后一块拼图”实测：除 P0 补丁外无隐藏缺口（全程只读/dry-run，战役未被动）**]
+  - ① **`_campaign_ready.py` 就绪体检（真跑，13:07）**：
+    `--arms speedvaluebc,speedvaluebaotouv5 --prereg …bc… --prereg …baotouv…` ⇒
+    **[1] 臂：`speedvaluebc` ✅ / `speedvaluebaotouv5` ✅**（注册+可实例化+模型在场+有单测）；
+    **[2] 预登记：两份均 ✅**（且两份都已入仓：`prereg-campaign3-speedvaluebc-20260924.md`、`prereg-campaign7-speedvaluebaotouv-20260924.md`）；
+    [3] 复盘覆盖：未传 `--since` ⇒ 跳过（B 段会传）；**[4] 在打闸门：⏳ 正确拦住**（pid=44976 / room=a_e5252fedf85a）；
+    **[5] 指南版本/冒烟：唯一 ❌ = v35 BREAKING 未落补丁**（R1353 已预演：落了就绿）。
+    ⇒ **役 3 起役除 P0 补丁外没有隐藏缺口**，与 plan §V.75 线 1329 的“⑤v35 ❌（**预期**）”一致。
+  - ② **`_switch_campaign.py` dry-run（役 3 真参数）**：程序**先校验后动手**得到验证——
+    它从**进程表**（不只台账）发现在打的局 ⇒ **rc=2 中止、未执行任何动作**；实测 `.ab_mode` **散列值不变**、台账字节不变 ✓。
+    命令构造也核对一致：`ab_ctl start speedvalue,speedvaluebc,speedvaluebaotouv5 1 --bundles=speedvalue --started=<now>`（§V.111）。
+  - ③ **意义**：B 段只有 ~25 秒窗口，而它的三件事（役判词→P0 补丁→切役）现在**都有现场证据**：
+    役判词端点+功率预算（R1351）、P0 副本预演（R1353）、切役 dry-run 与就绪体检（R1358）⇒ 剩下只等**数据到 80/臂**。
