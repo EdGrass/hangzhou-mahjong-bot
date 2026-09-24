@@ -65,13 +65,75 @@ def last_sig(path):
         return None
 
 
+def report(path):
+    """把 `4test_detail.jsonl` 读成人看的报告：时间线 + 我方名次 + 分数分布。"""
+    if not os.path.exists(path):
+        print("台账不存在：%s" % path)
+        return 2
+    recs = []
+    with io.open(path, encoding="utf-8") as fh:
+        for ln in fh:
+            ln = ln.strip()
+            if not ln:
+                continue
+            try:
+                recs.append(json.loads(ln))
+            except Exception:
+                pass
+    if not recs:
+        print("台账为空：%s" % path)
+        return 2
+    print("快照 %d 条：%s" % (len(recs), path))
+    print("%-19s %-12s %-10s %-10s %6s %6s %8s %8s" %
+          ("ts", "status", "stage", "qualified", "榜数", "我局", "我rank", "我分"))
+    for r in recs:
+        st = r.get("stage")
+        stn = st.get("name") if isinstance(st, dict) else st
+        me = r.get("me") or {}
+        print("%-19s %-12s %-10s %-10s %6s %6s %8s %8s" %
+              (r.get("ts"), r.get("status"), stn or "-", r.get("qualified"),
+               r.get("n_ranking"), r.get("n_my_games"),
+               me.get("rank"), me.get("total_score")))
+    last = recs[-1]
+    rank = last.get("ranking") or []
+    me = last.get("me") or {}
+    if rank:
+        scores = [x.get("total_score") for x in rank if isinstance(x.get("total_score"), (int, float))]
+        pos = sum(1 for x in scores if x > 0)
+        neg = sum(1 for x in scores if x < 0)
+        print("\n最后快照名次分布：榜上 %d 人；正分 %d 人，负分 %d 人，零分 %d 人" %
+              (len(rank), pos, neg, len(scores) - pos - neg))
+        if scores:
+            print("分数：max=%s  min=%s  中位=%s" %
+                  (max(scores), min(scores), sorted(scores)[len(scores) // 2]))
+        if me.get("rank"):
+            print("我方：rank %s / %d（前 %.1f%%） total_score=%s place_points=%s god_count=%s games_played=%s" %
+                  (me.get("rank"), len(rank), 100.0 * me["rank"] / max(1, len(rank)),
+                   me.get("total_score"), me.get("place_points"), me.get("god_count"), me.get("games_played")))
+        print("\n前 5 名：")
+        for x in rank[:5]:
+            print("  #%s  score=%-6s place=%-5s god=%-4s games=%-4s %s" %
+                  (x.get("rank"), x.get("total_score"), x.get("place_points"),
+                   x.get("god_count"), x.get("games_played"), x.get("user_id")))
+    else:
+        print("\n（最后快照里 ranking 为空 —— 开赛前属正常）")
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tid", required=True)
-    ap.add_argument("--token-file", required=True)
+    ap.add_argument("--tid", default="")
+    ap.add_argument("--token-file", default="")
+    ap.add_argument("--report", action="store_true",
+                    help="不联网：把本地台账读成“名次/分数演变 + 分布”报告")
     ap.add_argument("--out", default=os.path.join(ROOT, "var", "4test_detail.jsonl"))
     ap.add_argument("--force", action="store_true")
     a = ap.parse_args(argv)
+    if a.report:
+        return report(a.out)
+    if not a.tid or not a.token_file:
+        print("需要 --tid 与 --token-file（或用 --report 读本地台账）")
+        return 2
     try:
         tok = io.open(a.token_file, encoding="utf-8-sig").read().strip()
     except Exception as e:

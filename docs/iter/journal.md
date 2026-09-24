@@ -26039,3 +26039,17 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     两个任务的动作**原样各跑一次**均 rc=0、输出落 `_4test_detail.out` / `_4test_replayfetch.out`；触发 XML `PT10M/PT4H45M` 与 `PT30M/PT8H`；
     两个注册脚本与新 py 一并补进 `$opsScripts`（闭包门要求）。
   - ⑥ 红线：全部只读 GET + 追加；不杀进程、不改 `bot/`、不碰在途 A/B。
+
+- [R1392 | 2026-09-24 14:4x ★★★**四测读数闭环：台账能直接读成“名次分布 + 我方 percentile”，并写成一屏读数卡**]
+  - ① `var/_4test_watch_detail.py` 新增 **`--report`**（纯本地读台账，不联网）：
+    时间线（status/stage/qualified/榜数/我方局数/我方名次/分数）+ 末次快照的**名次分布**（正/负/零分人数、max/min/中位）+ **我方 percentile** + 前 5 名。
+    用合成的 2 条台账实测渲染：`榜上 3 人；正分 2 人，负分 1 人`、`rank 2 / 3（前 66.7%）`、前 5 名逐行打印 ✓（临时文件已清）。
+  - ② 新增 `docs/iter/reports/4test-readout-card-20260924.md`（**一屏**）：赛制口径（`Rounds=16` ⇒ **分/房 ÷2**；率类与分/轮不换算）、
+    三个自动任务与产物表、**赛后 4 步照抄命令**（读台账 → 查复盘补齐 → `hu_gap_split --dirs 4test_rooms` → 回到役 2 判词）、红线。
+    卡片里每条命令都对过工具真实参数（`hu_gap_split --dirs` 是**相对 `var/replays/` 的 glob 且读 `*.json`** ⇒ 与 `fetch_tournament_replays --out var/replays/4test_rooms` 落盘格式对得上）。
+  - ③ 顺手核实官方自愈链的“参数来源”三处一致（写清以免重复推导）：
+    ① `_switch_to_official.ps1` 用 `[IO.File]::WriteAllText(..., UTF8Encoding($false))` 写 `.official_spec.json`（**无 BOM**，R1344 修复在位，现存文件实测无 BOM）；
+    ② `_ensure_all.official_argv()` 与 `_official_guard` 均按 `utf-8-sig` 读；
+    ③ `_official_keepalive.write_spec()` 在起 `run_bot` **之前**把 spec 重写成**带 `ts`** 的版本 ⇒ `_official_guard.spec_freshness(12h)` 在 keepalive 起来后即正常。
+    已知且**故意保留**的窄窗：switch 写的 spec **无 `ts`**，若 switch 在“哨兵已写、keepalive 未起”之间挂掉，60s 守卫会拒绝自愈，
+    落到 `_ensure_all` 的 5 分钟兜底链（R1214 的取舍）⇒ **四测前不动它**，赛后再考虑给 switch 的 spec 补上 `ts`。
