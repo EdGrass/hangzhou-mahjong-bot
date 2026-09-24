@@ -54,7 +54,27 @@ from fetch_room_replays import Fetcher, _cookie  # noqa: E402
 LEDGER = os.path.join(ROOT, "var", "auto_ranking.jsonl")
 RECENT = os.path.join(ROOT, "var", "replays", "recent")
 LOG = os.path.join(ROOT, "var", "_replay_guard.log")
-DEFAULT_SINCE = "2026-09-23 03:13:44"      # 役 2 起点；换役时用 --since 覆盖或改这里
+DEFAULT_SINCE = "2026-09-23 03:13:44"      # 役 2 起点（仅作回退）
+AB_MODE = os.path.join(ROOT, "var", ".ab_mode")
+
+
+def default_since(ab_path=None):
+    """默认只补**当前战役**的房：从 `var/.ab_mode` 取 `started`；读不到才回退历史常量。
+
+    为什么（R1427）：旧实现把役 2 起点写成默认，而计划任务**不传参** ⇒
+    下一役开始后看护会一直只补役 2 的旧房，**新役的复盘永远不补** ⇒ 判词因覆盖 <70% 而 REFUSE。
+    """
+    path = ab_path or AB_MODE
+    try:
+        import json as _json
+        with io.open(path, encoding="utf-8-sig") as fh:
+            st = (_json.load(fh) or {}).get("started")
+        if st:
+            return str(st)
+    except Exception:
+        pass
+    return DEFAULT_SINCE
+      # 役 2 起点；换役时用 --since 覆盖或改这里
 ROUNDS_PER_GID = 8                        # 实证：recent 抽样 4000 个 gid **全部** 8 轮（R1171）
 
 
@@ -177,7 +197,7 @@ def fetch_room(f, room, gids, dirpath, gap, budget_left, dry_run=False):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--since", default=DEFAULT_SINCE, help="只补该时间之后的房（台账 ts）")
+    ap.add_argument("--since", default=default_since(), help="只补该时间之后的房（默认=当前战役 .ab_mode.started）")
     ap.add_argument("--max-fetch", type=int, default=120, help="单次运行最多请求多少个 gid")
     ap.add_argument("--max-minutes", type=float, default=6.0, help="单次运行墙钟上限（分钟）")
     ap.add_argument("--gap", type=float, default=1.2, help="每请求最小间隔秒")

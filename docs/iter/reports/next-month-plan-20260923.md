@@ -4651,3 +4651,21 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 ```
 
 验证：直接调用 `marker_text()` 输出正确 ✓；`tests/test_switch_final_marker.py` **2 项全过**（含“命令行里不得出现 -AllowNotReady”的防护）✓。
+
+
+---
+
+### §V.177 又一个“旧默认值”类型的真隐患：`_replay_guard` 默认只补**役 2**的旧房（★ 关键路径）
+
+**问题链（逐环已核）**
+
+1. `var/_replay_guard.py` 的 `DEFAULT_SINCE = "2026-09-23 03:13:44"`（役 2 起点），而计划任务
+   `HangzhouMajReplayGuard` **不传参**（动作里没有 `--since`）；
+2. ⇒ 役 3 开始后，看护会一直只补**役 2 的 120 房**，**新役的复盘永远不补**；
+3. 而 `_verdict_watch` 的硬门是“**复盘覆盖 ≥ 70%**” ⇒ 役 3 判词会 **REFUSE**；
+4. 而 REFUSE 属于**决定性**判词（写 sentinel），而读卡说 REFUSE ⇒ “本役不采用、进下一役”
+   ⇒ 我的采用守护会把它当“终态”处理 ⇒ **在实际上没有数据的情况下推进下一役**（最坏：整役白跑）。
+
+**修法**：默认窗口改为**跟随当前战役** —— `default_since()` 从 `var/.ab_mode` 取 `started`；读不到/破损/空值 才回退历史常量。
+任务不用改参数，换役自动跟随。新增 `tests/test_replay_guard_since.py` **4 项全过**；
+`--dry-run` 即时显示：“战役房 **119** 个，其中未覆盖 **1** 个（a_8e389a54be53, 18:55）” ⇒ 新房已在待补列表里 ✓。
