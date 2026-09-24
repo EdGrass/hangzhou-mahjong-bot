@@ -270,10 +270,10 @@ Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'run_bot\.p
 | 切换点 | 附加动作 | 预期产出 |
 |---|---|---|
 | **役 2 起役时** | `python -X utf8 var/_prep_window_instrument.py`（**零行为变更**，只给决策日志加 `rnd`/`age_ms`） | 役 2 判词 **+ `age_ms` 基线（预期 p50 ≈1.2s）** |
-| **役 3 起役时** | `python -X utf8 var/_prep_hybrid_state.py` 然后在启动时设 **`HM_HYBRID_STATE=1`** | 役 3 判词 **+ 捕获率/`age_ms` 改善**（质量中性；两臂同一客户端 ⇒ A/B 仍有效） |
+| ~~**役 3 起役时**~~ | ~~`python -X utf8 var/_prep_hybrid_state.py` 然后设 **`HM_HYBRID_STATE=1`**~~  ——⚠ **已否决并关闭（不得在赛前重开）**：hybrid `/state` 实测 p50 744→3768ms（登记竞态）⇒ 客户端已定终态（见本文 §9.1） | —— **不做** |
 
 - 两个补丁器都是**幂等 + fail-closed**（检测到在役进程或新鲜房日志即 REFUSE），且都已在**副本**上彩排通过。
-- **开关（役 3 起役时）**：推荐**哨兵文件** `var/.hybrid_state`（与 `.official_mode` 同约定，**自愈重启也不会丢**）；
+- ~~**开关（役 3 起役时）**~~ ——⚠ **已否决并关闭（不得在赛前重开）**：hybrid `/state` 实测 p50 744→3768ms（登记竞态）⇒ 不做（见 §9.1）。原文保留：推荐**哨兵文件** `var/.hybrid_state`（与 `.official_mode` 同约定，**自愈重启也不会丢**）；
   也可用 `$env:HM_HYBRID_STATE="1"`（仅对当次由该 shell 启动的进程生效 —— 自愈链会重启进程且**不带 env**，届时开关会静默失效）。
 - 验证（工程效果）：`python -X utf8 var/_window_age_report.py`（分类）+ `python -X utf8 var/_window_match_content.py`（捕获率）
   → 目标 **捕获率 ≥90%**、`age_ms` p50 ~1.2s→~0.6s、**409 不升**、真机和牌率 z≥1.50。
