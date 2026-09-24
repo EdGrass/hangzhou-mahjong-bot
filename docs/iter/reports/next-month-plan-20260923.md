@@ -3965,3 +3965,19 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 
 ⇒ **16 轮房不需要改代码**；唯一影响是“分/房”的**单位**（§V.145 的 2× 警示）。
 率类监控口径与 1s/3s 窗口预算也**不受轮数影响**。
+
+### V.147 ★★★★ “决策证据链”工具补入仓（R1377）：`37 → 43`
+
+判词读卡里叫操作员跑的三个关键工具此前**未入仓**：
+
+| 工具 | 用途 | 依赖 |
+|---|---|---|
+| `var/_pick_arm.py` | 10/5–10/6 最终选臂主序列 | — |
+| `var/_seat_h2h.py` | 两半 Pareto 的 **B 半**（同席 TOP32） | — |
+| `var/_format_fidelity.py` | 每场赛前的**赛制保真核对** | — |
+
+补入后**闭包门自动抠出 3 个传递依赖**：`var/_lowprio_run.py`、`var/_gang_now.py`、`var/_m10_latency_gate.py`
+⇒ **`$opsScripts` 43**。文档引用门同步扩到**判词读卡**（runbook 不纳入：它引用的是内部研究工具）。
+
+**为什么**：这三个是**决策证据链**（选臂/破平/赛制）而非运行时链；缺了它们，提交的仓**复现不了我们的决策**。
+**验证**：`test_submission_closure` 五项可过；`ops=43`；`-Go` 暂存恰好 6 新脚本 + 2 改动。

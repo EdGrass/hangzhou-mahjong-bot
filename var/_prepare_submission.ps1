@@ -48,7 +48,14 @@ $opsScripts = @(
   "var/_enter_event.py",
   "var/_bsegment.py",
   "var/_switch_campaign.py",
-  "var/_campaign_ready.py",     # ★ R1355：README/参赛说明都叫用户跑它做自检（此前未入仓 ⇒ clone 里“文件不存在”）
+  "var/_campaign_ready.py",
+  "var/_m10_latency_gate.py",  # ★ R1377：闭包依赖 —— M=10 延迟门禁（役前必跑）
+  "var/_gang_now.py",  # ★ R1377：闭包依赖 —— 杠频读数（选臂包⑥）
+  "var/_lowprio_run.py",  # ★ R1377：闭包依赖 —— 低优先运行包装器（读卡命令用）
+  "var/_format_fidelity.py",     # ★ R1377：赛前赛制保真核对（Rounds/Kind/OnlineConfirm 等）
+  "var/_pick_arm.py",            # ★ R1377：10/5–10/6 最终选臂主序列（强手房分/房 + 不可区分判定）
+  "var/_seat_h2h.py",            # ★ R1377：两半 Pareto 的 B 半（同席 TOP32：赢分/轮、番/胡、爆头/胡、副露/轮）
+     # ★ R1355：README/参赛说明都叫用户跑它做自检（此前未入仓 ⇒ clone 里“文件不存在”）
   "var/_apply_p0_404.py",
   "var/_4test_gate_precheck.py",
   "var/_daily.py",

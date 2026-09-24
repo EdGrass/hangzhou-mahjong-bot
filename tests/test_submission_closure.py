@@ -111,7 +111,10 @@ class TestSubmissionClosure(unittest.TestCase):
         （运行期**状态**文件如 `_keeper_strategy.txt` / `.official_spec.json` 不在本门范围：它们由程序运行时生成）。
         """
         ops = set(ops_list())
-        docs = ["README.md", "docs/申报正文-最终.md", "docs/参赛说明.md"]
+        # ★ R1377：加上「判词读卡」——它是操作员要照着跑的卡，它引用的 var 脚本必须真的在仓里；
+        #   （`docs/iter/reports/competition-runbook-*.md` 不纳入：它引用的是**内部研究工具**，不属于“能不能接入平台”的证据）
+        docs = ["README.md", "docs/申报正文-最终.md", "docs/参赛说明.md",
+                "docs/iter/reports/yaku2-verdict-readcard.md"]
         rx = re.compile(r"(var/[A-Za-z_0-9]+[.]ps1|var/[A-Za-z_0-9]+[.]py)")
         bad = []
         for d in docs:
