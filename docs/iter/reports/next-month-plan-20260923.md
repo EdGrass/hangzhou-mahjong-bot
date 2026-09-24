@@ -3327,3 +3327,15 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 | 真跑演练 | 闸门臂 ⇒ 在 rules_guard 处 throw，**零副作用**（official/ab/keeper/4 进程全未变） |
 
 ⇒ 若正式赛把 `YouCaiBiKao` 置 true，只需把 `-Strategy` 换成 `<arm>ycbk`（已注册）。
+
+### V.109 ★★★★ 四测当天的**完整自动时间表**（R1333）
+
+| 时间 | 任务 | 作用 |
+|---|---|---|
+| **15:05** | `HangzhouMaj4TestGatePrecheck` | 读 `YouCaiBiKao` ⇒ 把 3 个切换任务的 **`-Strategy` 正确化**（true⇒`speedvalueycbk`，false⇒`speedvalue`） |
+| **15:20 / 15:40 / 15:50** | `HangzhouMaj4TestSwitch[Retry|Last]` | 三道切换（停 A/B→官方模式→keepalive），`-AllowNotReady` |
+| **15:55** | `HangzhouMajTminusReady` | T-2min 重报 `/ready` |
+| **16:00** | — | 开赛 |
+| **19:00 / 21:00 / 22:30 / 00:30** | `HangzhouMajAfter4Test[2-4]` | 退官方模式 + **原窗口**恢复役 2 |
+
+预检的逻辑：“该用哪个臂”= config 的确定性函数（不需人工判断）；**读不到 config 就不动任何任务**。
