@@ -51,6 +51,13 @@ def get(path, token, cookie="", tries=3):
 def game_ids_from_detail(detail):
     out = []
     def take(obj):
+        # ★ R1395：四测真数据首跑才发现：`my_games` 是**字符串 gid 列表**
+        #   （实测 `['t_6266386bfd56_b1_t17', ...]`），而旧代码只处理 dict 元素
+        #   ⇒ “从锦标赛详情取到 gid=0 个”，复盘**一张都拉不到**。这里把字符串当 gid 直接收下。
+        if isinstance(obj, str):
+            if obj and obj not in out:
+                out.append(obj)
+            return
         if isinstance(obj, dict):
             for k in ("game_id", "gid", "id"):
                 v = obj.get(k)
