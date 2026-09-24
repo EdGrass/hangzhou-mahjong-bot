@@ -3257,3 +3257,20 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 
 **实测**：正常路径给出 `speedvalue` −35.4(n=34) vs `speedc151` −40.2(n=117)；负控（stub 无榜单）⇒ **rc=2**；
 `--allow-no-board` ⇒ rc=0 + 警告（表内强手列为 0/nan）。
+
+### V.104 ★★★★★ 四测入场已完成（R1327）—— **报名/到位/定时切换/保险全部就位**；发现赛事赛制 3 项差异
+
+**入场端点（新知识）**：报名 = **`POST /portal/api/tournaments/<tid>/register`**（GET→405）；
+`POST …/token` 只是取已有赛事令牌（未报名→403 `not a participant`）。
+
+| 步骤 | 结果 |
+|---|---|
+| 报名 | 200 `{registered:true}` |
+| 令牌 | `var/.token_4test_20260924`（已验证可读赛事 config） |
+| 到位 | `ready={'ready':True}`（ready 人数 3→4） |
+| 定时切换 | 15:20 主 + 15:40 重试（一次性；动作已用同样 wrapper + `-DryRun` 实跑验证） |
+| T-2min 保险 | 15:55 重报 /ready |
+
+**赛制差异（四测 config vs 训练基线）**：`Rounds` **8 → 16**（赛事每房 2× 局数）、`Kind` **auto → ""**（锦标赛分阶段）、
+`OnlineConfirm` **false → true**（分桌实到）；M/BaseScore/三个窗口时限/YouCaiBiKao 一致。
+⇒ 策略结论（按决策/轮）可迁移；**分/房类读数不可跨格式直接比**；10/10 若同格式则 §V.57 的“重算 MDE/方差”为必做项。
