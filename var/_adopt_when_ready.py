@@ -56,6 +56,62 @@ def last_verdict_line(text):
     return hit
 
 
+def verify_campaign(baseline, candidates):
+    """B 段之后的硬校验：(.ab_mode 臂集) + (驱动在跑) + (两对判词看护已注册)。
+
+    为什么：自动链不能“发完就算完”。若切役后驱动没起来、或看护没注册，
+    表面上 rc=0，但役会静默停摆或判词永远不出。本函数把这三件事变成返回值。
+    """
+    import json as _json
+    out = []
+    ok = True
+    # 1) 窗口与臂
+    try:
+        cfg = _json.loads(io.open(os.path.join(ROOT, "var", ".ab_mode"), encoding="utf-8-sig").read())
+    except Exception as e:
+        return False, ["读 .ab_mode 失败：%s" % str(e)[:60]]
+    if isinstance(cfg.get("arms"), list):
+        arms = [str(x) for x in cfg["arms"]]
+    else:
+        arms = [x for x in (cfg.get("a"), cfg.get("b")) if x]
+    want = [baseline] + [x for x in candidates if x]
+    missing = [x for x in want if x not in arms]
+    extra = [x for x in arms if x not in want]
+    if missing or extra:
+        ok = False
+        out.append("臂集不符：期望 %s，实际 %s（缺 %s / 多 %s）" % (want, arms, missing, extra))
+    else:
+        out.append("臂集正确：%s" % arms)
+    # 2) 驱动
+    try:
+        import psutil
+        alive = []
+        for pr in psutil.process_iter(["pid", "cmdline"]):
+            cl = " ".join(str(x) for x in (pr.info.get("cmdline") or []))
+            if "_ab_driver.py" in cl or "match_super.py" in cl:
+                alive.append(pr.info.get("pid"))
+        if alive:
+            out.append("驱动/监督在跑：%s" % alive)
+        else:
+            ok = False
+            out.append("未检测到 _ab_driver/match_super（役可能没起来）")
+    except Exception as e:
+        out.append("进程检查跳过：%s" % str(e)[:40])
+    # 3) 两对看护任务
+    for t in ("HangzhouMajVerdictWatch3bc", "HangzhouMajVerdictWatch3v"):
+        try:
+            rc = subprocess.run(["schtasks", "/query", "/tn", t],
+                                capture_output=True, timeout=30).returncode
+        except Exception:
+            rc = -1
+        if rc == 0:
+            out.append("看护已注册：%s" % t)
+        else:
+            ok = False
+            out.append("看护缺失：%s（rc=%s）" % (t, rc))
+    return ok, out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--label", default="役2")
@@ -108,6 +164,12 @@ def main(argv=None):
     tail = "\n".join((p.stdout or "").strip().splitlines()[-6:])
     log("B 段 rc=%s：\n%s" % (rc, tail))
     if rc == 0:
+        vok, vlines = verify_campaign(a.baseline, [x for x in a.candidates.split(",") if x])
+        for _l in vlines:
+            log("  校验：" + _l)
+        if not vok:
+            log("!! B 段 rc=0 但校验未过 ⇒ 不写 marker（需人工看上面几行）")
+            return 2
         try:
             with io.open(marker, "w", encoding="utf-8") as f:
                 f.write(time.strftime("%Y-%m-%d %H:%M:%S") + " adopted\n")
