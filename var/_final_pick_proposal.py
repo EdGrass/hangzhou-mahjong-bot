@@ -24,6 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AB = os.path.join(ROOT, "var", ".ab_mode")
 OUT = os.path.join(ROOT, "var", "_final_pick_proposal.txt")
 LOG = os.path.join(ROOT, "var", "_final_pick_proposal.log")
+LEDGER = os.path.join(ROOT, "var", "auto_ranking.jsonl")
 
 
 def main():
@@ -31,17 +32,47 @@ def main():
     ap.add_argument("--min-rooms", type=int, default=30)
     ap.add_argument("--strong-top", type=int, default=32)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--fallback-days", type=int, default=12,
+                    help="无 .ab_mode（役已收口）时的回退窗口（天）；默认 12 覆盖整段战役")
     a = ap.parse_args()
+    fallback = False
     if not os.path.exists(AB):
-        print("\u65e0 `.ab_mode`\uff08\u6ca1\u6709\u5728\u8dd1\u7684\u6bb5\uff09\u21d2 \u4e0d\u51fa\u63d0\u6848")
-        return 0
-    cfg = json.loads(io.open(AB, encoding="utf-8-sig").read())
-    if isinstance(cfg.get("arms"), list):
-        arms = [str(x) for x in cfg["arms"]]
+        # ★ R1450：役收口后 ab_ctl.stop 会**删** .ab_mode ⇒ 不能因此"不出提案"
+        #   （否则 10/5 那天的选臂输入直接没了）。退回"最近 N 天"窗口，并**显式标注**是回退口径。
+        fallback = True
+        t0 = time.time() - a.fallback_days * 86400
+        started = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t0))
+        arms, baseline = [], ""
     else:
-        arms = [x for x in (cfg.get("a"), cfg.get("b")) if x]
-    started = str(cfg.get("started") or "")
-    baseline = str((cfg.get("bundles") or arms[:1])[0])
+        cfg = json.loads(io.open(AB, encoding="utf-8-sig").read())
+        if isinstance(cfg.get("arms"), list):
+            arms = [str(x) for x in cfg["arms"]]
+        else:
+            arms = [x for x in (cfg.get("a"), cfg.get("b")) if x]
+        started = str(cfg.get("started") or "")
+        baseline = str((cfg.get("bundles") or arms[:1])[0])
+    if not arms:
+        # 回退口径下，臂集由台账推出（房数 >= min_rooms），供头行与分层读数使用
+        cnt = {}
+        try:
+            for ln in io.open(LEDGER, encoding="utf-8", errors="ignore"):
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    d = json.loads(ln)
+                except Exception:
+                    continue
+                if d.get("status") != "finished" or (d.get("ts") or "") < started:
+                    continue
+                st = d.get("strategy")
+                if st:
+                    cnt[st] = cnt.get(st, 0) + 1
+        except Exception:
+            pass
+        pairs = sorted(cnt.items(), key=lambda kv: -kv[1])
+        arms = [k for k, v in pairs if v >= a.min_rooms]
+
     cmd = [sys.executable, "-X", "utf8", os.path.join(ROOT, "var", "_pick_arm.py"),
            "--since", started, "--min-rooms", str(a.min_rooms), "--strong-top", str(a.strong_top)]
     p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,

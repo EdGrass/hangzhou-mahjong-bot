@@ -95,6 +95,14 @@ class TestConfirmScriptInvariants(unittest.TestCase):
         self.assertIn("不降级", s)
         self.assertIn("--refresh", s)
 
+    def test_fallback_when_no_ab_mode(self):
+        # R1450：役收口会删 .ab_mode ⇒ 提案不能因此什么都不出（必须有回退窗口口径）
+        src = read(os.path.join(ROOT, "var", "_final_pick_proposal.py"))
+        self.assertIn("--fallback-days", src)
+        self.assertIn("fallback = True", src)
+        self.assertIn("回退口径", src)
+
+
 
 @unittest.skipUnless(os.path.exists(os.path.join(ROOT, "var", "_final_pick_proposal.py")),
                      "var/ 不在仓库里（gitignore）")
