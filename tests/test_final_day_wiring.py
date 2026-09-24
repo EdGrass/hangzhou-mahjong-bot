@@ -165,5 +165,25 @@ class TestGate2LowersPriority(unittest.TestCase):
         self.assertIn("[gate2]", src, "必须打印降级结果（便于日志核对）")
 
 
+@unittest.skipUnless(os.path.exists(os.path.join(ROOT, "var", "_strong_veto.py")),
+                     "var/ 不在仓库里（gitignore）")
+class TestReplayHeavyToolsLowerPriority(unittest.TestCase):
+    """R1459：会读上百份复盘的自动化工具必须自我降优先级。
+
+    尤其是 `_strong_veto`：它在**判词那一刻**由 `_adopt_pair` 自动调用，若与正在打的对局抢 CPU，
+    会抬高提交延迟、丢动作（R1182 实测）⇒ 既扰动正在判的数据、又实打实丢分。
+    """
+
+    def test_strong_veto_lowers_self(self):
+        src = read(os.path.join(ROOT, "var", "_strong_veto.py"))
+        self.assertIn("lower_self", src)
+        self.assertIn("[strong_veto]", src)
+
+    def test_strong_slice_lowers_self(self):
+        src = read(os.path.join(ROOT, "var", "_strong_slice.py"))
+        self.assertIn("lower_self", src)
+        self.assertIn("[strong_slice]", src)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -104,6 +104,14 @@ def classify(path, tops):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", required=True)
+    # ★ R1459：本工具会读**上百份复盘**（且 `_strong_veto` 在判词那一刻会被 `_adopt_pair` **自动调用**）
+    #   ⇒ 不降优先级就会与正在打的对局抢 CPU（R1182：会抬高提交延迟、丢动作）。开跑前自我降到 BelowNormal。
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from _lowprio_run import lower_self
+        print("[strong_slice] %s" % lower_self())
+    except Exception as _e:
+        print("[strong_slice] 降级失败（继续跑）：%s" % str(_e)[:60])
     ap.add_argument("--topn", type=int, default=32)
     ap.add_argument("--out", default="", help="切片目录名（默认 strong_<slug>）")
     ap.add_argument("--min-elite", type=int, default=1,

@@ -26652,3 +26652,10 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     又实打实丢分**（而我们的 p99 提交延迟本来就 ~1s、p99.9 ~5.6s）。
   - 修：`_gate2.py` 开跑前调用 `_lowprio_run.lower_self()`（同一机制；失败不阻塞），并打印 `[gate2] windows:BELOW_NORMAL` 便于核对。
   - 验证：窄窗口实跑 ⇒ 首行 `[gate2] windows:BELOW_NORMAL` ✓；接线测试 +1。
+
+- [R1459 | 2026-09-25 06:0x ★★**同类修完：`_strong_slice` / `_strong_veto` 也自我降优先级**]
+  - 承接 R1458（`_gate2`）：把"读上百份复盘的自动化工具"都补上降级。
+  - 尤其 **`_strong_veto`**：它在**判词那一刻**由 `_adopt_pair` **自动调用**（强场否决），同时读 ~160 份复盘 ⇒
+    不降级就会与正在打的对局抢 CPU（R1182：抬高提交延迟、丢动作）。
+  - 修：两者开跑前调用 `_lowprio_run.lower_self()`，打印 `[strong_veto]` / `[strong_slice] windows:BELOW_NORMAL`。
+  - 验证：实跑两工具首行即降级提示 ✓（`_strong_veto` 顺带给出当前两层否决读数：≥1 层 56/55 房、z=−0.24 不显著）；接线测试 +2。
