@@ -3312,3 +3312,18 @@ python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 
 
 机制边界：只读历史 `*.dec.jsonl`、只调 `policy.decide(view)`、**逐局面异常均吞掉**；`run_bot` 打一行“预热完成: X/N”后继续
 ⇒ **打开预热不可能使开赛失败**。`--warmup-draws` 单位是局面数（50 局 ≈ 1s）。
+
+### V.108 ★★★★★ 保险孪生臂（`ycbk`）已注册 + “配置翻转”端到端演练（R1332）
+
+`bot/ycbk_twins.py` 里本来就有 4 个 **YouCaiBiKao=true 保险孪生**（含 **`SpeedValueYCBK`** = `speedvalue` 的孪生），
+但**都没注册** ⇒ 配置一旦翻成 true，我们就临场不可用。
+
+| 项 | 结果 |
+|---|---|
+| 注册 | `speedvalueycbk` / `speedgangtakefixedycbk` / `speedmeldmore0chiycbk` / `speedmeldtol2chiycbk` ⇒ 臂数 165→**169** |
+| 全表体检 | **169/169 可实例化, 0 失败** |
+| 单测 | `test_ycbk_fast.py` 6/6、`test_ycbk_twins.py` 4/4 |
+| 双向校验 | false 下：`speedvalue` rc=**0**、`speedvalueycbk` rc=**2**（成对正确） |
+| 真跑演练 | 闸门臂 ⇒ 在 rules_guard 处 throw，**零副作用**（official/ab/keeper/4 进程全未变） |
+
+⇒ 若正式赛把 `YouCaiBiKao` 置 true，只需把 `-Strategy` 换成 `<arm>ycbk`（已注册）。
