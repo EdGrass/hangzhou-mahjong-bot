@@ -1,0 +1,135 @@
+﻿# -*- coding: utf-8 -*-
+# `var/_prepare_submission.ps1` —— **参赛提交物准备与验收**（默认只打印/只检查；-Go 才执行 git 操作）。
+#
+# 为什么单独做：提交要求是"完整可运行的源码 + 使用说明"。而本仓库现状有两个坑：
+#   ① **442 个未追踪文件**（绝大多数 bot/ 臂、documents 都在其中）⇒ 只 push 已追踪内容 = 源码不完整；
+#   ② **模型文件在 var/ 里，而 var/ 被 .gitignore 忽略** ⇒ 必须 `git add -f`，否则源码"看起来完整但臂全退化成 no-op"。
+#
+# 用法：
+#   pwsh -NoProfile -File var/_prepare_submission.ps1                 # 只检查（不碰 git）
+#   pwsh -NoProfile -File var/_prepare_submission.ps1 -Go             # 执行 add/commit（不 push）
+#   pwsh -NoProfile -File var/_prepare_submission.ps1 -CloneVerify    # 额外：clone 到临时目录跑 --smoke
+#
+# 注意：**push 需要你先建好远程仓库**（`git remote add origin <url>`）——本脚本不替你建仓库、也不 push。
+
+param(
+  [switch]$Go,
+  [switch]$CloneVerify,
+  [string]$Root = "D:\hangzhouMaj"
+)
+
+$ErrorActionPreference = "Stop"
+Set-Location $Root
+
+$deliverables = @("requirements.txt", "README.md", "docs/参赛说明.md")
+$models = @(
+  "var/c073_orig_w2_net.pt",     # BC 排序网
+  "var/c121_meld_net.pt",        # 学习副露网
+  "var/c089_ranker_net.pt",      # 教师排序器
+  "var/baotou_v1.pt"             # 爆头可达性 V（★ 新增：早期笔记只写了 3 个模型，现在是 4 个）
+)
+# ★ R1345：**运行期基础设施脚本**（都住在被 .gitignore 忽略的 var/ 里）⇒ 必须单独 `git add -f`。
+#   为什么必须：提交要求是【完整可运行 + 能**接入官方对战平台**】，而这 28 个脚本**正是【接入】那条链**：
+#   keeper/watchdog/ensure_all（自愈）→ _switch_to_official.ps1（切入官方模式）→ _ready_1024.py（POST /ready 到位）
+#   → _official_keepalive.py + _official_guard.py（官方对局与看护）。缺了它们，clone 下来只能跑 run_bot.py，**接不进比赛流程**。
+$opsScripts = @(
+  "var/_keeper.py",
+  "var/_watchdog.py",
+  "var/_ensure_all.py",
+  "var/_official_keepalive.py",
+  "var/_official_guard.py",
+  "var/_official_status.py",
+  "var/_ready_1024.py",
+  "var/_ab_driver.py",
+  "var/_verdict_watch.py",
+  "var/_after_4test.py",
+  "var/_enter_event.py",
+  "var/_bsegment.py",
+  "var/_switch_campaign.py",
+  "var/_apply_p0_404.py",
+  "var/_4test_gate_precheck.py",
+  "var/_daily.py",
+  "var/_switch_to_official.ps1",
+  "var/_switch_back_to_test.ps1",
+  "var/_start_1024.ps1",
+  "var/_register_4test_switch.ps1",
+  "var/_register_after_4test.ps1",
+  "var/_register_campaign3_watches.ps1",
+  "var/_register_gate_precheck.ps1",
+  "var/_register_ladder_snapshot.ps1",
+  "var/_register_portal_watch.ps1",
+  "var/_register_tminus_ready.ps1",
+  "var/_prepare_submission.ps1",
+  "var/_ps_syntax_check.ps1"
+)
+$mustTrack = @(
+  "run_bot.py",
+  "bot/speedvalue.py", "bot/speedc151.py", "bot/speedvaluebc.py",
+  "bot/speedvaluebaotouv.py", "bot/speedvaluemeld.py"
+) + $models + $opsScripts
+
+Write-Host "=== 提交物检查（$Root）==="
+$bad = 0
+foreach ($f in $deliverables) {
+  if (Test-Path $f) { Write-Host ("  OK   {0,-24} ({1} 字节)" -f $f, (Get-Item $f).Length) }
+  else { Write-Host ("  FAIL {0} 缺失" -f $f); $bad++ }
+}
+foreach ($m in $models) {
+  if (Test-Path $m) { Write-Host ("  OK   {0,-28} ({1:N0} KB)" -f $m, ((Get-Item $m).Length / 1KB)) }
+  else { Write-Host ("  FAIL 模型缺失：{0}（相关臂会静默退化成 no-op！）" -f $m); $bad++ }
+}
+foreach ($f in $opsScripts) {
+  if (Test-Path $f) { Write-Host ("  OK   {0}" -f $f) }
+  else { Write-Host ("  FAIL 运行期脚本缺失：{0}（缺了就接不进比赛流程！）" -f $f); $bad++ }
+}
+Write-Host "`n=== 泄密门（令牌 / cookie 绝不进公开仓）==="
+$leak = @()
+foreach ($f in ($models + $opsScripts)) {
+  if (-not (Test-Path $f)) { continue }
+  if (Select-String -Path $f -Pattern '[0-9a-fA-F]{64}' -AllMatches -ErrorAction SilentlyContinue) { $leak += "64位串:$f" }
+}
+$trackedSet = @{}
+foreach ($f in (git -c core.quotepath=false ls-files)) {
+  # git ls-files 会对非 ASCII 路径加引号/十六进制转义（实测 docs/参赛说明.md 报 Illegal characters in path）
+  $p2 = $f -replace '^"(.*)"$', '$1'
+  $trackedSet[$p2] = $true
+  if (-not (Test-Path -LiteralPath $p2)) { continue }
+  $fi = Get-Item -LiteralPath $p2 -ErrorAction SilentlyContinue
+  if ($fi -and $fi.Length -lt 400) {
+    $c = Get-Content -LiteralPath $p2 -Raw -ErrorAction SilentlyContinue
+    if ($c -match '^\s*[0-9a-fA-F]{64}\s*$') { $leak += "纯令牌文件:$p2" }
+  }
+}
+if ($leak.Count) { Write-Host ("  FAIL 疑似泄密：" + ($leak -join ", ")); $bad++ }
+else { Write-Host ("  OK   待发布 {0} 个文件均无 64 位令牌串；已追踪文件中无【纯令牌/纯 cookie 小文件】" -f ($models + $opsScripts).Count) }
+
+$untracked = (git status --porcelain | Where-Object { $_ -match '^\?\?' }).Count
+$trackedModels = (git ls-files var/*.pt | Measure-Object).Count
+$trackedOps = ($opsScripts | Where-Object { $trackedSet.ContainsKey($_) }).Count
+Write-Host ("  git: 未追踪文件 {0} 个；已追踪模型 {1}/{2}；已追踪运行期脚本 {3}/{4}；remote：{5}" -f `
+  $untracked, $trackedModels, $models.Count, $trackedOps, $opsScripts.Count, ((git remote -v | Out-String).Trim() -replace "\r?\n", " | "))
+
+if ($Go) {
+  Write-Host "`n=== 执行 git add（代码全量 + 模型强制）==="
+  git add -A
+  git add -f @models
+  git add -f @opsScripts          # ★ R1345：运行期脚本同样在 var/ 里，不强制 add 就不会进仓
+  Write-Host "  已 add。接下来请人工确认 `git status`，再提交："
+  Write-Host "  git commit -m `"submit: hangzhou-mahjong bot (complete runnable source + models)`""
+  Write-Host "  git push -u origin main   （需先 git remote add origin <你的仓库>）"
+} else {
+  Write-Host "`n（dry-run：未执行任何 git 操作；加 -Go 才执行 add）"
+}
+
+if ($CloneVerify) {
+  $tmp = Join-Path $env:TEMP ("hm_clone_verify_" + (Get-Date -Format 'HHmmss'))
+  Write-Host "`n=== clone 验收 → $tmp ==="
+  git clone --quiet $Root $tmp
+  Push-Location $tmp
+  $o = python -X utf8 run_bot.py --smoke 2>&1
+  Write-Host ("  smoke exit={0}" -f $LASTEXITCODE)
+  $o | Select-Object -Last 4
+  Pop-Location
+  Write-Host "  提示：v35 的 BREAKING 在 P0 补丁落地前必然失败，属已知项。"
+}
+exit $bad
