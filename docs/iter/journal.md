@@ -24824,3 +24824,32 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - ⑥ **顺带读数（预览，非判词；47/48 房）**：和牌率/房 **z=+1.52**、番/房 **z=+1.13**、≥3对占比 **+16.04（z=+6.86 PASS）**、
     第一率 **17.0% → 25.0% PASS**、机制核对（pairs）PASS ⇒ **主端点已过线、副端点还没有**；
     役 2 收口取决于“**番端点能否在 ≈ 83~≈90 房/臂 前追上 1.50**”。
+
+- [R1305 | 2026-09-24 09:4x ★★★★★**推送 GitHub 完成 + 推前发现一个会直接让提交失败的事实：远端与本地历史无共同祖先**]
+  - ① **推前探测发现（本次纠正上一轮的错误结论）**：`git merge-base origin/main HEAD` **为空**、`rev-list --left-right --count` = **`2  193`**
+    ⇒ 远端 `main` 是**独立根**（单条 squash 快照 `d0747ed` 388 文件 + `7cf9f90`，时间 2026-09-23 17:28/17:29），**不是**上一轮记录的"远端已存在但落后"。
+    ⇒ 若按原计划直接 `git push -u origin main`，会被**拒绝（non-fast-forward / unrelated histories）**。
+  - ② **处置（非破坏性，不需 force）**：`git merge -s ours origin/main --allow-unrelated-histories`
+    ⇒ 远端的 2 个提交成为后继（**历史保留**）、树以本地完整历史为准；合并后 `merge-base --is-ancestor origin/main HEAD` = **True**、`count` = **`0  195`**
+    ⇒ 推送是**普通快进**（`--dry-run` 实测 `7cf9f90..9d52563  main -> main`）。
+  - ③ **已执行的推送链（结果已复核）**：`git remote add origin https://github.com/EdGrass/hangzhou-mahjong-bot.git`
+    → `_prepare_submission.ps1 -Go`（`git add -A` 442 未追踪 + `git add -f` **4 模型**）→ commit `6134583` → merge `9d52563` → **`git push origin main` 成功**
+    ⇒ `git ls-remote origin main` = 本地 HEAD = **`9d52563b34f277c1652a932fc88c32a13b63781d`**（远端已同步）。工作区干净（`status` 0 行）。
+  - ④ **发布产物的端到端验证（从 GitHub 公网克隆，而不是本地）**：`git clone --depth 1` 后
+    **561 文件**、**4 个模型全在**（`baotou_v1.pt` 15,533B / `c073_orig_w2_net.pt` 327,563B / `c089_ranker_net.pt` 153,405B / `c121_meld_net.pt` 315,809B）；
+    克隆内 `run_bot.py --smoke` 跑通、**仅剩已知 v35 BREAKING**；**六个模型相关臂全部实例化成功**
+    （`speedvaluebc` / `speedvaluebaotouv5` / `speedvaluemeld` / `speedvaluerank` / `speedvaluebcvmeld`）⇒ **不存在"静默退化成基线"**。
+  - ⑤ **依赖真实性核查（新证据，直接决定对评委的措辞）**：用 meta_path 屏蔽 `numpy/torch/psutil/fastapi/uvicorn`（模拟"只装标准库"的环境）后：
+    - `--smoke` **仍能跑通**（仅 v35）⇒ **核心路径确实是纯标准库**；
+    - 但**逐臂实例化**：`speedc151` / `speedvalue` / `speedvalueplain` / `speedvaluebc` **纯标准库可跑**，
+      **`speedvaluebcv` / `speedvaluebaotouv5` 需 torch**、**`speedvaluemeld` / `speedvaluerank` / `speedvaluebcvmeld` 需 numpy**。
+    - ⇒ **不能对评委承诺"零依赖 / 不需要装任何包"**（V / 副露 / rank 三个轴都要第三方包）；
+      现有 `requirements.txt`（numpy/torch/psutil）与 `docs/参赛说明.md`的表述**是安全且正确的**。
+  - ⑥ **远端两个"仅存于远端"的文件的处置（已判定，仅说明）**：`.github/workflows/ci.yml` 与 `docs/SUBMISSION.md`（导出快照产物）
+    **未纳入新树**（仍在历史 `d0747ed` 里，可 `git checkout d0747ed -- <path>` 取回）。理由：
+    `docs/SUBMISSION.md` 第 02 节写着"核心零依赖—参赛本身不需要装任何包"与"无外部模型文件" —— **与⑤的实测矛盾（会误导评委）**；
+    `ci.yml` 不装任何依赖就跑全量单测 ⇒ 公开仓库会长期挂红。若要保留，必须**先修这两点**。
+  - ⑦ **推送前密钥核查（全量）**：三枚令牌（4498ceef… / 284dee92… / 8c2d21c3…）在**全部 557 个待提交文件中 0 命中**
+    （只存于被 `.gitignore` 的 `var/`；正控用 `var/.global_token` 验证了扫描工具确实能命中）；索引内 `[0-9a-f]{64}` 与 `Bearer \u2026` 均 **0 命中**。仓库 6.96 MB。
+  - ⑧ **待办（已写入计划）**：① 役 3 起役窗口落 `_apply_p0_404.py --go` 后**再 commit + push 一次**（把 v35 修复也送上公开仓库；役中禁止改 `bot/` 既有文件）；
+    ② 若不希望公开仓库包含内部 `docs/iter/`（86 份文档），可在之后单独处置。

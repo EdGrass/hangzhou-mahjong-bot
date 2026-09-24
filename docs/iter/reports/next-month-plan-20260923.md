@@ -2877,3 +2877,50 @@ pwsh -NoProfile -File var/_prepare_submission.ps1 -CloneVerify # 额外：clone 
   `HangzhouMajVerdictWatch` 已按新逻辑跑过一次（未到门槛 ⇒ 静默 rc=0），**无需重新注册**。
 - **对排期的新事实**：役 2 在 47/48 房时 **主端点已过线、副端点未过** ⇒ 役 2 收口的真正瓶颈是**番端点**，
   按 t ∝ √n 估计需 **≈ 83 房/臂** 才到 1.50 ⇒ **ETA 应从 “80 房即出判词”缩放到 ≈ 90 房/臂**（读数仍有抖动。）
+
+### V.85 ★★★★★ 提交已推送 GitHub（时间 2026-09-24 09:4x，R1305）——**并纠正 §V.82 的"远端只是落后"结论**
+
+**① 推前发现的事实：远端与本地历史无共同祖先**
+
+| 检验 | 结果 |
+|---|---|
+| `git merge-base origin/main HEAD` | **空**（unrelated histories） |
+| `git rev-list --left-right --count origin/main...HEAD` | **`2  193`** |
+| 远端内容 | 单条 squash 快照 `d0747ed`（388 文件）+ `7cf9f90`（2026-09-23 17:28/17:29） |
+
+⇒ 原计划的 `git add -A → commit → push -u origin main` **会被拒绝**（non-fast-forward / unrelated histories）。
+
+**② 处置（非破坏性，不需 force）**：`git merge -s ours origin/main --allow-unrelated-histories`
+（远端 2 个提交成为后继 —— **历史保留**；树以本地为准）⇒ 合并后 `origin/main` 是 HEAD 的祖先（`0  195`）⇒ **普通快进推送**。
+
+**③ 已完成的推送链（已复核）**
+
+```powershell
+git remote add origin https://github.com/EdGrass/hangzhou-mahjong-bot.git
+pwsh -NoProfile -File var/_prepare_submission.ps1 -Go      # git add -A + git add -f 4 模型
+git commit -m "submit: 完整可运行源码 + 4 个模型权重 + 参赛说明"     # 6134583
+git merge -s ours origin/main --allow-unrelated-histories   # 9d52563
+git push origin main                                        # ✓ 7cf9f90..9d52563
+```
+
+`git ls-remote origin main` = 本地 HEAD = **`9d52563b34f277c1652a932fc88c32a13b63781d`** ✓
+
+**④ 发布产物端到端验证（公网克隆）**：561 文件、**4 模型全在**、`--smoke` 仅剩已知 v35、
+**六个模型相关臂全部能实例化**（无"静默退化成基线"）。
+
+**⑤ 依赖结论（新实测，对评委措辞）**：屏蔽 numpy/torch/psutil/fastapi/uvicorn 后
+
+| 臂 | 纯标准库？ |
+|---|---|
+| `speedc151` / `speedvalue` / `speedvalueplain` / `speedvaluebc` | ✅ 可跑 |
+| `speedvaluebcv` / `speedvaluebaotouv5`（V 轴） | ❌ 需 **torch** |
+| `speedvaluemeld` / `speedvaluerank` / `speedvaluebcvmeld` | ❌ 需 **numpy** |
+
+⇒ **不能承诺"零依赖"。当前 `requirements.txt`（numpy/torch/psutil）与 `docs/参赛说明.md` 的表述是安全且正确的**。
+
+**⑥ 远端两个旧文件的处置**：`.github/workflows/ci.yml` 与 `docs/SUBMISSION.md` **未纳入新树**
+（仍在 `d0747ed` 历史中，可 `git checkout d0747ed -- <path>` 取回）—— 前者不装依赖即跑全量单测会挂红，
+后者的"零依赖/无外部模型文件"与⑤ 实测矛盾。
+
+**⑦ 推送后待办**：① 役 3 起役窗口落 `_apply_p0_404.py --go` 后 ⇒ **再 commit + push**（v35 修复入公开仓）；
+② 可选：若不希望公开仓库包含内部 `docs/iter/`（86 份），另行处置。
