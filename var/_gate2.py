@@ -129,6 +129,15 @@ def main():
     ap.add_argument('--mechanism', default='none', choices=('none', 'melds', 'gangs', 'pairs'))
     ap.add_argument('--min-rooms', type=int, default=MIN_ROOMS)
     a = ap.parse_args()
+    # ★ R1458：本工具由**看护每 10 分钟自动跑**（读 150–250 份复盘，CPU 突发 1–3 分钟），
+    #   而 R1182 实测『A/B 期间跑重活会抬高提交延迟、丢动作』⇒ 不降级会**既扰动正在判的数据、又实打实丢分**。
+    #   故开跑前自我降到 BelowNormal（与 _campaign_status.py 同一机制；失败不阻塞）。
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from _lowprio_run import lower_self
+        print('[gate2] %s' % lower_self())
+    except Exception as _e:
+        print('[gate2] 降级失败（继续跑）：%s' % str(_e)[:60])
     a.mechanism_key = (lambda: {'melds': 'melds', 'gangs': 'gangs',
                                 'pairs': 'pair3'}.get(a.mechanism, 'melds'))
     idx = REP.room_index()

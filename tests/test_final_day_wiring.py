@@ -151,5 +151,19 @@ class TestEventReadyInsurance(unittest.TestCase):
                          "绝不把 -AllowNotReady 作为参数自动传给切换脚本（人做决定）")
 
 
+@unittest.skipUnless(os.path.exists(os.path.join(ROOT, "var", "_gate2.py")),
+                     "var/ 不在仓库里（gitignore）")
+class TestGate2LowersPriority(unittest.TestCase):
+    """R1458：判词工具由看护**每 10 分钟自动跑**（读 150–250 份复盘）。
+
+    R1182 实测：A/B 期间跑重活会抬高提交延迟、丢动作 ⇒ 不降级会**既扰动正在判的数据、又实打实丢分**。
+    """
+
+    def test_gate2_lowers_self(self):
+        src = read(os.path.join(ROOT, "var", "_gate2.py"))
+        self.assertIn("lower_self", src, "必须自我降优先级")
+        self.assertIn("[gate2]", src, "必须打印降级结果（便于日志核对）")
+
+
 if __name__ == "__main__":
     unittest.main()
