@@ -72,3 +72,22 @@ python -X utf8 var/_bsegment.py --label 役4 --baseline <基线> --candidates <�
   python -X utf8 var/_strong_slice.py --since "<起役ts>"      # 按它打印的两条命令接着跑
   ```
   参考（役 2 窗口实测）：强手房缺口 听牌率 **−5.19pp** vs 混合口径 −3.14pp。
+
+## ★ 追加（R1438）：§7/§8 两层的**机械判据**
+
+> 追补，不改 §2/§7/§8 的任何阈值与口径。
+
+- `var/_strong_veto.py` 现在**同时判两层**（§7 的 ≥1 名 top32、§8 的 ≥2 名 top32），
+  阈值 = **z ≤ −2.0**（逐字等于 §7 的「< −2×SE合并」；**不是** −1.96）：
+  ```powershell
+  python -X utf8 var/_strong_veto.py --since "<起役ts>" --baseline speedvalue --candidate speedvaluebc
+  ```
+  任一层在 **净分/房** 或 **第1率** 上显著劣 ⇒ **VETO**；层内 < 15 房/臂 ⇒ 该层**只记录不翻转**。
+- §8 层的听牌率读数（切语料后交给现成工具）：
+  ```powershell
+  python -X utf8 var/_strong_slice.py --since "<起役ts>" --min-elite 2
+  python -X utf8 tools/hu_gap_split.py --dirs strong2_<slug>/*.json
+  ```
+- §8 层的 分/房 + 第1率：`var/_verdict_by_elite.py` 现新增 **`强手房>=2`** 行。
+- 参考（役 2 窗口实测，两层方向相反）：≥1 层 −30.5 vs −39.1（z=−0.33）；
+  **≥2 层 −82.3 vs −56.5（z=+0.75）、第1率 9.1% vs 18.5%** ⇒ 只看 ≥1 层会漏掉方向翻转。

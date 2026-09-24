@@ -50,7 +50,8 @@ class TestAdoptedArm(unittest.TestCase):
 
 class TestVetoOf(unittest.TestCase):
     def test_net_only(self):
-        self.assertEqual(["净分/房"], SV.veto_of(-1.97, 0.0))
+        # 阈值是 −2.0 ⇒ 只有越过 −2.0 才算显著劣
+        self.assertEqual(["净分/房"], SV.veto_of(-2.5, 0.0))
 
     def test_first_rate_only(self):
         self.assertEqual(["第1率"], SV.veto_of(0.5, -2.5))
@@ -65,8 +66,12 @@ class TestVetoOf(unittest.TestCase):
     def test_none_inputs_are_ignored(self):
         self.assertEqual([], SV.veto_of(None, None))
 
-    def test_boundary_is_inclusive(self):
-        self.assertEqual(["净分/房"], SV.veto_of(-1.96, 0.0))
+    def test_boundary_matches_prereg_2se(self):
+        # ★ 阈值必须是 −2.0（= 预登记 §7 的「< −2×SE合并」），不是 −1.96
+        self.assertEqual(SV.Z_BAD, -2.0)
+        self.assertEqual(["净分/房"], SV.veto_of(-2.0, 0.0))     # 闭区间
+        self.assertEqual([], SV.veto_of(-1.999, 0.0))
+        self.assertEqual([], SV.veto_of(-1.96, 0.0))
 
 
 class TestStats(unittest.TestCase):
@@ -116,15 +121,24 @@ class TestSlicePure(unittest.TestCase):
             p = write(os.path.join(d, "a_000000000001_r1_b0_t0.json"),
                       {"seats": [{"user_id": SS.ME}, {"user_id": "u_top1"},
                                  {"user_id": "u_x"}, {"user_id": "u_y"}]})
-            self.assertEqual((True, True), SS.classify(p, top))
+            self.assertEqual((True, 1), SS.classify(p, top))     # ★ 返回 topN 对手"个数"
             p2 = write(os.path.join(d, "a_000000000002_r1_b0_t0.json"),
                        {"seats": [{"user_id": SS.ME}, {"user_id": "u_x"},
                                   {"user_id": "u_y"}, {"user_id": "u_z"}]})
-            self.assertEqual((True, False), SS.classify(p2, top))
+            self.assertEqual((True, 0), SS.classify(p2, top))
             p3 = write(os.path.join(d, "a_000000000003_r1_b0_t0.json"),
                        {"seats": [{"user_id": "u_top1"}, {"user_id": "u_x"},
                                   {"user_id": "u_y"}, {"user_id": "u_z"}]})
             self.assertIsNone(SS.classify(p3, top))     # 没有我方 ⇒ 跳过
+
+    def test_classify_counts_two_elite(self):
+        """预登记 §8 的'>=2 名 top32'层靠这个计数 ⇒ 必须数对。"""
+        with tempfile.TemporaryDirectory() as d:
+            top = {"u_top1", "u_top2"}
+            p = write(os.path.join(d, "a_000000000009_r1_b0_t0.json"),
+                      {"seats": [{"user_id": SS.ME}, {"user_id": "u_top1"},
+                                 {"user_id": "u_top2"}, {"user_id": "u_x"}]})
+            self.assertEqual((True, 2), SS.classify(p, top))
 
     def test_board_top_missing_cookie_fails_loud(self):
         """榜单拿不到必须**抛**（main 会退 2）——绝不用空榜切出'假强手房'。"""

@@ -40,7 +40,7 @@ LEDGER = os.path.join(ROOT, "var", "auto_ranking.jsonl")
 RECENT = os.path.join(ROOT, "var", "replays", "recent")
 ME = "u_7a3fba48d70b"
 ROOM_RX = re.compile(r"^(a_[0-9a-f]+)_")
-Z_BAD = -1.96
+Z_BAD = -2.0   # ★ 与预登记逐字一致：§7「候选 − 基线 < −2×SE合并」 ⟺ z < −2.0
 
 
 def _welch(a, b):
@@ -63,7 +63,10 @@ def _prop_z(ka, na, kb, nb):
 
 
 def veto_of(zn, zp):
-    """判据（纯函数）：返回显著劣的列名列表。zn/zp 任一 <= -1.96 ⇒ 该列显著劣。"""
+    """判据（纯函数）：返回显著劣的列名列表。zn/zp 任一 <= -2.0 ⇒ 该列显著劣。
+
+    阈值必须是 **−2.0**（= 预登记 §7 的「< −2×SE合并」），不是 −1.96。
+    """
     bad = []
     if zn is not None and zn <= Z_BAD:
         bad.append("净分/房")
@@ -99,14 +102,14 @@ def read_ledger(since, arms):
 
 
 def strong_rooms(rooms):
-    """给定房间 id 集合 ⇒ 其中有 topN 对手的那些（读每房第一份复盘）。"""
+    """给定房间 id 集合 ⇒ {房: 房里**别的** topN 对手个数}（读每房第一份复盘；只留 >=1 的）。"""
     try:
         sys.path.insert(0, os.path.join(ROOT, "var"))
         import _strong_slice as SS
         tops = SS.board_top(32)
     except Exception as e:
         return None, "榜单不可达（%s）" % str(e)[:60]
-    seen, strong = set(), set()
+    seen, strong = set(), {}
     for p in sorted(glob.glob(os.path.join(RECENT, "*.json"))):
         m = ROOM_RX.match(os.path.basename(p))
         if not m:
@@ -123,8 +126,9 @@ def strong_rooms(rooms):
         uids = [(s.get("user_id") or "") for s in (d.get("seats") or [])]
         if ME not in uids:
             continue
-        if any(u in tops for u in uids if u and u != ME):
-            strong.add(r)
+        n = sum(1 for u in uids if u and u != ME and u in tops)
+        if n >= 1:
+            strong[r] = n
     return strong, None
 
 
@@ -140,35 +144,40 @@ def main(argv=None):
     if not rows:
         print("❌ 该窗口没有两臂的台账行 ⇒ 无法判定")
         return 2
-    strong, err = strong_rooms({r for r, _, _, _ in rows})
-    if strong is None:
+    layers, err = strong_rooms({r for r, _, _, _ in rows})
+    if layers is None:
         print("⚠ 强手房分层不可得：%s ⇒ UNKNOWN（不阻塞）" % err)
         return 2
-    A = [(n, f) for r, s, n, f in rows if s == a.baseline and r in strong]
-    B = [(n, f) for r, s, n, f in rows if s == a.candidate and r in strong]
-    na, nb = len(A), len(B)
-    print("强手房分层（房里有 top32）：%s %d 房 / %s %d 房" % (a.baseline, na, a.candidate, nb))
-    if na < a.min_rooms or nb < a.min_rooms:
-        print("⇒ UNKNOWN（强手房不足 %d 房/臂，不阻塞；只作提示）" % a.min_rooms)
-        return 2
-    va = [x[0] for x in A]
-    vb = [x[0] for x in B]
-    w = _welch(va, vb)
-    p = _prop_z(sum(1 for x in A if x[1]), na, sum(1 for x in B if x[1]), nb)
-    d, se, zn = w
-    dp, zp = p
-    print("  净分/房：%s %.1f vs %s %.1f  差 %+.1f  se %.1f  z %+.2f  %s"
-          % (a.baseline, statistics.mean(va), a.candidate, statistics.mean(vb), d, se, zn,
-             "**显著劣**" if zn <= Z_BAD else "不显著"))
-    print("  第1率 ：%s %.1f%% vs %s %.1f%%  差 %+.1fpp  z %+.2f  %s"
-          % (a.baseline, 100 * sum(1 for x in A if x[1]) / na,
-             a.candidate, 100 * sum(1 for x in B if x[1]) / nb, 100 * dp, zp,
-             "**显著劣**" if zp <= Z_BAD else "不显著"))
-    bad = veto_of(zn, zp)
-    if bad:
-        print("★ 强手房否决：VETO（%s 显著劣于 %s）⇒ 该轴不采用" % (a.candidate, a.baseline))
+
+    # 预登记 §7（>=1 名 top32）与 §8（>=2 名 top32 = 决赛相似层）；两层各判一次。
+    allbad, judged_any = [], False
+    for label, need in (("强手房(>=1 top32)", 1), ("强手房(>=2 top32)", 2)):
+        A = [(n, f) for r, s, n, f in rows if s == a.baseline and layers.get(r, 0) >= need]
+        B = [(n, f) for r, s, n, f in rows if s == a.candidate and layers.get(r, 0) >= need]
+        na, nb = len(A), len(B)
+        print("%s：%s %d 房 / %s %d 房" % (label, a.baseline, na, a.candidate, nb))
+        if na < a.min_rooms or nb < a.min_rooms:
+            print("   ⇒ 样本不足 %d 房/臂 ⇒ 只记录，不据此翻转（预登记 §7.3/§8）" % a.min_rooms)
+            continue
+        judged_any = True
+        va, vb = [x[0] for x in A], [x[0] for x in B]
+        d, se, zn = _welch(va, vb)
+        dp, zp = _prop_z(sum(1 for x in A if x[1]), na, sum(1 for x in B if x[1]), nb)
+        print("   净分/房：%.1f vs %.1f  差 %+.1f  se %.1f  z %+.2f  %s"
+              % (statistics.mean(va), statistics.mean(vb), d, se, zn,
+                 "**显著劣**" if zn <= Z_BAD else "不显著"))
+        print("   第1率 ：%.1f%% vs %.1f%%  差 %+.1fpp  z %+.2f  %s"
+              % (100 * sum(1 for x in A if x[1]) / na, 100 * sum(1 for x in B if x[1]) / nb,
+                 100 * dp, zp, "**显著劣**" if zp <= Z_BAD else "不显著"))
+        for col in veto_of(zn, zp):
+            allbad.append("%s 的 %s" % (label, col))
+    if allbad:
+        print("★ 强手房否决：VETO（%s 显著劣于 %s）⇒ 按预登记该轴不采用" % ("、".join(allbad), a.baseline))
         return 3
-    print("★ 强手房否决：OK（无显著劣；主端点通过即可采用）")
+    if not judged_any:
+        print("⇒ UNKNOWN（哪一层都不足 %d 房/臂，不阻塞；只作提示）" % a.min_rooms)
+        return 2
+    print("★ 强手房否决：OK（已判层无显著劣；主端点通过即可采用）")
     return 0
 
 

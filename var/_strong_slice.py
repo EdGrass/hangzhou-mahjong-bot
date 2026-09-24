@@ -85,7 +85,11 @@ def room_of(path):
 
 
 def classify(path, tops):
-    """读一份复盘 ⇒ (有我们?, 有 topN 对手?)。"""
+    """读一份复盘 ⇒ (有我们?, 房里**别的** topN 对手有几个)。
+
+    返回**个数**而不是 bool：预登记 §8 要求"≥2 名 top32"层（决赛相似层），
+    调用方用 `--min-elite` 选层。
+    """
     try:
         with io.open(path, encoding="utf-8") as f:
             d = json.load(f)
@@ -94,8 +98,7 @@ def classify(path, tops):
     uids = [(s.get("user_id") or "") for s in (d.get("seats") or [])]
     if ME not in uids:
         return None
-    others = [u for u in uids if u and u != ME]
-    return True, any(u in tops for u in others)
+    return True, sum(1 for u in uids if u and u != ME and u in tops)
 
 
 def main(argv=None):
@@ -103,6 +106,8 @@ def main(argv=None):
     ap.add_argument("--since", required=True)
     ap.add_argument("--topn", type=int, default=32)
     ap.add_argument("--out", default="", help="切片目录名（默认 strong_<slug>）")
+    ap.add_argument("--min-elite", type=int, default=1,
+                    help="房里至少有几个 topN 对手才算（默认 1；预登记 §8 的决赛相似层用 2）")
     ap.add_argument("--dry-run", action="store_true", help="只统计，不建目录")
     a = ap.parse_args(argv)
 
@@ -117,7 +122,8 @@ def main(argv=None):
         print("❌ 该窗口台账里没有房间 ⇒ 检查 --since")
         return 2
 
-    slug = a.out or ("strong_" + re.sub(r"[^0-9]", "", a.since)[:12])
+    slug = a.out or ("strong%s_" % (a.min_elite if a.min_elite > 1 else "")
+                     + re.sub(r"[^0-9]", "", a.since)[:12])
     outdir = os.path.join(ROOT, "var", "replays", slug)
     n_strong = n_weak = n_skip = n_other = 0
     strong_rooms, weak_rooms = set(), set()
@@ -132,7 +138,7 @@ def main(argv=None):
         if c is None:
             n_skip += 1
             continue
-        if c[1]:
+        if c[1] >= a.min_elite:
             n_strong += 1
             strong_rooms.add(r)
             if not a.dry_run:
@@ -146,8 +152,8 @@ def main(argv=None):
         else:
             n_weak += 1
             weak_rooms.add(r)
-    print("强手房：%d 间 / %d 份复盘 ｜ 弱房：%d 间 / %d 份 ｜ 窗口外 %d 份 ｜ 读不了 %d 份"
-          % (len(strong_rooms), n_strong, len(weak_rooms), n_weak, n_other, n_skip))
+    print("强手房（房里有 >=%d 个 top%d）：%d 间 / %d 份复盘 ｜ 其余：%d 间 / %d 份 ｜ 窗口外 %d 份 ｜ 读不了 %d 份"
+          % (a.min_elite, a.topn, len(strong_rooms), n_strong, len(weak_rooms), n_weak, n_other, n_skip))
     if a.dry_run:
         print("（--dry-run：未建目录）")
         return 0

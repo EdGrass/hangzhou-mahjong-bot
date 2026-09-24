@@ -57,12 +57,19 @@ def main():
         me = next((x for x in rk if x.get("user_id") == ME), None)
         if not me:
             continue
-        elite = any((x.get("user_id") in tops) and x.get("user_id") != ME for x in rk)
-        sl = "强手房" if elite else "弱房"
+        n_elite = sum(1 for x in rk if (x.get("user_id") in tops) and x.get("user_id") != ME)
+        sl = "强手房" if n_elite >= 1 else "弱房"
         z = A[arm][sl]
         z[0] += 1
         z[1] += float(me.get("total_score") or 0)
         z[2] += 1 if int(me.get("rank") or 0) == 1 else 0
+        if n_elite >= 2:
+            # ★ 预登记 §8「决赛相似层（>=2 名 top32）」必报 —— 原实现只产 >=1 层，
+            #   而 §8 的判据（< −2×SE合并 ⇒ 按 B2 处理）需要这一层。
+            z2 = A[arm]["强手房>=2"]
+            z2[0] += 1
+            z2[1] += float(me.get("total_score") or 0)
+            z2[2] += 1 if int(me.get("rank") or 0) == 1 else 0
         z = A[arm]["全部"]
         z[0] += 1
         z[1] += float(me.get("total_score") or 0)
@@ -73,7 +80,7 @@ def main():
     print("=" * 88)
     print("%-14s %-8s %8s %12s %10s" % ("臂", "分层", "房", "分/房", "第1率"))
     for arm in arms:
-        for sl in ("全部", "强手房", "弱房"):
+        for sl in ("全部", "强手房", "弱房", "强手房>=2"):
             z = A[arm][sl]
             if not z or not z[0]:
                 continue
