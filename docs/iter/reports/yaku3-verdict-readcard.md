@@ -35,8 +35,8 @@ python -X utf8 var/_seat_h2h.py  --since "<起役ts>" --by-arm --top 32
 一键起役（已支持任意役标签，看护走通用注册器）：
 
 ```powershell
-python -X utf8 var/_bsegment.py --label 役4 --baseline <基线> --candidates <候选>          # dry-run
-python -X utf8 var/_bsegment.py --label 役4 --baseline <基线> --candidates <候选> --go     # 真执行
+python -X utf8 var/_bsegment.py --label 役4 --baseline <基线> --candidates <候选> --watch-mechanism melds          # dry-run
+python -X utf8 var/_bsegment.py --label 役4 --baseline <基线> --candidates <候选> --watch-mechanism melds --go     # 真执行
 ```
 
 （B 段仍依次：停驱动 → 等空档 → P0 补丁 → preflight → 切役 → 注册该役看护；

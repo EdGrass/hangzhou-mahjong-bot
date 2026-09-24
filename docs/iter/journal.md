@@ -26362,3 +26362,14 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - 验证：默认 dry-run 与之前完全一致 ✓；`--label 役4 --baseline speedvaluebc --candidates speedvaluebcmeldp45` dry-run 正确打印通用注册命令 ✓；
     看护标签与任务命名已按 `役4speedvaluebcmeldp45` / `HangzhouMajVerdictWatch_役4_speedvaluebcmeldp45` 规范化 ✓；`_ps_syntax_check` 绿 ✓。
   - 新增 **`docs/iter/reports/yaku3-verdict-readcard.md`**：个别读判词 / **强手房否决** / **四格→役 4** / 一键起役命令 / 纪律。
+
+- [R1430 | 2026-09-24 19:1x ★★★★**封闭役 4/5 的最后两个机制缺口：机制口径可传 + 组合臂多相位体检 + 役 5 预登记**]
+  - **① 机制口径可传**：`_bsegment.py` 新增 `--watch-mechanism`（役 4 副露轴必须用 `melds`；役 3 走专用脚本、口径固定 none）；
+    默认 dry-run 与之前一致 ✓；`--label 役4 … --watch-mechanism melds` dry-run 正确传参 ✓（与 campaign4b/c 预登记的 `--mechanism melds` 一致）。
+  - **② 组合臂多相位体检**：`_mech_watch.phases_for()`：单层臂一个相位，**`speedvaluebcvmeld` 这类组合臂两个都检**（window + draw）。
+    实测：组合臂 window 索取率 63.5%→80.0%⇒PASS；draw 6.6%（边际）⇒PASS。
+  - **③ 边际 vs 绝对足迹（避免假警）**：原来对任何含 bc/baotou 的候选都拉 10–20% 带；但役 5 是“在已含同层的基线上”比，
+    此时应看**边际**足迹。现规则：只有“该层是新加的”时才拉带；否则只要 `action 差异=0`。
+    双向验证：役 5 形态（bc→bcvmeld）draw 6.6% → **PASS（边际）**；役 3 形态（speedvalue→bc）draw 16.1% → **PASS（拉 10–20% 带）**。
+  - **④ 役 5 预登记就位**：`docs/iter/reports/prereg-campaign8-combo-20260925.md`（叠加验证：只叠已判正层、主端点=同席强手非劣、bundle 1.50、强手房否决优先、
+    到盒破平、不部署未判正臂）。另更新役 3 读卡的役 4 命令（补 `--watch-mechanism melds`）。

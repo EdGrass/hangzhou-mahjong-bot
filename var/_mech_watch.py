@@ -47,13 +47,19 @@ def log(msg):
     print(line)
 
 
-def phase_for(arm):
+def phases_for(arm):
+    """臂名 → 需检相位列表（R1430）。
+
+    单层臂返回一个；**组合臂（例 `speedvaluebcvmeld`）两个都检**：
+    含 `meld` ⇒ window（索取率）；含 `bc`/`baotou` ⇒ draw（出牌改动率）。
+    """
     a = arm.lower()
+    ph = []
     if "meld" in a:
-        return "window"
+        ph.append("window")
     if "bc" in a or "baotou" in a:
-        return "draw"
-    return ""
+        ph.append("draw")
+    return ph
 
 
 def main():
@@ -80,8 +86,8 @@ def main():
         return 0
 
     warns = []
-    for cand in cands:
-        ph = phase_for(cand)
+    pairs = [(c, p) for c in cands for p in (phases_for(c) or [""])]
+    for cand, ph in pairs:
         if not ph:
             log("  %s \u21d2 \u65e0\u9884\u8bbe\u671f\u671b\uff0c\u53ea\u8bb0\u5f55" % cand)
             continue
@@ -106,11 +112,16 @@ def main():
                 log("!! %s draw \u8f93\u51fa\u672a\u8bc6\u522b\uff08rc=%s\uff09" % (cand, p.returncode))
                 continue
             tile_pct, act_pct = float(m.group(1)), float(m.group(2))
-            ok = 10.0 <= tile_pct <= 20.0 and act_pct == 0.0
-            log("  %s draw\uff1atile \u6539\u52a8 %.1f%%\u3001action %.1f%% \u21d2 %s\uff08\u9884\u671f 10\u201320%% / action=0\uff09\uff08%.0fs\uff09"
-                % (cand, tile_pct, act_pct, "PASS" if ok else "WARN", time.time() - t0))
+            # ★ R1430：只在“出牌层是**新加**的”时才拉 10–20% 带；若基线已含 bc
+            #   （如役 5：`speedvaluebc` → `speedvaluebcvmeld`），这是**边际**足迹，只记录不判。
+            _layer_new = ("bc" in cand.lower() or "baotou" in cand.lower()) and not (
+                "bc" in baseline.lower() or "baotou" in baseline.lower())
+            ok = (10.0 <= tile_pct <= 20.0 and act_pct == 0.0) if _layer_new else (act_pct == 0.0)
+            _exp = "\u9884\u671f 10\u201320% / action=0" if _layer_new else "\u8fb9\u9645\u8db3\u8ff9\uff08\u57fa\u7ebf\u5df2\u542b\u540c\u5c42\uff09\uff1a\u53ea\u8981 action=0"
+            log("  %s draw\uff1atile \u6539\u52a8 %.1f%%\u3001action %.1f%% \u21d2 %s\uff08%s\uff09\uff08%.0fs\uff09"
+                % (cand, tile_pct, act_pct, "PASS" if ok else "WARN", _exp, time.time() - t0))
             if not ok:
-                warns.append("%s draw \u8db3\u8ff9 %.1f%%/action %.1f%% \u8131\u79bb\u9884\u671f\u5e26" % (cand, tile_pct, act_pct))
+                warns.append("%s draw \u8db3\u8ff9 %.1f%%/action %.1f%% \u8131\u79bb\u9884\u671f" % (cand, tile_pct, act_pct))
         else:
             m = re.search(r"\u7d22\u53d6\u7387\(\u6536\u526f\u9732/\u53ef\u7d22\u53d6\):\s+\u57fa\u7ebf ([\d.]+)%\s+\u5019\u9009 ([\d.]+)%", out)
             m2 = re.search(r"\u4ec5\u57fa\u7ebf\u6536 (\d+)", out)
@@ -119,7 +130,8 @@ def main():
                 continue
             b, c = float(m.group(1)), float(m.group(2))
             base_only = int(m2.group(1)) if m2 else -1
-            ok = (c >= b + 3.0) and base_only == 0
+            _layer_new_w = "meld" in cand.lower() and "meld" not in baseline.lower()
+            ok = ((c >= b + 3.0) and base_only == 0) if _layer_new_w else (base_only == 0)
             log("  %s window\uff1a\u7d22\u53d6\u7387 %.1f%% \u2192 %.1f%%\uff08\u4ec5\u57fa\u7ebf\u6536 %d\uff09\u21d2 %s\uff08\u9884\u671f \u2265+3pp \u4e14\u53ea\u52a0\u4e0d\u51cf\uff09\uff08%.0fs\uff09"
                 % (cand, b, c, base_only, "PASS" if ok else "WARN", time.time() - t0))
             if not ok:
