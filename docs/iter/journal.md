@@ -26227,3 +26227,12 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     三层 p45 draw 出牌不同 **22.5%**（> BC 15.8% / V 14.3% ⇒ 出牌两层都活着）。
   - 实例化/MRO/claim_p 逐项核对（BCV→BC→Meld→Value；0.45/0.40/0.35）；回归：**test_speedvalue* 76 OK**、test_ultimate_combo 3 OK、closure 5 OK。
   - 最终臂规则已写入 **§V.165**：**只有通过预登记判词的层才往上叠**（全过→三层；两层→对应双层臂；一层→单层臂；都不过→不换）。
+
+- [R1412 | 2026-09-24 17:5x ★★★★**四测终局：止步 16 强（未进决赛）；真机验证“淘汰即干净退出”并清理哨兵空转、提前恢复役 2**]
+  - 终局：决赛阶段 `qualified=False`，我方 **89→16→第2轮12/16（−166）⇒止步 16 强**。
+    机器人 17:48:09 走通 `stage_open + 名单外 ⇒ intent=eliminated ⇒ 退出 exit 0`（日志可见）⇒ 证实不会僵尸轮询。
+  - **真小缺陷**：淘汰后 `.official_mode` 仍在 ⇒ `_official_guard` 17:45–17:48 **每分钟重启一次 keepalive**（重启即退出的空转）。
+    已走既有 `var/_after_4test.py`（`_exit_official.py` + `_ensure_all`）清理：哨兵删除、guard 最后一行停在 **17:48:07**；
+    `_ab_driver` 17:48:40 起、`match_super(speedc151)` 17:51:05 起，`ab_ctl` 确认驱动+match_super 在位，**窗口未变（started=2026-09-23 03:13:44）**。
+  - 提前 ~70 分钟恢复的理由：官方已判 `qualified=False`（不可能再上场），继续保持官方模式只会空转+拖延；役 2 还差 21/22 房。
+  - 四测产物齐备：`4test_detail.jsonl` 9 条、`format_history.jsonl`、`var/replays/4test_rooms/` **20 个官方复盘**、自录 40 文件。

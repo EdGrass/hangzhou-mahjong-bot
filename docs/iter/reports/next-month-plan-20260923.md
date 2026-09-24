@@ -4399,3 +4399,33 @@ my_games      = 20（第1轮 10 + 第2轮 10），**第3轮未分配对局**
 4. 上述组合臂均需过 `var/_campaign_ready.py --arms <最终臂>`（注册/实例化/模型在场）才能写进 `var/.final_arm.txt`。（本轮已实测实例化通过、MRO 与 claim_p 正确。）
 
 **回归**：`python -m unittest discover -s tests -p "test_speedvalue*.py"` **76 OK**（skipped=1）、`test_ultimate_combo.py` 3 OK、`test_submission_closure.py` 5 OK。
+
+
+---
+
+### §V.166 四测终局与提前恢复：**止步 16 强（未进决赛）**；淘汰即退出的真机验证 + 哨兵空转的清理（★ 运行事实）
+
+**1. 终局（2026-09-24 17:48）**
+
+- 官方：`stage=“应牌友要求的四测-决赛”`（stage_open），`qualified=False`、`role=””`、`ranking=8`（决赛 8 人）。
+- 我方：**89 人海选 → 第 6 名晋级 16 人轮 → 第 2 轮第 12/16（−166）→ 止步 16 强（未入前 8 决赛）**。
+- 机器人 17:48:09 走通：`status=stage_open + 名单外` ⇒ `intent=eliminated` ⇒ 日志“已淘汰：本阶段名单外…本锦标赛与我无关，退出”⇒ **exit code=0**。
+  ⇒ 这是对“淘汰即干净退出（不僵尸轮询）”的真机验证。
+
+**2. 淘汰后的哨兵空转（真实小缺陷）与清理**
+
+- 现象：`_official_guard` 在 17:45–17:48 每分钟重启一次 keepalive（keepalive 起 run_bot → run_bot 判淘汰退出 0 → keepalive 也退出 0 ⇒ 下一分钟再重启）。
+  原因：`.official_mode` 哨兵还在，而赛事对我们已结束 ⇒ 自愈链不知道“已淘汰”。
+- 清理（走**既有 sanctioned 路径**，不手刷状态）：`python -X utf8 var/_after_4test.py`
+  → 内部 `_exit_official.py` 删哨兵 + `_ensure_all.py` → 完成（日志：“已删除哨兵…测试房自愈将恢复”）。
+- **验收**：`_official_guard.log` 最后一行停在 **17:48:07**（此后绝对静默）；`_ab_driver.py` **17:48:40** 起；
+  `match_super.py --rooms 1 --strategy speedc151 --wait-until-second 50` **17:51:05** 起；`ab_ctl` 显示驱动[19148] + match_super[33000]，
+  **窗口仍为 started=2026-09-23 03:13:44**（不白跑役）。
+
+**3. 为什么提前 ~70 分钟（而不是等 19:00 定时）**
+
+赛事对我方已结束（官方 `qualified=False` 已确认），不存在“还可能上场”的可能性 ⇒ 继续保持官方模式只会：
+① 让哨兵空转；② 拖着 A/B 不跑。役 2 还差 21/22 房，提前开攒直接推进判词。
+
+**4. 四测复盘产物（已齐）**：`var/4test_detail.jsonl`（名次/阶段轨迹 9 条）、`var/format_history.jsonl`、
+`var/replays/4test_rooms/` **20 个官方格式复盘**（第1轮 10 + 第2轮 10）、自录 40 文件 —— 支撑 §V.154–§V.159 的结论。
