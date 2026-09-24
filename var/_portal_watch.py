@@ -64,6 +64,29 @@ def snapshot():
     }
 
 
+def alert_on_change(prev, cur, now_ts=None):
+    """纯函数：比较两次快照 → (新赛事 id, 新公告 id, 紧急原因列表, 新赛事明细行)。
+
+    为什么单独抽成纯函数：“不要错过报名截止”是真实教训（四测是偶然查到的，距截止 ~5h），
+    而这个判定必须能被单测钉死。
+    """
+    import datetime as _dt
+    if not prev:
+        return [], [], [], []
+    old_t = {t.get("id") for t in (prev.get("tournaments") or []) if t.get("id")}
+    new_rows = [t for t in (cur.get("tournaments") or []) if t.get("id") and t["id"] not in old_t]
+    new_a = sorted(set(cur.get("announcement_ids") or []) - set(prev.get("announcement_ids") or []))
+    urgent = []
+    now = now_ts or _dt.datetime.now().timestamp()
+    for t in new_rows:
+        dl = t.get("register_deadline")
+        if not t.get("my_registered") and dl and (float(dl) - now) <= 24 * 3600:
+            urgent.append("%s 报名截止 %s（不足 24h）且我方未报名" % (t["id"], f(dl)))
+        elif not t.get("my_registered"):
+            urgent.append("%s 我方尚未报名" % t["id"])
+    return sorted(t["id"] for t in new_rows), new_a, urgent, new_rows
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--show", action="store_true", help="\u53ea\u6253\u5370\uff0c\u4e0d\u5199\u5386\u53f2")
@@ -95,10 +118,35 @@ def main(argv=None):
     new_t = {t["id"] for t in s["tournaments"]}
     old_a = set(prev.get("announcement_ids") or [])
     new_a = set(s["announcement_ids"])
-    if prev and (new_t - old_t):
-        print("\u2605 \u65b0\u8d5b\u4e8b\uff1a%s" % ", ".join(sorted(new_t - old_t)))
-    if prev and (new_a - old_a):
-        print("\u2605 \u65b0\u516c\u544a\uff1a%s" % ", ".join(sorted(new_a - old_a)))
+    _nt, _na, _urgent, _rows = alert_on_change(prev, s)
+    if _nt:
+        msg = "\u2605 \u65b0\u8d5b\u4e8b\uff1a%s" % ", ".join(_nt)
+        print(msg)
+        try:
+            with io.open(os.path.join(ROOT, "var", ".portal_new_event"), "w", encoding="utf-8") as fh:
+                fh.write(json.dumps({"ts": s["ts"], "new_ids": _nt, "rows": _rows}, ensure_ascii=False, indent=1))
+            with io.open(os.path.join(ROOT, "var", "_portal_alert.log"), "a", encoding="utf-8") as fh:
+                fh.write("%s %s\n" % (s["ts"], msg))
+        except Exception:
+            pass
+    if _na:
+        msg = "\u2605 \u65b0\u516c\u544a\uff1a%s" % ", ".join(_na)
+        print(msg)
+        try:
+            with io.open(os.path.join(ROOT, "var", "_portal_alert.log"), "a", encoding="utf-8") as fh:
+                fh.write("%s %s\n" % (s["ts"], msg))
+        except Exception:
+            pass
+    if _urgent:
+        msg = "\u26a0 \u9700\u4eba\u5de5\u5904\u7406\uff1a" + "\uff1b".join(_urgent)
+        print(msg)
+        try:
+            with io.open(os.path.join(ROOT, "var", ".portal_URGENT"), "w", encoding="utf-8") as fh:
+                fh.write("%s %s\n" % (s["ts"], msg))
+            with io.open(os.path.join(ROOT, "var", "_portal_alert.log"), "a", encoding="utf-8") as fh:
+                fh.write("%s %s\n" % (s["ts"], msg))
+        except Exception:
+            pass
     print("(\u5df2\u8ffd\u52a0\u5230 %s)" % os.path.relpath(HIST, ROOT))
     return 0
 

@@ -4548,3 +4548,23 @@ A/B 驱动被 `_ensure_all` 自动拉起，但每批都撞 403：`_ab_driver.out
 `_switch_campaign` 提醒：`auto_ranking.jsonl` 里还有 **2 条旧“running”行**：
 `a_fb0a32b036e5 / speedtma / 2026-09-10`、`a_0aca4ad1f990 / speedc151 / 2026-09-16`。
 它们在本役 `since=2026-09-23` 窗口之外 ⇒ **不计入判词与完整性**；仅在“未来若把 since 提前到 9/23 之前”时才需清理。
+
+
+---
+
+### §V.172 为 10/10 报名做的一个硬保险：门户新赛事/公告**落盘告警**（而不只是日志里一行）（★ 运行事实）
+
+**问题**：`_portal_watch.py` 本来已经能检测“新赛事/新公告”，但**只 `print`**（有计划任务重定向到 `var/_portal_watch.log`）
+—— 而日志没人主动看。而这个项目**已经吃过一次同类亏**：四测是**偶然查门户才发现**的，当时距报名截止只剩 ~5h。
+
+**修法（只改 `var/_portal_watch.py`，不加新任务；现有的 `HangzhouMajPortalWatch` 每 30min 会自动用上）**：
+
+- 抽出纯函数 `alert_on_change(prev, cur)`（可单测）：比对“赛事集合 / 公告集合”；
+- 新赛事 ⇒ 写 **`var/.portal_new_event`**（JSON：新 id + 该行完整字段，含 `register_deadline`/`my_registered`）+ 追加 `var/_portal_alert.log`；
+- 新公告 ⇒ 追加 `var/_portal_alert.log`；
+- **新赛事且我方未报名（含截止不足 24h）⇒ 额外写 `var/.portal_URGENT`**（另一个人工可扫的标记）。
+
+**验证**：真跑一次（当前无新赛事 ⇒ 不产标记，只追加历史）✓；新增 `tests/test_portal_watch_alert.py` **5 项全过**（无前快照 / 新赛事 / 紧急 / 已报名不紧急 / 新公告）✓。
+
+**为什么值得**：正式赛的 §8 流程第一步就是“**换新令牌 + 新赛事 id**”（旧令牌读不到新赛事）；
+新赛事一上线就落盘告警，我们就不会再像四测那样靠“偶然发现”。

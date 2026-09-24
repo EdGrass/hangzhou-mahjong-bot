@@ -26290,3 +26290,10 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - `_ab_driver` 层：`arms_of()` 读 `arms[]`（兼容 a/b）；`pick_arm` 按 `next_idx % n` 轮换、每批自增；恢复时用 `_prev` 保持连续 ⇒ **a→b→c 可用**。
   - 顺手记：台账里有 2 条旧“running”行（speedtma 09-10、speedc151 09-16），**在本役 since 窗口外、不影响判词**；若未来把 since 提前才需清理。
   - 已写入计划 **§V.171**。
+
+- [R1420 | 2026-09-24 18:0x ★★★**门户新赛事/公告改为「落盘告警」（`.portal_new_event` / `.portal_URGENT` / `_portal_alert.log`）+ 5 项单测**]
+  - 问题：`_portal_watch` 早就检测新赛事但**只 print** ⇒ 日志没人看；四测就是“偶然查到、距截止 ~5h”。
+  - 修法：抽出纯函数 `alert_on_change()`；新赛事 ⇒ `var/.portal_new_event`（含 id + deadline + my_registered）；未报名且截止<24h ⇒ `var/.portal_URGENT`；全部同步 `_portal_alert.log`。
+    不新增任务：现有 `HangzhouMajPortalWatch`（每 30min）自动带上。
+  - 验证：真跑无异常（当前无新赛事 ⇒ 无标记）；`tests/test_portal_watch_alert.py` **5 项 OK**。
+  - 已写入计划 **§V.172**（直接服务 §8“换新令牌+新赛事 id”这一步）。
