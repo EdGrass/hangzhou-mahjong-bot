@@ -118,7 +118,12 @@ def main():
 
     files = []
     for g in [x.strip() for x in a.dirs.split(",") if x.strip()]:
-        files += sorted(glob.glob(os.path.join(ROOT, "var", "replays", g, "*.json")))
+        # ★ R1401：允许直接给文件 glob（如 `4test_rooms/t_*_s2_*.json`）⇒ 按阶段/批次切片分析；
+        #   给目录名时行为不变（自动补 /*.json）。
+        pat = os.path.join(ROOT, "var", "replays", g)
+        if not pat.lower().endswith(".json"):
+            pat = os.path.join(pat, "*.json")
+        files += sorted(glob.glob(pat))
     if not files:
         print("\u274c \u6ca1\u627e\u5230\u590d\u76d8\u6587\u4ef6\uff08var/replays/%s/*.json\uff09\u21d2 \u4e0d\u7ed9\u7ed3\u8bba" % a.dirs)
         return 2
