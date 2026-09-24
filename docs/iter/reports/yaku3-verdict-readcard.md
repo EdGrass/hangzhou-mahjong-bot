@@ -24,6 +24,12 @@ python -X utf8 var/_pick_arm.py  --since "<起役ts>" --min-rooms 30 --strong-to
 python -X utf8 var/_seat_h2h.py  --since "<起役ts>" --by-arm --top 32
 ```
 
+## 2b. 护栏：提交延迟 / 失效动作
+
+`python -X utf8 var/_submit_latency_audit.py --since "<起役ts>"`（`_mech_watch` 已每 6h 自动跑并记入日志）。
+看两件：① **≥1s 提交**（预登记口径 = 超窗 0）；② **真损失类 409**（chi/peng/gang/discard）。
+参考（役 2 窗口实测）：p99 1971ms、≥1s 36 次(1.7%)、真损失 409 370 次（~3.1/房）——**已记入 §V.180，作为候选轴**。
+
 ## 3. 四格 → 役 4 形态（预登记 §V.160）
 
 | BC | V | 役 4 基线 | 役 4 候选 |

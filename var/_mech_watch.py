@@ -137,6 +137,25 @@ def main():
             if not ok:
                 warns.append("%s window \u7d22\u53d6\u7387 %.1f%%\u2192%.1f%%\uff08\u4ec5\u57fa\u7ebf\u6536 %d\uff09" % (cand, b, c, base_only))
 
+    # ★ R1431：顺带跑一次「提交延迟 + 失效动作」审计（预登记的 "超窗 = 0" 护栏），只记不判（避免历史尾部造噪）
+    if not a.dry_run:
+        try:
+            cfg2 = json.loads(io.open(a.ab_file, encoding="utf-8-sig").read())
+            since2 = cfg2.get("started") or ""
+        except Exception:
+            since2 = ""
+        cmd2 = [sys.executable, "-X", "utf8", os.path.join(ROOT, "var", "_submit_latency_audit.py")] + \
+               (["--since", since2] if since2 else [])
+        try:
+            p2 = subprocess.run(cmd2, cwd=ROOT, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=600)
+            lines2 = [l.strip() for l in (p2.stdout or "").splitlines() if l.strip()]
+            key = [l for l in lines2 if ("提交" in l or "p99" in l or "真损失" in l or ">=1000" in l or "≥1000" in l or "≥2000" in l)]
+            for l in key[-8:]:
+                log("  [lat] " + l)
+        except Exception as e:
+            log("  [lat] 审计跳过：%s" % str(e)[:60])
+
     if a.dry_run:
         return 0
     try:
