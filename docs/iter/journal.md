@@ -25975,3 +25975,21 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     BOM 门 / 第一率读数 / verify_four_way / 切换脚本门。
   - 意义：今日累计 ~16 个提交（BOM/提交闭包/自包含/文案版本/单测门/赛制留档/已否决门/环境三轴等）后，
     **对外交付的那份仓仍然全绿** —— “本机绿”与“对外交付绿”两个口径都有证据。
+
+- [R1388 | 2026-09-24 14:3x ★★★**四测开赛前逐点实测：切场链路“必触发 + 四道门”全部拿到现场证据（此前只有计划/推理）**]
+  - ① **任务必触发**：`HangzhouMaj4Test*` 8 个任务 `State=Ready`、`NextRunTime` 正确（15:05 / 15:20 / 15:40 / 15:50 / 15:55 + 19:00 / 21:00 / 22:30 / 00:30）。
+    同设置的兄弟任务今日确已跑过（`LadderSnapshot` / `PortalWatch` / `ReplayGuard` / `VerdictWatch` `LastTaskResult=0`）⇒
+    `DisallowStartIfOnBatteries=True` 在本机（**台式机** Gigabyte B850，`Win32_Battery` 无对象）**不构成阻断**。
+  - ② **臂与硬门**：`_4test_gate_precheck.py` 实跑 ⇒ 读 config `YouCaiBiKao=False` ⇒ 3 个切换任务重注册为 `speedvalue`；
+    `tools/rules_guard.py --strategy speedvalue --token-file var/.token_4test_20260924` ⇒ **rc=0（一致）** ⇒
+    15:20 的 `_switch_to_official.ps1` 不会在步骤 1b 抛错（preflight 的 `NOT READY`（未知 BREAKING: 404 TOURNAMENT_GONE）已由 `-AllowNotReady` 明确豁免，
+    且 `bot/protocol.py` R1147 已有“404 持续 >120s 才退”的时间型判据，行为上已符合 GONE/NOT_FOUND 语义）。
+  - ③ **到位确认真实写入**：`_ready_1024.py --tid t_6266386bfd56 --token-file …`（**真 POST，非 `--status`**）⇒ `OK ready={'ready': True}` ✓；
+    赛制实拉：`Rounds=16` / `Kind=""` / `YouCaiBiKao=false` / `OnlineConfirm=true` / `StartAt=2026-09-24 16:00:00`（`RegisterDeadlineAt=15:00`）。
+     ⇒ `OnlineConfirm=true` 已用代码核实：`bot/protocol.py` 对 `stage_open + qualified` 会自动 `confirm`（节流 10s）；`Kind=""` 只影响自由匹配（`/api/match`），**不影响官方赛链路**。
+  - ④ **等待预算**：切换脚本步骤 3 最多等 25 分钟（让在跑对局 + A/B 驱动自然退出）；
+    本役房间间隔 **中位 15.1 分 / p90 17.8 / max 41**（since 窗口 n=111）⇒ 15:20 触发时在跑那一房约 15:30 前后结束 ⇒ **预算充足**（且 15:40/15:50 两次重试 + `_official_guard` 60s 看护兜底）。
+  - ⑤ **环境一致性**：任务主体 `Interactive / caiyuxin05` ⇒ 继承**用户 PATH**，其中含 `Python312` ⇒ 脚本内裸 `python` 可解析（R1379 同类坑已核）。
+    另核：`var/.keeper.lock` 已是死 pid 但 `Stop-Process … -ErrorAction SilentlyContinue` 容错 ✓；`.resume_spec.json` = 役 2 原窗口（`2026-09-23 03:13:44`, `speedc151,speedvalue`, bundles `speedc151`）⇒ 19:00 收尾可按原窗口恢复。
+  - ⑥ **役 2 现场**：112 房（56/56 完美配平），`ab_integrity` 干净；切场后到 19:00 暂停，19:00/21:00/22:30/00:30 四次自动恢复。
+  - ⑦ 顺手修 `var/_4test_gate_precheck.py` 的**文档与代码相反**：注释写“默认 dry-run”，实际**无参 = 真注册**（15:05 任务就是无参调用）⇒ 注释与 `--help` 改为“默认真跑”（行为不变，已 `py_compile` + `--dry-run` 回归）。
