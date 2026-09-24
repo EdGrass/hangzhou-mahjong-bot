@@ -26659,3 +26659,12 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     不降级就会与正在打的对局抢 CPU（R1182：抬高提交延迟、丢动作）。
   - 修：两者开跑前调用 `_lowprio_run.lower_self()`，打印 `[strong_veto]` / `[strong_slice] windows:BELOW_NORMAL`。
   - 验证：实跑两工具首行即降级提示 ✓（`_strong_veto` 顺带给出当前两层否决读数：≥1 层 56/55 房、z=−0.24 不显著）；接线测试 +2。
+
+- [R1460 | 2026-09-25 06:0x ★★★★★**真缺口：到役盒时看护不落 sentinel ⇒ 役 2→役 3 会在预期落点静默停摆**]
+  - **缺口**：`_verdict_watch.py` 只在**决定性**判词写 `.verdict_done_<label>`；而 §V.66 功率预算明确
+    "z 只按 √n 涨 ⇒ 到 120 房/臂仍不可判定"是**预期落点** ⇒ 到盒时非决定性 ⇒ 无 sentinel ⇒
+    `_adopt_when_ready`（要求 sentinel）**永远不动作** ⇒ 链在役盒处静默停摆（而读卡与 `classify()` 都写"到盒应进下一役"）。
+  - **修**：`if boxed:` 分支也写 sentinel，内容带 `BOXED(达役盒未决定性，按§V.66破平收口)` 便于审计。
+  - **闭环核对**：到盒判词文件里确有"已达役盒"，而 `classify()` 对"UNDECIDED + 已达役盒"返回 **proceed** ✓
+    ⇒ 修复后：到盒 ⇒ 落 sentinel ⇒ 采用看护 proceed ⇒ **自动起役 3**（基线 speedvalue + 两候选）。
+  - 验证：接线测试 +2（boxed 分支必须写 sentinel；classify 接受到盒文本）；`_verdict_watch.py` 编译 ✓。

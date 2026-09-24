@@ -154,6 +154,13 @@ def main():
              % (a.label, "\u3001**\u5df2\u8fbe\u5f79\u76d2**" if boxed else "", attempt + 1,
                 a.baseline, n0, a.candidate, n1, a.step,
                 " | ".join(head[-3:]) if head else "见 " + os.path.basename(out)))
+        if boxed:
+            # ★ R1460（真缺口）：到盒仍未决定性 ⇒ 按读卡"达役盒"分支用 §V.66 破平**收口**，
+            #   是该役的终态 ⇒ **必须落 sentinel**，否则采用看护永远不动、链在役盒处静默停摆
+            #   （原实现只给决定性判词写 sentinel；而 §V.66 预算说"到盒不可判定"才是预期落点）。
+            with io.open(sent, "w", encoding="utf-8") as f:
+                f.write("%s BOXED(达役盒未决定性，按§V.66破平收口)\r\n"
+                        % time.strftime("%Y-%m-%d %H:%M:%S"))
     else:
         _log(log, "%s 判词已出（决定性，第 %d 次）（%s → %s）：%s" % (a.label, attempt + 1, a.baseline,
              a.candidate, " | ".join(head[-4:]) if head else "见 " + os.path.basename(out)))

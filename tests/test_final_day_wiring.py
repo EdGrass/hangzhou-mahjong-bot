@@ -185,5 +185,31 @@ class TestReplayHeavyToolsLowerPriority(unittest.TestCase):
         self.assertIn("[strong_slice]", src)
 
 
+@unittest.skipUnless(os.path.exists(os.path.join(ROOT, "var", "_verdict_watch.py")),
+                     "var/ 不在仓库里（gitignore）")
+class TestBoxedSentinel(unittest.TestCase):
+    """R1460（真缺口）：到役盒仍未决定性时，看护**也必须落 sentinel**。
+
+    原实现只给决定性判词写 `.verdict_done_<label>`；而 §V.66 功率预算说"到 120 房/臂仍不可判定"是
+    **预期落点** ⇒ 采用看护 `_adopt_when_ready` 永远等不到 sentinel ⇒ **役 2→役 3 在役盒处静默停摆**。
+    读卡与 `_adopt_when_ready.classify()` 都写明"到盒应进下一役"，缺的只是这一步接线。
+    """
+
+    def test_boxed_writes_sentinel(self):
+        src = read(os.path.join(ROOT, "var", "_verdict_watch.py"))
+        idx_boxed = src.find("if boxed:")
+        idx_else = src.find("    else:", idx_boxed)
+        self.assertGreater(idx_boxed, 0, "必须有 boxed 分支")
+        seg = src[idx_boxed:idx_else]
+        self.assertIn("io.open(sent", seg, "boxed 分支必须写 sentinel")
+        self.assertIn("BOXED", seg, "写入内容应标明是到盒收口（可审计）")
+
+    def test_classify_accepts_boxed(self):
+        sys.path.insert(0, os.path.join(ROOT, "var"))
+        import _adopt_when_ready as A
+        txt = "已达役盒（>= 120 房/臂仍未决定性）\n" + "\u2605 \u5224\u5b9a\uff1aUNDECIDED（和牌率 z=+1.27）"
+        self.assertEqual("proceed", A.classify(txt)[0])
+
+
 if __name__ == "__main__":
     unittest.main()
