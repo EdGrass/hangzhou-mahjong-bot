@@ -477,6 +477,14 @@ def main():
               % (" vs ".join(_cur_arms), _cur_started or "-",
                  ", ".join("%s=%d" % (x, len([r for r in arms[x]
                      if (not _cur_started or r.get("ts", "") >= _cur_started)])) for x in _cur_arms)))
+        # ★ R1309：≥3 臂战役时本工具的 A/B 对比只取**首臂 vs 末臂**（下面 `_cur_arms[0]` vs `_cur_arms[-1]`）
+        #   ⇒ **中间臂不参与判定**。三臂役（§V.48）下这会静默忽略中间臂 ⇒ 这里明模告警，避免把它当成三臂判词。
+        if len(_cur_arms) >= 3:
+            print("  ⚠️ %d 臂战役：下面这段 **A/B 对比只取 首臂 vs 末臂 = %s vs %s**（中间臂 %s 不在这段里）；"
+                  "中间臂的逐对结果见**文末「多臂战役逐候选判定」**表。"
+                  % (len(_cur_arms), _cur_arms[0], _cur_arms[-1], ", ".join(_cur_arms[1:-1])))
+            print("     ⇒ 多臂役的**判词**仍以 `var/_gate2.py`（逐对、按臂过滤）与 "
+                  "`var/_verdict_watch.py` 的每对看护（§V.52）为准；本工具只作**旁证/护栏**（§V.30 表）。")
     else:
         a, b = arms[arm_list[0]], arms[arm_list[-1]]
     try:
@@ -589,6 +597,10 @@ def main():
         else:
             print("  终点判定还需：%s %d 房/臂（当前 %d/%d，阈值 %.2f）"
                   % (_tag2, _end2, len(a), len(b), _thr2))
+    print("  ★ 口径澄清：上行是**旧端点的旁证**（ledger 净胜/房）。"
+          "役 2 起的**判词口径以 `var/_gate2.py` 为准**：各臂 ≥%d 房**有复盘** + "
+          "主端点（复盘和牌率/房）与副端点（复盘番/房）均 **z≥1.50** + 覆盖 ≥70%%"
+          "（§V.30 / §V.86 役盒 / §V.87）。" % (80,))
     multi_arm_report(arms, _cur_arms, _cur_started, set(_cfg.get("bundles") or []),
                      out=print)
     print("\n提示：各臂轮转排批（每房轮换）⇒ 同池同时段；顺序比较在本作 ±180/房 的日间漂移下无意义。")
