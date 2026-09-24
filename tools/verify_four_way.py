@@ -91,7 +91,15 @@ def check(spec=None, kstrat=None, ab=None, official=None, procs=None):
     if decl is None or kfile is None:
         bad.append("spec 或策略文件缺失/不可读")
     if decl and kfile and decl != kfile:
-        bad.append("①↔② 不一致（这就是 R647 的静默风险）")
+        if off:
+            # ★ R1338：只有 `.official_mode` 存在时，spec 才是“活的”（`_ensure_all.official_argv()` 只在官方分支里读它）
+            #   ⇒ 这才是 R647 的真风险：重启会按 spec 拉起别的策略。
+            bad.append("①↔② 不一致（official 模式下就是 R647 的静默风险：重启会按 spec 拉起别的策略）")
+        else:
+            #   反之（A/B 或常规生产）：无哨兵 ⇒ spec 被任何自愈路径读到的概率为 0
+            #   （而 A/B 期间 ② 本来就会**每批轮换**，要求①=② 是不可满足的——旧版会永远挂红，只造成警报疲劳）
+            rows.append(("⚠ ①↔②（dormant）",
+                         "spec=%s / keeper=%s —— 无 .official_mode，当前**不被任何自愈路径读取**；下次切换会被覆盖" % (decl, kfile)))
     if off:
         # 官方模式：keepalive 直接 run_bot，不经 keeper；以 run_bot 的实际策略为准
         for v in set(rb):
@@ -132,7 +140,7 @@ def main():
             print("  %-24s %s" % (k, v if v is not None else "（不在跑 / 不存在）"))
         print("  模式：%s" % ("官方赛" if mode["official"] else ("A/B 轮转" if mode["ab"] else "常规生产")))
         if mode["ab"]:
-            print("  ⚠ A/B 模式：keeper 不存在是**设计如此**；run_bot 会随轮转变化 ⇒ 只要求 ①↔② 一致")
+            print("  ⚠ A/B 模式：keeper 不存在是**设计如此**；② 本身会每批轮换 ⇒ ①↔② 在此模式下**是 dormant 不阻塞**；只有 `.official_mode` 存在时才硬要求一致（R1338）")
             print("  本役 roster：%s；当前在跑：%s" % (rows_roster, rows_running))
         print()
     if bad:

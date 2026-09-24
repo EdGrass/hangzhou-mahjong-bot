@@ -25294,3 +25294,16 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     显式传参行为**不变** ✓。
   - ④ **附带事实（印证推断）**：我们**成为参赛者之后**，`.global_token` 也能读四测了（之前是 403 `not a participant`）
     ⇒ 证实 §V.92 的推断：**访问权由“参与关系”决定**，而不是令牌本身的范围。
+
+- [R1338 | 2026-09-24 10:3x ★★★★★**项目自带的 T-1h 门禁自己在乱报（verify_four_way FAIL），根因两条：规则过宽 + 切换写入顺序有漏洞**]
+  - ① **现象**：跑 `tools/verify_four_way.py --quiet` ⇒ **FAIL ①↔②**（spec=`speedgangtakec151fixed`（三测残留） vs keeper=`speedc151`）。
+  - ② **根因 A（规则过宽）**：`.official_spec.json` **只有在 `.official_mode` 存在时才被读**（`_ensure_all.official_argv()` 只在官方分支调用）
+    ⇒ 在 A/B/常规生产下它是 **dormant**；而 A/B 期间 ② 本身**每批轮换** ⇒ 要求 ①==② 是**不可能满足**的 ⇒
+    旧规则让这个门禁**长期挂红**（警报疲劳 ⇒ 真出问题时没人信）。
+  - ③ **根因 B（真隐患，同一次修复带上）**：`_switch_to_official.ps1` 原本**先写哨兵、后写 spec** ⇒ 若在两步之间崩溃，就会出现
+    “**哨兵在、spec 还是上一场**”⇒ `_official_guard`(60s)/`_ensure_all`(5min) 会按**旧赛事的策略/令牌**拉起 keepalive（R647 同类静默风险）。
+  - ④ **修法**：① `verify_four_way`：①↔② **只在 `off=True` 时 FAIL**，否则记一条 **dormant 警告**（并更新提示语）；
+    ② `_switch_to_official.ps1`：**先写 spec（2b-1），再写哨兵（2b-2）** ⇒ 中间崩溃只会留下“无哨兵 + 新 spec”（安全）；步骤标签同步重命名。
+  - ⑤ **验证**：① 当前（A/B、无哨兵）⇒ `verify_four_way` **exit 0** + dormant 警告；
+    ② **活的场景**（注入 `official=<存在的文件>`）⇒ **仍然 FAIL**（两条：①↔② + run_bot≠spec）⇒ R647 保护**未削弱**；
+    ③ 切换脚本 pwsh/5.1 解析均 0 错，DryRun 五步顺序 = `1 → 1b → 2(停keeper) → 2b-1(spec) → 2b-2(哨兵) → 2c(/ready) → 3(等) → 4(keepalive) → 5(校验)` ✓。

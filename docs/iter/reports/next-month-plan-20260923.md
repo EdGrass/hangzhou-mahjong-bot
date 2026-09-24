@@ -3374,3 +3374,15 @@ python -X utf8 tools/hu_gap_split.py 0 --dirs 4test_rooms
 
 **实测**：裸跑 `--dry-run` ⇒ tid←门户(四测)、token←`.global_token`、**HTTP 200**（registered=66 / ready=11）；显式传参不变。
 **附带**：成为参赛者后 `.global_token` 也能读四测（之前 403 `not a participant`）⇒ 印证 §V.92：**访问权由参与关系决定**。
+
+### V.113 ★★★★★ `verify_four_way` 规则修正 + 切换写入顺序修正（R1338）
+
+**A）门禁规则**：`.official_spec.json` **只在 `.official_mode` 存在时才被自愈路径读取**；A/B 期间 ② 每批轮换 ⇒ ①==② 不可满足。
+
+| 情形 | 旧 | 新 |
+|---|---|---|
+| 无 `.official_mode`（A/B / 常规） | **FAIL**（长期误报） | **⚠ dormant 警告，exit 0** |
+| 有 `.official_mode`（真活） | FAIL | **仍 FAIL**（R647 保护不变） |
+
+**B）切换写入顺序**：原 `哨兵 → spec` 改为 **`spec(2b-1) → 哨兵(2b-2)`** —— 中间崩溃只会留下“无哨兵 + 新 spec”（安全），
+避免“哨兵在、spec 还是上一场”导致自愈链用错赛事。五步顺序已用 DryRun 逐行确认。
