@@ -42,7 +42,10 @@ def _has(name):
         import psutil
     except Exception:
         return None
-    for p in psutil.process_iter(["cmdline"]):
+    # ★ R1394：**必须一并要 "pid"** —— 下文用 `p.info.get("pid")` 自排除、并用 `p.info["pid"]` 返回；
+    #   只请求 "cmdline" 时这两处会拿到 None / 抛 KeyError，而 KeyError 被 `except` 吞掉
+    #   ⇒ `_has()` **永远返回 None**（即使 keepalive 正在跑）⇒ 60s 看护每分钟都以为“缺失”并去 spawn。四测实测：psutil 能看到 pid 49516，`_has()` 却返回 None。
+    for p in psutil.process_iter(["pid", "cmdline"]):
         try:
             argv = p.info.get("cmdline") or []
             base = [os.path.basename(str(x).replace("\\", "/")).lower() for x in argv]

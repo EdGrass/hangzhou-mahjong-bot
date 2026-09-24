@@ -26071,3 +26071,19 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     keepalive 将在该房自然结束后由 **60s 看护 / `_ensure_all`（5min）/ 15:40·15:50 切换重试** 中任一路径拉起（三条独立路径，16:00 前余量充足）。
   - ⑥ 遗留（**赛后再动**）：① 切换类任务 `Hidden=false` ⇒ 交互式控制台窗口可见，若被误关即 0xC000013A（今天的疑因），建议改 Hidden 或把长等待挪进无窗口的 python；
     ② `_official_guard` 拒绝自愈时返非 0，容易被误读成“看护坏了”（今天就是），建议改专用退出码并写进操作单。
+
+- [R1394 | 2026-09-24 15:4x ★★★★**锁定并修掉 `_official_guard._has()` 的“永远返回 None”缺陷（R1393 结论修正一半；带活体验收）**]
+  - ① **修正 R1393**：R1393 说的“看护恢复”**只对一半** —— `spec_freshness` 确实恢复了、且 **15:34:07 看护确实按 spec 成功拉起了 keepalive**；
+    但 `_official_guard._has()` 本身有缺陷 ⇒ 看护**永远认为 keepalive 缺失**，“健康即 no-op”的合同一直没兑现。
+  - ② **缺陷（一行级）**：`_has()` 用 `psutil.process_iter(["cmdline"])` **只请求 cmdline**，函数体却用 `p.info.get("pid")` 自排除、并用 `p.info["pid"]` 返回
+    ⇒ 前者得 `None`、后者抛 `KeyError`；而 KeyError 被同一个 `except Exception: pass` 吞掉 ⇒ 循环走完返回 `None`。
+    现场实测：psutil 明明看到 pid **49516**（`...\var\_official_keepalive.py --strategy speedvalue --token-file var/.token_4test_20260924 ...`），`_has("_official_keepalive.py")` 却返回 **None**。
+    后果（15:34:07–15:38:07 连续 5 个 tick）：看护每 60s 判“缺失”并 spawn 一个 keepalive；被 spawn 的实例被 keepalive 自身 `_existing()` 挡住立刻退出
+    ⇒ **每分钟一个无用进程 + 误导性日志**；没有 E002、也没有重复 run_bot（守卫层护住了）。
+  - ③ **修法：**`process_iter(["cmdline"])` → **`process_iter(["pid", "cmdline"])`**（最小改动，两端语义对上）。修后隔离实测：`_has("_official_keepalive.py") → 49516`、`_has("run_bot.py") → 17708`、`_has("___nope___.py") → None`、`py_compile` OK。
+  - ④ **活体验收（比单测更硬）**：最后一条“拉起”日志停在 **15:38:07**；修完后 **15:39:07 / 15:40:07 两个 tick 零新增日志**（恢复“健康即严格 no-op”），
+    `HangzhouMajOfficialGuard` 任务返回码 **2147942401 → 0**；进程表仍只有 **1 个 keepalive + 1 个 run_bot**。
+  - ⑤ **同型排查（全仓 process_iter 过一遍）**：`_ensure_all._has`（返回 bool，不访问 pid）、`_bsegment.procs_alive`（cmdline+exe）、`_switch_campaign`（用 `pr.pid` 属性）、
+    `_official_keepalive._existing`（已请求 pid）均**无此缺陷**；`_official_guard` 是唯一“只要 cmdline 却访问 `info['pid']`”的地方。
+  - ⑥ **现状（15:41）**：官方模式在位；keepalive(49516) + run_bot(17708) 正在跑 `speedvalue` + 四测令牌，`_official_1024.out` 每 60s 打 `status=registering 意图=register（报名期）`；
+    **15:50 的第三次切换任务仍会跑**，它会看到“官方 run_bot 仍在跑”而按设计**等待最多 25 分钟后 exit 2** —— **这是预期噪声，不是故障，不要去杀它**。
