@@ -32,9 +32,19 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LEDGER = os.path.join(ROOT, "var", "auto_ranking.jsonl")
 AB = os.path.join(ROOT, "var", ".ab_mode")
 MARK = os.path.join(ROOT, "var", ".SCHEDULE_TIGHT")
+LOG = os.path.join(ROOT, "var", "_schedule_guard.log")
 BOX = 120      # 役盒（房/臂）
 FORMAL = 80    # 正式判词线（房/臂）
 
+
+def say(msg):
+    # 打印 + 追加日志（pythonw 任务没有控制台，不落日志等于读数丢失）
+    print(msg)
+    try:
+        with io.open(LOG, "a", encoding="utf-8") as f:
+            f.write("%s %s\n" % (dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), msg))
+    except Exception:
+        pass
 
 def read_rows(path=None):
     rows = []
@@ -106,7 +116,7 @@ def main(argv=None):
     rows = read_rows()
     thr = throughput(rows, a.hours)
     if thr <= 0:
-        print("吞吐不足（窗口内房数太少）⇒ 不给结论")
+        say("吞吐不足（窗口内房数太少）⇒ 不给结论")
         return 2
     since = a.since
     if not since:
@@ -125,8 +135,8 @@ def main(argv=None):
     # 剩余：本役到盒 +（计划里的后续役，按臂数硬编码：役3=3臂、役4=2臂、役5=2臂）
     here_box = rooms_left(rows, arms, BOX, since=base)
     here_formal = rooms_left(rows, arms, FORMAL, since=base)
-    print("实测吞吐：%.2f 房/小时（最近 %d 小时）" % (thr, a.hours))
-    print("当前役：%s（%d 臂）｜到正式线 %d 还差 %d 房；到役盒 %d 还差 %d 房"
+    say("实测吞吐：%.2f 房/小时（最近 %d 小时）" % (thr, a.hours))
+    say("当前役：%s（%d 臂）｜到正式线 %d 还差 %d 房；到役盒 %d 还差 %d 房"
           % (",".join(arms) or "(无 .ab_mode)", len(arms), FORMAL, here_formal, BOX, here_box))
     plan = []            # (名称, 房数)——按臂数估算全到盒的总房数
     if arms:
@@ -136,7 +146,7 @@ def main(argv=None):
     total_box = sum(n for _, n in plan)
     h_box = total_box / thr
     eta_box = now + dt.timedelta(hours=h_box)
-    print("全到盒投影：剩余 %d 房 ⇒ %.1f 天 ⇒ 收口约 **%s**"
+    say("全到盒投影：剩余 %d 房 ⇒ %.1f 天 ⇒ 收口约 **%s**"
           % (total_box, h_box / 24.0, eta_box.strftime("%m/%d %H:%M")))
     drop = []
     remaining = list(plan)
@@ -151,10 +161,10 @@ def main(argv=None):
     if drop:
         keep = sum(n for _, n in remaining)
         eta = now + dt.timedelta(hours=keep / thr)
-        print("按 §V.160 丢弃顺序丢掉 %s 后：剩余 %d 房 ⇒ 收口约 **%s**"
+        say("按 §V.160 丢弃顺序丢掉 %s 后：剩余 %d 房 ⇒ 收口约 **%s**"
               % ("、".join(drop), keep, eta.strftime("%m/%d %H:%M")))
     ok = eta_box <= dl
-    print("截止 %s ⇒ %s" % (dl.strftime("%m/%d %H:%M"), "**排期够**" if ok else "**排期不够（须按丢弃顺序减役）**"))
+    say("截止 %s ⇒ %s" % (dl.strftime("%m/%d %H:%M"), "**排期够**" if ok else "**排期不够（须按丢弃顺序减役）**"))
     try:
         if ok:
             if os.path.exists(MARK):
