@@ -211,5 +211,18 @@ class TestBoxedSentinel(unittest.TestCase):
         self.assertEqual("proceed", A.classify(txt)[0])
 
 
+
+    def test_blocked_marker_has_rules_guard_fallback(self):
+        """R1463：rules_guard 不匹配时 `-AllowNotReady` **绕不过**（它只管 preflight）。
+
+        四测实测 YouCaiBiKao=false，但若正式赛改成 true，链上臂几乎都没有 ycbk 孪生 ⇒
+        T-5 的 BLOCKED 提示里必须给出唯一已注册合规孪生（speedvalueycbk）的可照抄命令。
+        """
+        src = read(os.path.join(ROOT, "var", "_final_event_ready.py"))
+        self.assertIn("rules_guard", src, "提示里必须点名 rules_guard")
+        self.assertIn("speedvalueycbk", src, "必须给出合规孪生作为兜底")
+        self.assertIn("-TokenFile %s -TournamentId <TID>", src)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -26688,3 +26688,12 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     _verdict_watch / _strong_veto / _gate2 / _schedule_guard`）✓。
   - 附带教训：有**一条命令忘了先 `cd D:\hangzhouMaj`** ⇒ `git rev-parse HEAD` 跑在**worktree**（本任务 cwd）里，
     报出旧提交 `7527c6e`（09/10 的 HANDOFF.md）—— **一切 git 操作都要显式 cd 权威目录**，否则读数会串。
+
+- [R1463 | 2026-09-25 06:0x ★★**补规则门兜底：T-5 BLOCKED 提示给出 ycbk 孪生命令**]
+  - 风险链：若 10/10 正式赛 `YouCaiBiKao=true`，`rules_guard` 会判"策略与本场不匹配" ⇒
+    `_switch_to_official.ps1` **直接 throw**（`-AllowNotReady` **只管 preflight、绕不过它**）⇒ 进不了比赛。
+  - 实测覆盖率：已注册 ycbk 孪生只有 4 个（`speedvalueycbk` / `speedgangtakefixedycbk` / `speedmeldmore0chiycbk` /
+    `speedmeldtol2chiycbk`）⇒ **链上臂（bc/baotouv5/meldp45/bcmeldp45/bcvmeld/c151）都没有孪生**，只有 `speedvalueycbk` 可用。
+  - 概率低（四测赛制快照**每次**都是 `YouCaiBiKao=False`），但代价是"完全不参赛" ⇒ 在 `_final_event_ready.py` 的
+    BLOCKED 提示里补一条**可照抄的兜底命令**（用 `speedvalueycbk` 进场），**仍由人决定**（不自动换臂）。
+  - 验证：编译 ✓；接线测试 +1（提示必须包含 rules_guard 与 speedvalueycbk）。

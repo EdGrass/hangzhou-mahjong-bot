@@ -81,12 +81,22 @@ def main(argv=None):
         cmd = ("powershell -NoProfile -File var/_switch_to_official.ps1 "
                "-Strategy <最终臂> -TokenFile %s -TournamentId <TID>") % TOKEN
         esc = cmd + " -AllowNotReady   # ← 仅在已确认该 BREAKING 无害时"
+        # ★ R1463：补一条**规则门**的兜底 —— rules_guard 不匹配时 _switch_to_official.ps1 会直接 throw，
+        #   而 -AllowNotReady **绕不过它**（它只管 preflight）。四测实测 YouCaiBiKao=false，但若正式赛改成 true，
+        #   链上的臂（speedvaluebc/baotouv5/meldp45/bcmeldp45/bcvmeld/c151）**都没有 ycbk 孪生**，
+        #   只有 speedvalueycbk 有 ⇒ 至少用它进场，好过不参赛。
+        twin = (
+            "# 若失败原因是 rules_guard（YouCaiBiKao ↔ 策略）：链上臂无 ycbk 孪生，唯一已注册的合规孪生是 speedvalueycbk：\n"
+            "powershell -NoProfile -File var/_switch_to_official.ps1 -Strategy speedvalueycbk "
+            "-TokenFile %s -TournamentId <TID>"
+        ) % TOKEN
         try:
             with io.open(BLOCKED, "w", encoding="utf-8", newline="\n") as f:
                 f.write("%s 仍未进入官方模式（19:25 重试后）\n" % time.strftime("%Y-%m-%d %H:%M:%S"))
                 f.write("先看：var/_final_event_switch.log / var/_final_event_ready.log\n")
                 f.write("人工命令：%s\n" % cmd)
                 f.write("逃生阀（人决定）：%s\n" % esc)
+                f.write(twin + "\n")
         except Exception:
             pass
         log("!! 仍未进入官方模式 ⇒ 已落 .EVENT_SWITCH_BLOCKED（含可照抄命令）")
