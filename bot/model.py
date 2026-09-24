@@ -70,7 +70,7 @@ TERMINAL_STATUSES = ("finished", "closed", "void")
 
 
 def snap_god(snap):
-    """快照 god 字段（本人视角）：baotou / chain_count / catch_play。"""
+    """快照 god 字段（本人视角）：baotou / chain_count / catch_play / god_discarder_seat。"""
     god = snap.get("god") or {}
     if not isinstance(god, dict):
         return {}
@@ -78,6 +78,9 @@ def snap_god(snap):
         "baotou": bool(god.get("baotou")),
         "chain_count": int(god.get("chain_count") or 0),
         "catch_play": bool(god.get("catch_play")),
+        # v26：抓打圈豁免方座位（打财神者本人；无圈 = -1）。
+        # 此前这里**没透传**，于是策略层完全看不到豁免信息 —— 这是「规则带了例外、例外在视图层被丢掉」。
+        "god_discarder_seat": int(god.get("god_discarder_seat", -1) or -1),
     }
 
 
@@ -108,8 +111,26 @@ def snap_view(snap):
             if kind not in ("chi", "peng", "gang"):
                 continue
             ts = m.get("tiles") or []
-            melds.append({"type": kind, "tile": ts[0] if ts else ""})
+            melds.append({"type": kind, "tile": ts[0] if ts else "",
+                          "tiles": list(ts)})   # 2026-09-10：保留完整牌面，供剩余张数（活等）评估
+    all_melds = []
+    if isinstance(raw_melds, list) and len(raw_melds) == 4:
+        for seat_melds in raw_melds:
+            one = []
+            if isinstance(seat_melds, list):
+                for m in seat_melds:
+                    if not isinstance(m, dict):
+                        continue
+                    kind = m.get("kind") or m.get("type")
+                    if kind not in ("chi", "peng", "gang"):
+                        continue
+                    ts = m.get("tiles") or []
+                    one.append({"type": kind,
+                                "tile": ts[0] if ts else "",
+                                "tiles": list(ts)})
+            all_melds.append(one)
     return {
+        "all_melds": all_melds,             # 四家副露（公开信息，C021 活等用）
         "seat": seat,                       # 本人座位（观赛 -1）
         "phase": snap.get("phase") or "",   # deal|draw|response_*|settled|finished
         "turn": _int_or(snap.get("turn"), -1),
@@ -119,6 +140,7 @@ def snap_view(snap):
         "melds": melds,                     # 本人副露（服务器权威；空=无）
         "god": god,
         "scores": snap.get("scores"),
+        "dealer": snap.get("dealer"),
         "_snap_has_melds": bool(melds) or
         (isinstance(raw_melds, list) and len(raw_melds) == 4),
     }

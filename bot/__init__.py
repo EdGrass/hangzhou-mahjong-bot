@@ -22,4 +22,27 @@ __version__ = "1.0.0"
 #   god 新增 god_discarder_seat——我方弃白场景极低频（自动房实测 0 弃白），
 #   snap_god 映射字段预留在 model.py，行为适配待真机实测后落地；
 # v27（portal 榜 added/changed）：bot 玩家 API 零影响。
-GUIDE_VERSION_KNOWN = 27
+# v28（changed 2026-09-09）：门户胡大牌榜排序链去掉第 3 键「该牌型全史次数」
+#   ——门户 API 面，bot 玩家 API 契约零影响。
+# v29（BREAKING 2026-09-09）：新增全服功能开关——管理页可关闭自由匹配与自建
+#   测试房，关闭后 POST /api/match / POST /portal/api/test-rooms 一律
+#   403 FEATURE_DISABLED（**永久条件，不要重试**；在途对局与已在房中的幂等
+#   路径照常）。本 bot 已在 tools/match_super.py 与 run_bot.py --match 分支
+#   把 403 与瞬态错误分流（403 直接退出，不做退避重试）。免认证可读
+#   GET /portal/api/features 预检 {match_enabled, test_rooms_enabled}。
+# v30（changed 2026-09-10）：他人真名全面收口——正式赛以外一切 API 的姓名字段
+#   只下发 AI 昵称（为空则空串，消费方回退 user_id）。契约 schema 逐字节不变、
+#   无新错误码；本 bot 不依赖对手姓名字段（按 user_id 匹配）→ 零影响，仅同步版本号。
+# v31（changed 2026-09-11）：局间暂停 5s（phase=settled）——本 bot 的 decide 对
+#   非 draw/response_ 相位返回 None（my_turn/window_pending 皆 False），实测无影响；
+#   吞吐实测：09-15 起房间间隔中位 15.0 min = 4.00 房/h（与改版前一致，暂停被房间
+#   时长吸收）⇒ 一个月计划里的 ~4 房/h 假设仍成立。
+# v32（changed 2026-09-12）：杠爆判定在**杠动作时重算**——self-gang 后补到爆头牌
+#   记 杠开+爆头（fan 4，而非此前的杠开 fan 2）。已用线上 /portal/api/fan_calc 核对：
+#   chain={1,0} + 爆头 ⇒ fan 4；本地 mahjong/fan.calc 完全一致（tests/test_engine_v21 覆盖）。
+# v33（changed 2026-09-13）：杠后补牌**不再自动结算**（可 hu / 续杠 / 弃胡打财神续飘）
+#   ⇒ 「杠 + 财飘」链可叠到 count=2：线上核对 {count:2,piao:1} + 爆头 ⇒ fan 8（detail
+#   标签为「杠飘链×2」；本地 fan 值一致、仅标签字符串不同）⇒ C141 的 chain 修正正好
+#   吃到这条新规（已加单测 tests/test_speedc141.py::test_v33_gang_then_piao_chain）。
+# v34（added 2026-09-14）：今日榜加 last（垫底）键——纯门户 API，玩家侧零影响。
+GUIDE_VERSION_KNOWN = 34

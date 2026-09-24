@@ -21,7 +21,9 @@ from __future__ import annotations
 import json
 import queue
 import threading
+import time
 
+from .api import _TRACING, _trace
 from .util import log
 
 
@@ -33,6 +35,7 @@ class NotifyLine:
         self._q = queue.Queue(maxsize=64)
         self._th = None
         self.down = False                  # 主循环只读标志（真 down 后不再重连）
+        self.last_seq = None               # 最近一帧的服务器水位（fast_state 用）
 
     # ---------- 线程 ----------
     def start(self):
@@ -63,6 +66,12 @@ class NotifyLine:
                         self._put("down")      # 场终/死场关流：交给主循环收尾
                         return
                     if isinstance(obj, dict) and "seq" in obj:
+                        self.last_seq = obj.get("seq")
+                        if _TRACING:
+                            _trace({"ts": round(time.time(), 3),
+                                    "path": "notify", "kind": "notify",
+                                    "gid": self.gid, "seq": obj.get("seq"),
+                                    "wait_ms": 0, "http_ms": 0, "status": 200})
                         self._put("event")
         except Exception as e:  # noqa: BLE001（网络/429/404 → down 降级）
             self._put("down")
@@ -93,6 +102,24 @@ class NotifyLine:
             return self._q.get(timeout=timeout)
         except queue.Empty:
             return "timeout"
+
+    def drain(self, first):
+        """合并积压信号：/state 的 seq 游标语义是累积的，积压的多个 event 只需
+        一次 fetch 即可覆盖 → 丢弃冗余帧，把 /state 需求压到「每批一次」。
+
+        2026-09-10 实测：不合并时 10 场并发下 /state 峰值 18/s 超过服务端 16/s
+        上限 → 429 RATE_LIMITED 直接打死场次线程（房 a_fb0a32b036e5 实证）。
+        """
+        ev = first
+        while True:
+            try:
+                nxt = self._q.get_nowait()
+            except queue.Empty:
+                return ev
+            if nxt == "down":
+                ev = "down"
+            elif ev != "down":
+                ev = "event" if (ev == "event" or nxt == "event") else "keepalive"
 
     def close(self):
         """终止线程（尽力而为；daemon 线程随进程回收）。"""

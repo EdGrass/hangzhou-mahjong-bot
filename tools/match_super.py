@@ -22,6 +22,7 @@ import os
 import subprocess
 import sys
 import time
+import urllib.error
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOKEN_FILE = os.path.join(ROOT, "var", ".global_token")
@@ -47,8 +48,17 @@ def api_match():
         BASE + "/api/match", data=b"{}",
         headers={"Authorization": "Bearer " + _token(),
                  "Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=25, context=ctx) as r:
-        d = json.loads(r.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=25, context=ctx) as r:
+            d = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        # v29：功能开关关闭 = 永久条件，绝不重试（指南明确「不要重试」）
+        if e.code == 403 and "FEATURE_DISABLED" in body:
+            raise SystemExit(
+                "自由匹配已被管理端关闭（403 FEATURE_DISABLED，永久条件）——"
+                "停止而非重试。可 GET /portal/api/features 预检。")
+        raise
     room = d.get("room_id") or d.get("tournament_id") or ""
     if not room:
         raise RuntimeError("match 无 room_id: %s" % str(d)[:200])
@@ -87,20 +97,56 @@ def one_room(strategy, stamp):
     return room, logp, code
 
 
+def wait_seconds_for(sec_now, target):
+    """为"等到墙上时钟的秒 ≥ target"需要睡多少秒（已在窗口内 ⇒ 0）。
+
+    ★ 2026-09-16 新增：为"入席秒 ↔ 同桌强度"的预登记实验（STATUS §9.87）提供机制。
+    口径：target=50 时，秒 50~59 入席；秒 <50 则等到 50。
+    """
+    try:
+        s, t = int(sec_now), int(target)
+    except Exception:
+        return 0
+    if s >= t:
+        return 0
+    return t - s
+
+
+def wait_until_second(target):
+    """按需睡眠到秒 ≥ target；返回实际睡了多久（秒）。"""
+    sec = time.localtime().tm_sec
+    d = wait_seconds_for(sec, target)
+    if d > 0:
+        print("%s 等待入席窗口（当前 %d 秒 < 目标 %d 秒）⇒ 睡 %ds"
+              % (ts(), sec, int(target), d), flush=True)
+        time.sleep(d)
+    return d
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rooms", type=int, default=6)
     ap.add_argument("--strategy", default="speedtm")
+    ap.add_argument("--wait-until-second", type=int, default=None,
+                    help="入席前等到墙上时钟的秒 ≥ N（预登记实验用；见 STATUS §9.87）")
     args = ap.parse_args()
     if not os.path.exists(TOKEN_FILE):
         raise SystemExit("缺 var/.global_token")
     os.makedirs(os.path.join(ROOT, "logs"), exist_ok=True)
     done = 0
     while done < args.rooms:
-        stamp = time.strftime("%Y%m%d_%H%M%S")
         print("%s 第 %d 房：/api/match 预占…" % (ts(), done + 1), flush=True)
+        if args.wait_until_second is not None:
+            wait_until_second(args.wait_until_second)
+        # ★ 2026-09-17 修：`stamp` 必须取在**等待之后**。
+        #   原实现把 stamp 放在 wait 之前 ⇒ 房目录/日志名记的是"准备入席"的时刻（如 23:33:29），
+        #   而真正入席是等待结束后的 /api/match（如 23:33:50）⇒ 所有以"目录名的秒"为口径的分析
+        #   （尤其 `var/_pool_signal_test.py` 的操纵检查）会把 B 臂读成"根本没等到 ≥50"，实验被误判。
+        stamp = time.strftime("%Y%m%d_%H%M%S")
         try:
             room = api_match()
+        except SystemExit:
+            raise                       # 403 FEATURE_DISABLED：永久条件，直接退出
         except Exception as e:
             print("%s match 失败(%s)，30s 后重试" % (ts(), e), flush=True)
             time.sleep(30)

@@ -40,7 +40,7 @@ def _minus(hand, tile, k=1):
 
 def make_view(seat, phase, turn, hand, drawn=None, melds=None, offer=None,
               responding=None, god=None, scores=None, can_gang=True,
-              river=None):
+              river=None, all_melds=None, dealer=None):
     """与协议层 snap_view 同构的本人视角（模拟器扩展键仅本地填充）。"""
     melds = melds or []
     god = dict(god or {"baotou": False, "chain_count": 0, "catch_play": False,
@@ -58,6 +58,9 @@ def make_view(seat, phase, turn, hand, drawn=None, melds=None, offer=None,
         "offer_tile": offer,
         "can_gang": can_gang,
         "river": list(river or []),     # 当前局公开弃牌河（真机 game.py 同口径）
+        "dealer": dealer,              # 当前局庄家（C063 赔付评估用）
+        # 2026-09-10 C021：四家副露（公开信息）——用于按剩余张数评估听牌宽度
+        "all_melds": [list(m) for m in all_melds] if all_melds else [],
     }
 
 
@@ -133,7 +136,9 @@ class SimGame:
                               "catch_play": (self.catch_at is not None
                                              and seat != self.catch_at),
                               "piao_count": self.piao[seat]},
-                         can_gang=self._gang_ok(), river=self.river)
+                         can_gang=self._gang_ok(), river=self.river,
+                         all_melds=self.melds,
+                         dealer=getattr(self, "_dealer", None))
 
     # ---------- 决策 ----------
     def _decide(self, seat, view):
@@ -256,6 +261,7 @@ class SimGame:
 
     # ---------- 单局 ----------
     def _play_round(self, dealer):
+        self._dealer = dealer
         self._new_round()
         seat = dealer
         state = "ready"                       # ready: 已摸牌待行动; discard: 副露/杠后出牌

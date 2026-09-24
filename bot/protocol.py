@@ -24,7 +24,15 @@ from .util import log
 
 # 状态机行为参数
 POLL_INTERVAL = 1.0            # 锦标赛详情轮询间隔（秒，running 等需要反应性的状态）
-REGISTER_POLL = 15.0           # 报名期稳态轮询（开赛秒级感知足够，降 90%+ 请求）
+REGISTER_POLL = 15.0           # 报名/到位**重试**间隔（幂等 POST，低频即可）
+# ★★ 2026-09-18（R508）第 1 项修复：**报名期的状态轮询必须 ≤1s**。
+#   根因（实测，44 房对照）：auto 房的 `registering → running` 会让 **M=10 个并发桌同时开局**，
+#   而"庄家首弃"的预算只有 `DiscardTimeoutSec=3`。旧值 REGISTER_POLL=15 让 bot 最多晚 **15s**
+#   才看到 running ⇒ 那些桌的庄家首弃**全部**由服务端代打。
+#   证据：轮询间隔落在 15s 的房（n=25）里，庄家首弃"代打/总数" = 4/4、5/5、3/3…（24 房满分命中）；
+#   而首个状态就已是 running（无 15s 迟滞）的房（n=9）**全部 0 代打**。
+#   代价：报名期 GET 从 ~4/分 升到 60/分（1/s），仍远低于进程级 12/s 桶，且此时无对局流量。
+REGISTER_STATUS_POLL = 1.0     # 报名期**状态**轮询（快）；register/ready 的 POST 仍按 REGISTER_POLL 重试
 STAGE_WAIT_POLL = 5.0          # stage_done 等管理员推进（分钟~小时级）
 UNKNOWN_STATUS_INTERVAL = 5.0  # 未知状态（版本前向兼容）的保守轮询间隔
 JOIN_GIVE_UP_SEC = 300.0       # 一直无法入场的放弃时间（错过报名/名额满）
@@ -130,6 +138,7 @@ def run_tournament(client, tid, strategy, scoped=True, record_dir=None):
         log("replay 采集已启用: %s", record_dir)
     registered_in_period = False    # 是否已成功报名+到位（幂等；报名期成功一次即可，也用于 403 未入场判定）
     last_ready_at = 0.0             # 注册期周期 ready（测试房跨轮维持用）
+    last_reg_try = 0.0              # 上次尝试 register+ready 的时刻（与状态轮询解耦，见 R508）
     last_404_at = 0.0               # 服务器重启瞬态 404 计时（>120s 视为房间真删）
     last_confirm_at = 0.0           # 上次出席确认时间 —— 确认幂等(200)，仅做节流防每秒刷
     give_up_at = time.time() + JOIN_GIVE_UP_SEC
@@ -162,18 +171,24 @@ def run_tournament(client, tid, strategy, scoped=True, record_dir=None):
                 continue
             if e.status == 404:
                 # 服务器重启瞬态（实测每 ~70 分钟一次 502→404 风暴）：
-                # 重试 2 分钟，房间若恢复（running/registering）则继续
+                # 重试 2 分钟，房间若恢复（running/registering）则继续。
+                # R1147 修：原判据写成 `now404 - last_404_at > 120` 而 last_404_at
+                # 初值 0.0 ⇒ **第一个 404 就被判成"持续>2min"直接退出**
+                # （2026-09-23 实测：三测报名期一次瞬态 404 即杀掉 run_bot，
+                #   正式赛里等价于对局中途无故重启）。改为"首个 404 起算"。
                 now404 = time.time()
-                if now404 - last_404_at > 120:
+                if last_404_at == 0.0:
+                    last_404_at = now404
+                elif now404 - last_404_at > 120:
                     log("锦标赛详情 404 持续（>2min）—— 房间已删除/清理，退出")
                     raise
-                if last_404_at == 0:
-                    last_404_at = now404
-                log("锦标赛详情 404（服务器重启瞬态），2s 后重试…")
+                log("锦标赛详情 404（服务器重启瞬态，已持续 %.0fs），2s 后重试…",
+                    now404 - last_404_at)
                 time.sleep(2)
                 continue
             raise
 
+        last_404_at = 0.0       # R1147：拿到详情即清除 404 计时（只统计连续 404）
         st = _stage(t)
         intent, why = tournament_intent(t)
         state_key = (t.get("status"), st["name"], st["crashed"])
@@ -204,20 +219,24 @@ def run_tournament(client, tid, strategy, scoped=True, record_dir=None):
             summary(client, tid, t)
             return t
         if intent == "register":
-            if not registered_in_period:
+            # ★ R508：**状态轮询快（REGISTER_STATUS_POLL=1s）、register/ready 重试慢（15s）**。
+            #   两者必须解耦：auto 房会被 409 AUTO_MATCH_ONLY 拒，不能因此把状态轮询也拖到 15s。
+            now_r = time.time()
+            if not registered_in_period and now_r - last_reg_try >= REGISTER_POLL:
                 # 报名+到位幂等：本报名期成功一次即可，之后纯轮询等开赛
                 registered_in_period = _register(client, tid)
-                last_ready_at = time.time()
+                last_reg_try = now_r
+                last_ready_at = now_r
             # 测试房跨轮：registering 期需周期 ready 维持（30 分钟无动作会被
             # 判定空闲 void）；ready 幂等无害，正式锦标赛同款安全
-            now_r = time.time()
             if registered_in_period and now_r - last_ready_at > 30:
                 try:
                     client.ready(tid)
                 except ApiError:
                     pass
                 last_ready_at = now_r
-            time.sleep(REGISTER_POLL)   # 报名期稳态轮询（低频率）
+            # 按"状态感知"节拍睡：错过 running 的代价 = M=10 桌的庄家首弃全被代打（R508）
+            time.sleep(REGISTER_STATUS_POLL)
         elif intent == "confirm":
             # 出席确认幂等(200)，10s 节流即可；即使中途崩溃重赛回同一阶段也会重新确认
             now = time.time()

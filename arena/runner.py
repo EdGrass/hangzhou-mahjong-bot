@@ -91,6 +91,41 @@ def _speedtqm():
     return SpeedTQM(lead=1)
 
 
+@_reg("speedtma")
+def _speedtma():
+    """C018 无门控副露候选（TM+吃碰不看向听，见 bot/speedtma.py）。"""
+    from bot.speedtma import SpeedTMA
+    return SpeedTMA()
+
+
+@_reg("speedtu")
+def _speedtu():
+    """C019 听牌升级副露（TM+已听换更宽听形，见 bot/speedtu.py）。"""
+    from bot.speedtu import SpeedTU
+    return SpeedTU()
+
+
+@_reg("speedtv")
+def _speedtv():
+    """C020 活等（按剩余张数）候选（见 bot/speedtv.py）。"""
+    from bot.speedtv import SpeedTV
+    return SpeedTV()
+
+
+@_reg("speedtw")
+def _speedtw():
+    """C021 公开信息活等候选（见 bot/speedtw.py）。"""
+    from bot.speedtw import SpeedTW
+    return SpeedTW()
+
+
+@_reg("speedtug")
+def _speedtug():
+    """C036 弃胡换爆头（SpeedTU 派生，见 bot/speedtug.py）。"""
+    from bot.speedtug import SpeedTUG
+    return SpeedTUG()
+
+
 @_reg("speedtp")
 def _speedtp():
     """TM+碰严格 C017（吃 mild/碰严格，见 bot/speedtp.py）。"""

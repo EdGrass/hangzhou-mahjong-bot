@@ -1,0 +1,8 @@
+# 杭麻 Bot 依赖（Python 3.12）
+# 核心（参赛必需）：协议客户端 + 状态机 + 策略网络
+numpy>=1.26
+torch>=2.2
+psutil>=5.9
+# 仅本地评估面板（arena/dashboard）需要：
+fastapi>=0.110
+uvicorn>=0.29

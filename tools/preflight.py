@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import io
 import os
 import subprocess
 import sys
@@ -115,8 +116,11 @@ def main():
     try:
         out = subprocess.run(
             ["powershell", "-NoProfile", "-Command",
-             "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
-             "Where-Object { $_.CommandLine -match 'run_bot.py' } | "
+             # 注意：keeper/watchdog 与 run_bot 常以 **pythonw.exe** 启动，
+             # 只筛 python.exe 会漏报（2026-09-15 实测：bot 正在跑却报「无 run_bot」）。
+             "Get-CimInstance Win32_Process | "
+             "Where-Object { $_.Name -match '^pythonw?\\.exe$' -and "
+             "$_.CommandLine -match 'run_bot\\.py' } | "
              "Measure-Object | Select-Object -ExpandProperty Count"],
             capture_output=True, text=True, timeout=20)
         n = int((out.stdout or "0").strip() or 0)
@@ -126,6 +130,106 @@ def main():
             log("⚠ 本机无 run_bot 进程（若由看门狗/其他机器托管可忽略）")
     except Exception:
         log("⚠ 进程探测不可用（跳过）")
+
+    # 5) 决策延迟体检（30 分钟房间上限 ⇒ 决策变慢会少打局数）
+    #    取最近一局 dec 记录，按窗口比较 p99：碰/吃窗口 1s、弃牌窗口 3s。
+    try:
+        import glob as _glob, json as _json
+
+        # 只体检「即将上生产的那一档策略」的最近一房 —— 否则一个已淘汰候选留下的慢文件
+        # 会把 preflight 永久钉在 NOT READY，而 _switch_to_official.ps1 见到非 READY 会 throw
+        # ⇒ 正式赛当天会被一条无关的旧记录挡住切换。（2026-09-15 实测：speedc130 淘汰后
+        #   最新 dec 文件仍是它的，p99=8009ms、12 条超窗口，而 speedtugc 是 0 条。）
+        _want = ""
+        try:
+            _want = io.open(os.path.join(ROOT, "var", "_keeper_strategy.txt"),
+                            encoding="utf-8").read().strip()
+        except Exception:
+            _want = ""
+        _room2s = {}
+        try:
+            for _ln in io.open(os.path.join(ROOT, "var", "auto_ranking.jsonl"), encoding="utf-8"):
+                _ln = _ln.strip()
+                if not _ln:
+                    continue
+                _r = _json.loads(_ln)
+                if _r.get("room"):
+                    _room2s[_r["room"]] = _r.get("strategy") or ""
+        except Exception:
+            _room2s = {}
+        _cands = []
+        for _d in _glob.glob(os.path.join(ROOT, "var", "replays", "auto_*")):
+            _fs2 = _glob.glob(os.path.join(_d, "*.dec.jsonl"))
+            if not _fs2:
+                continue
+            _newest = max(_fs2, key=os.path.getmtime)
+            _rid = None
+            try:
+                for _ln in io.open(_newest, encoding="utf-8"):
+                    if _ln.strip():
+                        _rid = (_json.loads(_ln).get("g") or "").split("_r")[0]
+                        break
+            except Exception:
+                _rid = None
+            _cands.append((max(os.path.getmtime(f) for f in _fs2), _newest, _room2s.get(_rid, "")))
+        _fs = []
+        if _cands:
+            _cands.sort()
+            _pick = [c for c in _cands if _want and c[2] == _want]
+            _fs = [(_pick[-1] if _pick else _cands[-1])[1]]
+            log("  延迟体检对象：%s（策略 %s）" % (os.path.basename(os.path.dirname(_fs[0])),
+                                              (_pick[-1] if _pick else _cands[-1])[2] or "?"))
+        if _fs:
+            _v = []
+            for _ln in io.open(_fs[-1], encoding="utf-8"):
+                _ln = _ln.strip()
+                if not _ln:
+                    continue
+                try:
+                    _r = _json.loads(_ln)
+                except Exception:
+                    continue
+                _ms = _r.get("ms")
+                if isinstance(_ms, (int, float)):
+                    _v.append((float(_ms), str(_r.get("p"))))
+            if _v:
+                _v.sort()
+                _n = len(_v)
+                _p99 = _v[min(_n - 1, int(_n * 0.99))][0]
+                _over = sum(1 for _m, _ph in _v
+                            if (_ph.startswith("response_") and _m > 1000) or (_ph == "draw" and _m > 3000))
+                if _over:
+                    ok = False
+                    log("✗ 决策超窗口 %d 条（p99=%.0fms，窗口 1s/3s）——会丢机会且拖长房间", _over, _p99)
+                elif _p99 > 500:
+                    log("⚠ 决策 p99=%.0fms 偏高（预算 1s/3s；房间有 30min 上限，变慢会少打局数）", _p99)
+                else:
+                    log("✓ 决策延迟健康（p99=%.0fms，超窗口 0 条；窗口 1s/3s）", _p99)
+    except Exception as e:
+        log("⚠ 延迟体检不可用（跳过）：%s", str(e)[:60])
+
+    # 6) 自愈链根节点：计划任务 HangzhouMajAutoHeal（整条监管链的根）
+    #    它一旦被禁用/失败，watchdog/keeper/official keepalive 全都失去兜底
+    #    （历史上 keeper 无人管曾造成 37.6 小时空转）。
+    try:
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "$t=Get-ScheduledTask -TaskName 'HangzhouMajAutoHeal' -ErrorAction SilentlyContinue; "
+             "if($t){$i=Get-ScheduledTaskInfo -TaskName 'HangzhouMajAutoHeal'; "
+             "'{0}|{1}|{2}' -f $t.State,$i.LastTaskResult,$i.NumberOfMissedRuns}else{'MISSING'}"],
+            capture_output=True, text=True, timeout=25)
+        v = (out.stdout or "").strip()
+        if v == "MISSING" or not v:
+            log("⚠ 未找到计划任务 HangzhouMajAutoHeal（自愈链根节点缺失，建议重建）")
+        else:
+            state, res, missed = (v.split("|") + ["", "", ""])[:3]
+            if str(state).strip().lower() == "ready" and str(res).strip() == "0":
+                log("✓ 自愈链根节点就绪（计划任务 Ready，LastTaskResult=0，Missed=%s）", str(missed).strip())
+            else:
+                log("⚠ 自愈链根节点异常（State=%s LastTaskResult=%s Missed=%s）——"
+                    "watchdog/keeper/official keepalive 将失去兜底", state, res, missed)
+    except Exception as e:
+        log("⚠ 计划任务体检不可用（跳过）：%s", str(e)[:60])
 
     log("体检结果: %s" % ("READY" if ok else "NOT READY"))
     return 0 if ok else 1

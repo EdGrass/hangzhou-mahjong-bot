@@ -4,6 +4,7 @@
 所有业务调用方只 import 本模块的 api() / ApiError。
 """
 import json
+import os
 import ssl
 import threading
 import time
@@ -40,7 +41,29 @@ class _Throttle:
             self.last = time.monotonic()
 
 
-THROTTLE = _Throttle()
+# 2026-09-10 拆分（指南 v29）：/state 有独立 16 次/秒额度、notify 不计入该额度、
+# /action 另有额度。此前三类请求共用一个 12/s 桶，10 场并发时动作提交被
+# 轮询挤到窗口关闭之后——自动房实测吃 67%/碰 78% 被 409 拒绝（1109 次失败
+# claim 中 66% 那张牌最终无人要，即我方迟到而非竞争）。
+THROTTLE_STATE = _Throttle(rate=14.0, burst=4)     # 指南上限 16/s，留余量
+THROTTLE_ACTION = _Throttle(rate=24.0, burst=8)    # 动作独立额度，不再排队
+THROTTLE = THROTTLE_STATE                          # 兼容旧引用（notify 连接等）
+
+_TRACING = os.environ.get("HM_API_TRACE") == "1"
+_TRACE_LOCK = threading.Lock()
+
+
+def _trace(rec):
+    """请求级追踪（仅 HM_API_TRACE=1 时生效）——定位窗口延迟用。"""
+    try:
+        os.makedirs("var", exist_ok=True)
+        line = json.dumps(rec, ensure_ascii=False)
+        with _TRACE_LOCK:
+            with open(os.path.join("var", "api_trace.jsonl"), "a",
+                      encoding="utf-8") as f:
+                f.write(line + "\n")
+    except Exception:
+        pass
 
 
 class ApiError(Exception):
@@ -80,35 +103,61 @@ class Client:
         self._ctx = ssl._create_unverified_context()  # 部署实例为 caddy 自签证书
 
     # -- 底层请求 ------------------------------------------------------------
-    def request(self, method, path, body=None, timeout=DEFAULT_TIMEOUT):
-        """发一次请求；全局节流 + 429 退避重试，其余 HTTP 错误抛 ApiError。"""
-        THROTTLE.acquire()
+    def request(self, method, path, body=None, timeout=DEFAULT_TIMEOUT,
+                kind="state"):
+        """发一次请求；按 kind 选令牌桶 + 429 退避，其余 HTTP 错误抛 ApiError。
+
+        kind="action" 走独立桶：/action 不在 /state 的 16/s 额度内（指南 v29），
+        与轮询共桶会让窗口动作排队到窗口关闭之后。
+        """
+        th = THROTTLE_ACTION if kind == "action" else THROTTLE
+        t0 = time.monotonic()
+        th.acquire()
+        t1 = time.monotonic()
         data = json.dumps(body).encode("utf-8") if body is not None else None
         req = urllib.request.Request(self.server + path, data=data, method=method)
         req.add_header("Content-Type", "application/json")
         if self.token:
             req.add_header("Authorization", "Bearer " + self.token)
-        for attempt in range(max(RATE_LIMIT_RETRIES, NETWORK_RETRIES) + 1):
-            try:
-                with urllib.request.urlopen(req, timeout=timeout, context=self._ctx) as r:
-                    raw = r.read().decode("utf-8", errors="replace")
-                    try:
-                        return json.loads(raw)
-                    except ValueError:
-                        return raw  # 个别端点返回非 JSON（如纯文本）也照常透传
-            except urllib.error.HTTPError as e:
-                # HTTPError 是 URLError 子类，必须先于网络分支判断
-                if e.code == 429 and attempt < RATE_LIMIT_RETRIES:
-                    time.sleep(RATE_LIMIT_BACKOFF * (attempt + 1))
-                    continue
-                raise ApiError(e.code, e.read().decode("utf-8", errors="replace"))
-            except urllib.error.URLError as e:
-                # 网络瞬断/超时：统一转 ApiError(0)，调用方按瞬时故障处理
-                if attempt < NETWORK_RETRIES:
-                    time.sleep(NETWORK_BACKOFF * (attempt + 1))
-                    continue
-                raise ApiError(0, "network error: %s" % (e,))
-        raise ApiError(429, "rate limited after %d retries" % RATE_LIMIT_RETRIES)
+        status = 0
+        try:
+            for attempt in range(max(RATE_LIMIT_RETRIES, NETWORK_RETRIES) + 1):
+                try:
+                    with urllib.request.urlopen(req, timeout=timeout,
+                                                context=self._ctx) as r:
+                        raw = r.read().decode("utf-8", errors="replace")
+                        status = getattr(r, "status", 200) or 200
+                        try:
+                            return json.loads(raw)
+                        except ValueError:
+                            return raw  # 个别端点返回非 JSON（如纯文本）也照常透传
+                except urllib.error.HTTPError as e:
+                    # HTTPError 是 URLError 子类，必须先于网络分支判断
+                    status = e.code
+                    text = e.read().decode("utf-8", errors="replace")
+                    if e.code == 429 and attempt < RATE_LIMIT_RETRIES:
+                        time.sleep(RATE_LIMIT_BACKOFF * (attempt + 1))
+                        continue
+                    raise ApiError(e.code, text)
+                except urllib.error.URLError as e:
+                    # 网络瞬断/超时：统一转 ApiError(0)，调用方按瞬时故障处理
+                    status = 0
+                    if attempt < NETWORK_RETRIES:
+                        time.sleep(NETWORK_BACKOFF * (attempt + 1))
+                        continue
+                    raise ApiError(0, "network error: %s" % (e,))
+            raise ApiError(429, "rate limited after %d retries" % RATE_LIMIT_RETRIES)
+        finally:
+            if _TRACING:
+                q = ""
+                if "?seq=" in path:
+                    q = path.split("?seq=", 1)[1]
+                _trace({"ts": round(time.time(), 3),
+                        "seq": q,
+                        "path": path.split("?")[0], "kind": kind,
+                        "wait_ms": round((t1 - t0) * 1000.0, 1),
+                        "http_ms": round((time.monotonic() - t1) * 1000.0, 1),
+                        "status": status})
 
     # -- 便捷方法 ------------------------------------------------------------
     def get(self, path, **kw):
@@ -145,7 +194,7 @@ class Client:
 
     def game_action(self, gid, action):
         """POST /api/games/{id}/action：服务端纯验证，非法 409。"""
-        return self.post("/api/games/%s/action" % gid, action)
+        return self.post("/api/games/%s/action" % gid, action, kind="action")
 
     def match(self):
         """POST /api/match：自动匹配房建房与入席一体（v13+；仅门户绑定全局令牌）。

@@ -38,53 +38,54 @@ def _face_ok(kind_ids, c):
     return all(c[k] > 0 for k in kind_ids)
 
 
-def _iter_decompositions(c, god_face=True):
+def _decompositions_uncached(c, god_face=True):
     """34 维计数（末位=白）。产出 (m, p, t)。白作为万能补位参与块。
 
     god_face=False（C013 白保留模式，2026-09-09）：白不得补足面子
     （顺/刻/纯白面），仅可做对子/塔子伴侣/孤张——用于评估"白留作万能
     听"的弃牌路径（向听保守化），爆头态导向。
     """
+    out = set()
     i = _anchor_first(c)
     if i < 0:
-        yield (0, 0, 0)
-        return
+        out.add((0, 0, 0))
+        return tuple(out)
     j = c[_GOD]
     cc = list(c)
     if i == _GOD:  # 只剩白板
         if j >= 3 and god_face:
             c3 = cc[:]
             c3[_GOD] -= 3
-            for m, p, t in _iter_decompositions(c3, god_face):
-                yield (m + 1, p, t)
+            for m, p, t in _decompositions(c3, god_face):
+                out.add((m + 1, p, t))
         if j >= 2:
             c2 = cc[:]
             c2[_GOD] -= 2
-            for m, p, t in _iter_decompositions(c2, god_face):
-                yield (m, p + 1, t)
+            for m, p, t in _decompositions(c2, god_face):
+                out.add((m, p + 1, t))
         c1 = cc[:]
         c1[_GOD] = 0
-        for m, p, t in _iter_decompositions(c1, god_face):
-            yield (m, p, t)
-        return
+        for m, p, t in _decompositions(c1, god_face):
+            out.add((m, p, t))
+        return tuple(out)
     # 刻子：实体 3 / 实体 2+1白 / 实体 1+2白
     if cc[i] >= 3:
         c3 = cc[:]
         c3[i] -= 3
-        for m, p, t in _iter_decompositions(c3, god_face):
-            yield (m + 1, p, t)
+        for m, p, t in _decompositions(c3, god_face):
+            out.add((m + 1, p, t))
     if cc[i] >= 2 and j >= 1 and god_face:
         c2 = cc[:]
         c2[i] -= 2
         c2[_GOD] -= 1
-        for m, p, t in _iter_decompositions(c2, god_face):
-            yield (m + 1, p, t)
+        for m, p, t in _decompositions(c2, god_face):
+            out.add((m + 1, p, t))
     if cc[i] >= 1 and j >= 2 and god_face:
         c1 = cc[:]
         c1[i] -= 1
         c1[_GOD] -= 2
-        for m, p, t in _iter_decompositions(c1, god_face):
-            yield (m + 1, p, t)
+        for m, p, t in _decompositions(c1, god_face):
+            out.add((m + 1, p, t))
     # 顺子：实体位置 1~3 张，白补其余（仅数牌）
     if i < _NUM:
         base = (i // 9) * 9
@@ -101,8 +102,8 @@ def _iter_decompositions(c, god_face=True):
                         c3[k] -= 1
                     if need_w:
                         c3[_GOD] -= need_w
-                    for m, p, t in _iter_decompositions(c3, god_face):
-                        yield (m + 1, p, t)
+                    for m, p, t in _decompositions(c3, god_face):
+                        out.add((m + 1, p, t))
         # 塔子：实体两连(差1/差2)；实体1+1白 万能塔（god_face=False 时禁——
         # 白不得被塔子绑定，只能成对/孤，保证成型后白自然为孤（爆头导向））
         for d in (1, 2):
@@ -111,32 +112,65 @@ def _iter_decompositions(c, god_face=True):
                 c2 = cc[:]
                 c2[i] -= 1
                 c2[k2] -= 1
-                for m, p, t in _iter_decompositions(c2, god_face):
-                    yield (m, p, t + 1)
+                for m, p, t in _decompositions(c2, god_face):
+                    out.add((m, p, t + 1))
         if j >= 1 and god_face:
             cw = cc[:]
             cw[i] -= 1
             cw[_GOD] -= 1
-            for m, p, t in _iter_decompositions(cw, god_face):
-                yield (m, p, t + 1)
+            for m, p, t in _decompositions(cw, god_face):
+                out.add((m, p, t + 1))
     # 对子：实体2 / 实体1+1白（纯白对/纯白面在实体耗尽后于 _GOD 锚统一处理）
     if cc[i] >= 2:
         c2 = cc[:]
         c2[i] -= 2
-        for m, p, t in _iter_decompositions(c2, god_face):
-            yield (m, p + 1, t)
+        for m, p, t in _decompositions(c2, god_face):
+            out.add((m, p + 1, t))
     if j >= 1:
         cw = cc[:]
         cw[i] -= 1
         cw[_GOD] -= 1
-        for m, p, t in _iter_decompositions(cw, god_face):
-            yield (m, p + 1, t)
+        for m, p, t in _decompositions(cw, god_face):
+            out.add((m, p + 1, t))
     # 孤张：整位当孤（含实体余张）
     c1 = cc[:]
     c1[i] = 0
-    for m, p, t in _iter_decompositions(c1, god_face):
-        yield (m, p, t)
+    for m, p, t in _decompositions(c1, god_face):
+        out.add((m, p, t))
+    return tuple(out)
 
+
+_ITER_CACHE = {}
+_ITER_CACHE_MAX = 200000
+
+
+def _decompositions(c, god_face=True):
+    """`_decompositions_uncached` 的**记忆化**版本：key=(counts 元组, god_face)。
+
+    为什么需要（2026-09-16 实测）：原实现是**无缓存的递归枚举生成器**，同一子计数向量
+    被反复枚举 ⇒ 某些形状退化成指数级（`exact_shanten` 单次 p95=618ms、max=1.9s；
+    我方基线决策 p95=92ms、max=300ms 也主要来自这里）。这直接**封死了任何需要多次
+    调用精确向听的候选**（真实进张候选 c135 因此 p95=5.7s 被延迟门禁淘汰）。
+    缓存后同一向量只枚举一次；并且每层只保留去重后的 `(m,p,t)`，因为向听只依赖三元组集合。
+
+    正确性：同一计数向量的分解集合是纯函数 ⇒ 缓存安全（265 项单测含引擎黄金集）。
+    内存：超过 `_ITER_CACHE_MAX` 条整体清空（宁偶尔重算，不无限增长）。
+    """
+    key=(tuple(c), bool(god_face))
+    hit=_ITER_CACHE.get(key)
+    if hit is not None:
+        return hit
+    val=_decompositions_uncached(list(c), god_face)
+    if len(_ITER_CACHE)>=_ITER_CACHE_MAX:
+        _ITER_CACHE.clear()
+    _ITER_CACHE[key]=val
+    return val
+
+
+def _iter_decompositions(c, god_face=True):
+    """兼容旧调用点（生成器接口）。"""
+    for item in _decompositions(c, god_face):
+        yield item
 
 def _score(m, p, t, base_faces=4):
     if m > base_faces:
@@ -149,12 +183,36 @@ def _score(m, p, t, base_faces=4):
 
 @lru_cache(maxsize=131072)
 def _shanten_counts(counts_tuple, exposed, gangs, god_face):
+    """分解枚举取最小 `_score`。
+
+    2026-09-17 提速（**结果逐位不变**，35,700 条冻结语料对拍 0 差异）：
+      · `_score` 内联 —— cProfile 显示 `_score` 自身 + 其内置 `max/min`
+        在真机决策里占 ~38% 墙钟（53.6M 次调用 / 97s）；
+      · 去掉 `_iter_decompositions` 生成器层，直接查 `_ITER_CACHE`。
+    `_score` / `_iter_decompositions` 仍保留导出（兼容旧调用点与单测）。
+    """
     base = 4 - exposed
     best = 2 * base
-    for m, p, t in _iter_decompositions(list(counts_tuple), god_face):
-        s = _score(m, p, t, base)
-        if s < best:
-            best = s
+    key = (counts_tuple, bool(god_face))
+    dec = _ITER_CACHE.get(key)
+    if dec is None:
+        dec = _decompositions_uncached(list(counts_tuple), god_face)
+        if len(_ITER_CACHE) >= _ITER_CACHE_MAX:
+            _ITER_CACHE.clear()
+        _ITER_CACHE[key] = dec
+    for m, p, t in dec:
+        if m > base:
+            continue                      # 等价于 _score 的 `return 99`
+        need = base - m
+        has = 1 if p >= 1 else 0
+        _pm = p - 1
+        ta = t + (_pm if _pm > 0 else 0)  # = t + max(0, p-1)
+        _mn = ta if ta < need else need   # = min(ta, need)
+        v = 2 * need - has - _mn
+        if v < 0:
+            v = 0                         # = max(0, ...)
+        if v < best:
+            best = v
             if best == 0:
                 break
     return best

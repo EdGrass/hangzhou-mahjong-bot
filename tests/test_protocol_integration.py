@@ -8,6 +8,9 @@ import threading
 import time
 import unittest
 
+from unittest import mock
+
+from bot import protocol as protocol_module
 from bot.api import ApiError
 from bot.protocol import run_tournament
 from bot.speed import SpeedBase
@@ -61,6 +64,34 @@ class FakeClient:
 
 
 class TestTournamentIntegration(unittest.TestCase):
+    """把主循环的生产轮询间隔压到毫秒级（只在本测试类内生效）。
+
+    bot/protocol.py 的 POLL_INTERVAL/REGISTER_POLL/... 是为线上低频轮询
+    （防限流）设的墙钟常量；单测只关心状态机**推进逻辑**，不该真睡 15 秒
+    —— 那会让 join(timeout=30) 在满负载跑全量时余量耗尽而假红。
+    生产代码原样不动。
+    """
+
+    _FAST_TIMING = {
+        "POLL_INTERVAL": 0.05,
+        "REGISTER_POLL": 0.05,
+        "STAGE_WAIT_POLL": 0.05,
+        "UNKNOWN_STATUS_INTERVAL": 0.05,
+    }
+
+    def setUp(self):
+        self._timing_patches = [
+            mock.patch.object(protocol_module, name, value)
+            for name, value in self._FAST_TIMING.items()
+        ]
+        for p in self._timing_patches:
+            p.start()
+        self.addCleanup(self._stop_patches)
+
+    def _stop_patches(self):
+        for p in reversed(self._timing_patches):
+            p.stop()
+
     def _wait_until(self, cond, timeout=25):
         t0 = time.time()
         while not cond() and time.time() - t0 < timeout:
@@ -120,7 +151,7 @@ class TestTournamentIntegration(unittest.TestCase):
         th, res = self._run_in_thread(fc)
         self._wait_until(lambda: fc.register_calls >= 1 and fc.ready_calls >= 1)
         fc.advance()            # → stage_open 名单外
-        th.join(timeout=15)
+        th.join(timeout=30)
         self.assertIsNotNone(res.get("result"))
         self.assertEqual(res["result"]["status"], "stage_open")
         self.assertEqual(fc.ready_calls, 1)   # 仅报名期到位，未做阶段确认
@@ -128,3 +159,4 @@ class TestTournamentIntegration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
