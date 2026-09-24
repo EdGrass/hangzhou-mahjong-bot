@@ -3013,3 +3013,38 @@ python -X utf8 var/_pick_arm.py --since "<役起点>" --min-rooms 30    # 给①
 间隔越长则配对对冲时间漂移的能力越弱。
 
 **结论**：役 4+ 沿用“**基线 + 2 候选**”（同役覆盖 2 轴、每役省 80 房）；**不建议 4 臂**（无先例 + 间隔拉长）；**役 3 不动**。
+
+### V.89 ★★★★★ 计划外事件：**四测**（今天 16:00 开赛，15:00 报名截止）——**我们尚未报名**（2026-09-24 09:5x，R1311）
+
+| 字段 | 值 |
+|---|---|
+| tid | **`t_6266386bfd56`** |
+| 名称 | 「应牌友要求的四测」（`description=预祝中秋快乐`） |
+| status | **registering** |
+| 开赛 | **2026-09-24 16:00:00** |
+| 报名截止 | **2026-09-24 15:00:00** |
+| registered | 15 |
+| **my_registered** | **False** |
+
+**令牌**：`.global_token` / `_1024_20260917` / `_3test_20260923` 对该 tid 均 **403**（各自绑定二测/三测）⇒ **需用户在门户报名并取得四测令牌**。
+三测入场痕迹（`var/_tminus_ready.log`）：用**赛事令牌跑 `var/_ready_1024.py --tid … --token-file …`（POST /ready）**即完成报名/到位。
+
+**成本 / 风险 / 收益**
+
+| 项 | 内容 |
+|---|---|
+| 成本 | 事件期间**暂停役 2**（一账号一房）⇒ 若 ~4h，役 2 判词后移 ~4-5h；事后 **`--started` 原窗口续跑**⇒ `since` 口径不变、不白跑 |
+| 风险 | 三测实测赛事分极差（累计 ≈−92~−138 分/房 vs 测试房 −19.8）⇒ 若天梯计累 `score`，进去会拉低排名 |
+| 收益 | **真实池彩排练 + 官方链再实跑**（三测是唯一真实对照点） |
+
+**已备好的链（等令牌，~3 分钟）**
+```powershell
+python -X utf8 var/_format_fidelity.py --tid t_6266386bfd56                    # 赛制保真（需令牌）
+python -X utf8 tools/ab_ctl.py stop                                            # 空档时（自己等，绝不强停在打对局）
+pwsh -NoProfile -File var/_switch_to_official.ps1 -Strategy <ARM> -TokenFile <TOK> -TournamentId t_6266386bfd56   # 先 -DryRun
+# 赛后：
+python -X utf8 var/_exit_official.py
+python -X utf8 tools/ab_ctl.py start speedc151,speedvalue 1 --bundles=speedc151 "--started=2026-09-23 03:13:44"
+```
+
+**时间红线**：**15:00 前报名/到位**；**16:00 前 bot 必须已在跑**（否则代打/超时反而伤成绩）。
