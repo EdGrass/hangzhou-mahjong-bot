@@ -17,6 +17,11 @@
    - **OK / UNKNOWN ⇒ 采用**（§7.3 / §8：样本不足"只记录，不据此翻转"）；
    - 其它 rc（工具异常）⇒ **无法判定 ⇒ 原地不动**（fail-closed，绝不猜）；
 3. **四格 → 役 4 形态**（役 3 读卡 §3，逐字照抄）：BC✓ ⇒ 走 A 行；BC✗ 且 V✓ ⇒ 走 B 行；都不是 ⇒ NONE 行。
+4. **机制端点否决**（★ R1480 新接）：预登记 §2 把「决策改动率 / 索取率」定为**本役核心机制端点**，
+   并在 §4 写死 **B3：机制不达标 ⇒ 本役作废**。`var/_mech_watch.py`（每 6h）按该端点定期重抽，
+   不在带内就写 `var/.mech_warn`（**内容带臂名**）。但此前**没有任何脚本读它** ⇒ B3 形同不存在：
+   机制坏了（例如模型没加载、臂退化成 no-op）时统计端点只会变成噪声，到盒仍会按破平被“采用”。
+   现在：告警指向该臂 ⇒ **按 B3 不采用**；告警读不出 ⇒ **原地不动**（fail-closed）；告警早于本役起点 ⇒ 当陈旧，不计。
 
 ## 红线
 
@@ -43,6 +48,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOG = os.path.join(ROOT, "var", "_adopt_pair.log")
 AB = os.path.join(ROOT, "var", ".ab_mode")
 LAST = "★ 判定："  # ★ 判定：
+MECH_WARN = os.path.join(ROOT, "var", ".mech_warn")
 
 
 def log(msg):
@@ -61,6 +67,38 @@ def last_verdict(text):
         if LAST in ln:
             hit = ln.split(LAST, 1)[1].strip()
     return hit or ""
+
+
+def mech_state(arm, since, path=None):
+    """★ R1480：预登记 B3（机制不达标 ⇒ 本役作废）在**采用路径上**的读数。
+
+    返回 (state, why)，state ∈ {"ok", "fail", "unknown"}：
+      · 无 `var/.mech_warn`                     ⇒ ok（机制正常）
+      · 告警 mtime 早于本役起点 `since`   ⇒ ok（陈旧告警，不误伤）
+      · 告警内容里出现本臂名               ⇒ fail（该臂机制不达标 ⇒ B3 不采用）
+      · 告警读不出 / mtime 异常           ⇒ unknown（调用方必须原地不动）
+
+    为什么只管**指向本臂**的告警：`_mech_watch` 一次可能检多个候选臂，告警行是
+    `时间 + "臂名 足迹 …脱离预期"`（多条用 ； 拼）⇒ 按臂名匹配即可精确归因。
+    """
+    pp = path or MECH_WARN
+    if not os.path.exists(pp):
+        return "ok", "无机制告警"
+    try:
+        txt = io.open(pp, encoding="utf-8-sig", errors="replace").read().strip()
+        mt = os.path.getmtime(pp)
+    except Exception as e:
+        return "unknown", "告警文件读不出（%s）" % str(e)[:40]
+    if since:
+        try:
+            t0 = time.mktime(time.strptime(since, "%Y-%m-%d %H:%M:%S"))
+            if mt + 1.0 < t0:
+                return "ok", "告警早于本役起点（陈旧）"
+        except Exception:
+            pass
+    if arm and arm in txt:
+        return "fail", "机制端点告警：%s" % txt[:80]
+    return "ok", "告警未指向本臂"
 
 
 def is_adopt(line):
@@ -162,7 +200,14 @@ def main(argv=None):
             else:
                 rc, info = run_veto(since, a.baseline, arm)
         adopted, why = classify_candidate(line, rc)
-        log("%s：判词=「%s」｜%s｜%s" % (arm, line[:40], why, info))
+        mstate, mwhy = mech_state(arm, since)
+        if mstate == "unknown":
+            log("%s：机制告警读数异常（%s）⇒ 原地不动（fail-closed）" % (arm, mwhy))
+            return 2
+        if mstate == "fail" and adopted is True:
+            adopted, why = False, "机制端点不达标 ⇒ 预登记 B3 本役作废（%s）" % mwhy
+        log("%s：判词=「%s」｜%s｜机制=%s（%s）｜%s"
+            % (arm, line[:40], why, mstate, mwhy, info))
         if adopted is None:
             undecided = True
         rows.append((arm, adopted))
