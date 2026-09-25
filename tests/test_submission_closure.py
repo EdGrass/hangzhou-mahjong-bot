@@ -21,6 +21,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PS1 = os.path.join(ROOT, "var", "_prepare_submission.ps1")
 RX_IMP = re.compile(r"^\s*(?:from\s+([A-Za-z_][\w.]*)\s+import|import\s+([A-Za-z_][\w.]*))", re.M)
 RX_PATH = re.compile(r"(var[\\/][A-Za-z_0-9\u4e00-\u9fff.]+\.(?:py|ps1))")
+# ★ R1538：本仓惯用（也是 R1522 推荐）的写法是
+#   `os.path.join(ROOT, "var", "x.py")` —— 模块名是**裸字符串**，RX_PATH 看不见
+#   ⇒ 同类漏入仓就发生了三次（`_replay_endpoint` / `_rotate_token` / `_submit_latency_audit`）。
+RX_JOIN = re.compile(r"os\.path\.join\(\s*ROOT\s*,\s*[\"']var[\"']\s*,\s*[\"']([^\"']+\.py)[\"']")
 
 
 def ops_list():
@@ -67,6 +71,11 @@ class TestSubmissionClosure(unittest.TestCase):
                 r = r.replace("\\", "/")
                 if r.endswith(".py") and r not in ops:
                     n = os.path.basename(r)[:-3]
+                    if n in sib and n not in seen:
+                        queue.append(n)
+            for name in RX_JOIN.findall(src):          # ★ R1538：join 形式的依赖边
+                if name.endswith(".py"):
+                    n = name[:-3]
                     if n in sib and n not in seen:
                         queue.append(n)
         leaked = sorted("var/%s.py" % m for m in seen if ("var/%s.py" % m) not in ops)
@@ -146,6 +155,33 @@ class TestSubmissionClosure(unittest.TestCase):
         untracked = [f for f in ops_list() if f not in tracked]
         self.assertEqual([], untracked,
                          "以下文件在 $opsScripts 里但**尚未入仓** ⇒ 跑 `_prepare_submission.ps1 -Go` 后必须先 commit 再 push：%s" % untracked)
+
+
+
+
+class TestJoinFormDependencyDetection(unittest.TestCase):
+    """★ R1538：闭包门必须认 `os.path.join(ROOT, "var", "x.py")` —— 本仓惯用写法。
+
+    背景：`_gate2.py`（**在清单里、会进公开仓**）用 join 形式在**导入期**加载
+    `_replay_endpoint.py`；旧门只认字面量 `var/x.py` ⇒ 看不见这条边 ⇒ 该文件**既不在清单也未入仓**
+    ⇒ clone 里役判词执行者**直接崩**（同类还漏了 `_rotate_token.py`、`_submit_latency_audit.py`）。
+    """
+
+    def test_regex_reads_the_idiomatic_form(self):
+        self.assertEqual(["_replay_endpoint.py"], RX_JOIN.findall(
+            u'_spec = importlib.util.spec_from_file_location("x", os.path.join(ROOT, "var", "_replay_endpoint.py"))'))
+        self.assertEqual(["_foo.py"], RX_JOIN.findall(
+            u"cmd = [py, os.path.join(ROOT, 'var', '_foo.py')]"))
+
+    def test_gate2_edge_is_visible_to_the_gate(self):
+        src = io.open(os.path.join(ROOT, "var", "_gate2.py"), encoding="utf-8-sig").read()
+        self.assertIn("_replay_endpoint.py", RX_JOIN.findall(src),
+                      "这条边必须能被门看到，否则同样的漏入仓会再次发生")
+
+    def test_three_former_leaks_are_now_listed(self):
+        ops = set(ops_list())
+        for rel in ("var/_replay_endpoint.py", "var/_rotate_token.py", "var/_submit_latency_audit.py"):
+            self.assertIn(rel, ops, u"clone 里会缺 %s" % rel)
 
 
 if __name__ == "__main__":

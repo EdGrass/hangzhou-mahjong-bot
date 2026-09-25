@@ -6179,3 +6179,50 @@ V 既**判不出 PASS 也判不出 FAIL**（只能 UNKNOWN）⇒ ① `.mech_warn
 `tests/test_ensure_all_ab_mode.py` +1（**功能**测试：假脚本 + 临时 ROOT，真的把子进程输出写进 `log_path`，
 并抓住 `Popen` 显式 `wait()` 避免漏进程）。两处测试桩放宽为 `**kw`，并把新的 `KEEPALIVE_OUT` 也隔离到 temp
 （延续"**测试绝不写生产 `var/`**"那条既有纪律）。
+
+### §V.260 ★★★★★ 提交包闭包门的**盲点**：3 个 `var/` 依赖既不在清单也未入仓（R1538）
+
+**怎么发现的**：为核对"主端点到底怎么算的"，去读 `_gate2` 依赖的 `var/_replay_endpoint.py`，一眼看到
+
+```python
+ROOT = r'D:\hangzhouMaj'      # ← 硬编码（R1522 / R1529 两次扫描都漏了它）
+```
+
+而 `_gate2.py` **在导入期**就用 `os.path.join(ROOT, 'var', '_replay_endpoint.py')` 加载它。
+顺着问"闭包门为什么没拦住" ⇒ **门只认字面量 `var/x.py`**（`RX_PATH`），而本仓惯用（也正是 R1522 推荐）的
+写法是 `os.path.join` + `var` 子目录三段式 —— **模块名是裸字符串，门看不见这条边**。
+
+**全量扫这类边 ⇒ 一共 3 个，且没有一个被 git 跟踪**：
+
+| 依赖 | 谁引用它 | clone 里的后果 |
+|---|---|---|
+| `var/_replay_endpoint.py` | `_gate2.py`（**在清单里、会进公开仓**） | **役判词执行者导入期直接 `FileNotFoundError` 崩掉** |
+| `var/_rotate_token.py` | `_watchdog.py` | 令牌轮换断（进程还在跑，功能没了） |
+| `var/_submit_latency_audit.py` | `_mech_watch.py` | 延迟审计**静默跳过**（`except` 吞掉） |
+
+**实证（双向）**：
+
+| 版本 | clone 里 `python var/_gate2.py --help` |
+|---|---|
+| 修复前（`793c650`） | `FileNotFoundError: ...\var\_replay_endpoint.py`，**rc=1** |
+| 修复后 | 正常打印 usage，**rc=0** |
+
+**修（三处）**：
+1. `_replay_endpoint.py`：`ROOT` 从 `__file__` 推 —— 原硬编码还有个更隐蔽的后果：**clone 里回放目录扫不到
+   ⇒ `_gate2` 会静默报"房数不足"**（而不是报错）⇒ 看起来像"数据不够"，实际是**文件缺失**；
+2. `_prepare_submission.ps1` 的 `$opsScripts` 补上这三个（否则 `-Go` 的 `git add -f` 不带它们）；
+3. **闭包门新增 `RX_JOIN`**（认 join 三段式）+ 3 条钉子测试（正则能读惯用写法 / `_gate2` 那条边对门可见 /
+   三个文件都在清单上）。
+
+**提交物门复验**：`_prepare_submission.ps1`（check-only）**全绿** ——
+运行期脚本 **87/87** 已追踪（此前 84）、模型 4/4、未追踪 0、文案一致性 v35、泄密门 OK。
+
+**★ 顺带修掉门自己的一个 bug**：`test_no_hardcoded_root` 的 docstring 早就声明“**注释里提到那条路径不算**”，
+但实现**没剥注释** ⇒ 我把“原来是硬编码”记进 `_replay_endpoint.py` 的注释后，**反而被自己的门报红**。
+已加 `code_only()`（只匹配 `#` 之前的代码）并钉住两个方向（注释不算 / 真赋值仍要抓）。
+
+**★ 过程中我自己踩了两个坑，都被门当场抓住（如实记录）**：
+- ① 我在 `$opsScripts` 的注释里写了**带括号**的 `os.path.join(...)` ⇒ 该清单的解析是**非贪婪匹配到第一个右括号**
+  ⇒ 清单被截断、刚加的三条"凭空消失"（R1437 同类坑）。⇒ 注释改成不含括号的写法。
+- ② 第一版补丁助手"默认 newline 读 + 不做归一化匹配"，撞上 CRLF 匹配不上 ⇒ 改成
+  **匹配前归一化到 LF、写回按原风格恢复**的二进制助手（正是 R1537 行尾事故的教训）。

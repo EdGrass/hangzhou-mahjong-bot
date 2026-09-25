@@ -125,6 +125,12 @@ $opsScripts = @(
   "var/_register_final_pick_proposal.ps1",  # ★ R1434：上行一次性任务的注册脚本      # ★ R1407：换测试房 keeper 策略（_switch_final 的闭包依赖）
   "var/_register_tminus_ready.ps1",
   "var/_prepare_submission.ps1",
+  # ★ R1538：**闭包门盲点**补漏 —— 本仓惯用 os.path.join + var 子目录的三段式写法引用同级脚本，
+  #   而旧门只认**字面量** `var/x.py` ⇒ 这三个依赖既不在清单、也未被 git 跟踪
+  #   clone 里：`_gate2` 导入期直接崩、`_watchdog` 轮换令牌断、`_mech_watch` 延迟审计静默跳过。
+  "var/_replay_endpoint.py",             # ★ R1538：`_gate2` 的**导入期**依赖
+  "var/_rotate_token.py",                # ★ R1538：`_watchdog` 的令牌轮换闭包
+  "var/_submit_latency_audit.py",        # ★ R1538：`_mech_watch` 的延迟审计闭包
   "var/_ps_syntax_check.ps1"
 )
 $mustTrack = @(
