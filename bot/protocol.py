@@ -170,20 +170,21 @@ def run_tournament(client, tid, strategy, scoped=True, record_dir=None):
                 time.sleep(POLL_INTERVAL)
                 continue
             if e.status == 404:
-                # 服务器重启瞬态（实测每 ~70 分钟一次 502→404 风暴）：
-                # 重试 2 分钟，房间若恢复（running/registering）则继续。
-                # R1147 修：原判据写成 `now404 - last_404_at > 120` 而 last_404_at
-                # 初值 0.0 ⇒ **第一个 404 就被判成"持续>2min"直接退出**
-                # （2026-09-23 实测：三测报名期一次瞬态 404 即杀掉 run_bot，
-                #   正式赛里等价于对局中途无故重启）。改为"首个 404 起算"。
+                # ★ v35（2026-09-23 BREAKING）：404 分两种，**必须看 body 的 code**
+                #   TOURNAMENT_NOT_FOUND = 房不存在 ⇒ 放弃（退出）
+                #   TOURNAMENT_GONE      = 房暂时不可达 ⇒ **必须重试**（不得按持续时间判死）
+                #   其它/无法解析的 code ⇒ 保守当作瞬态重试（只记日志）。
+                #   背景（R1221/R1223）：旧实现只看"404 持续 >120s"⇒ 已把 29 次 GONE
+                #   误判成"房已删"而退出（含官方 run 12 次退出/重启抖动）。
+                code = (e.code or "")
+                if code == "TOURNAMENT_NOT_FOUND":
+                    log("锦标赛详情 404 TOURNAMENT_NOT_FOUND —— 房间不存在，退出")
+                    raise
                 now404 = time.time()
                 if last_404_at == 0.0:
                     last_404_at = now404
-                elif now404 - last_404_at > 120:
-                    log("锦标赛详情 404 持续（>2min）—— 房间已删除/清理，退出")
-                    raise
-                log("锦标赛详情 404（服务器重启瞬态，已持续 %.0fs），2s 后重试…",
-                    now404 - last_404_at)
+                log("锦标赛详情 404 %s（暂时不可达，已持续 %.0fs），2s 后重试…",
+                    code or "(无 code)", now404 - last_404_at)
                 time.sleep(2)
                 continue
             raise

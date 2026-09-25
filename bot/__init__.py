@@ -45,4 +45,4 @@ __version__ = "1.0.0"
 #   标签为「杠飘链×2」；本地 fan 值一致、仅标签字符串不同）⇒ C141 的 chain 修正正好
 #   吃到这条新规（已加单测 tests/test_speedc141.py::test_v33_gang_then_piao_chain）。
 # v34（added 2026-09-14）：今日榜加 last（垫底）键——纯门户 API，玩家侧零影响。
-GUIDE_VERSION_KNOWN = 34
+GUIDE_VERSION_KNOWN = 35
