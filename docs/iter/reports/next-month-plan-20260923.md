@@ -5771,3 +5771,16 @@ R1502 之前链上**一根孪生都没有** ⇒ 唯一逃生阀是退回 `speedv
 **触发面**：未来 12 天内只有预期内的常驻看护 + 末端一次性任务 ⇒ 没有过期任务会意外点火。
 **`.ab_mode.last`**：源码“内容相同则不写”，实测 `live == last` ⇒ 快照语义正确。
 **切片命名**：自带窗口 ⇒ 不会与旧切片（`strong_202609230313`）混淆。
+
+### §V.234 役3→役4 起役链逐段验通 + 修“建议与红线冲突”（R1511）
+
+| 环节 | 证据 |
+|---|---|
+| `_adopt_pair` 构造 `_bsegment --go --label <next> --baseline <B> --candidates <C> --watch-mechanism melds` | 源码 L354-356 |
+| 役4/5 走**通用**注册器（役3 legacy） | `_bsegment` L129-133 |
+| 通用注册器 dry-run | 任务名 `HangzhouMajVerdictWatch_役4_speedvaluebcmeldp45`；args 含 `--label 役4… --since <ts> --baseline … --candidate …`；10 分钟 / IgnoreNew / PT25M ✓ |
+| `-Since` 来源 | `_bsegment` 只认 `_switch_campaign` 的“起役时间戳”行 + `TS_RE`（解析失败 fail-closed）；该行**确实打印**（dry-run 实测） |
+| 切换时红线 | 有对局在跑 ⇒ `_switch_campaign` 实测 **rc=2 中止（未执行任何动作）** ✓ |
+
+**修的冲突**：`_switch_campaign.py` 原话“台账残留（不影响切换，**但建议清理**）”与红线**不动台账**冲突（照做即违规）。
+改为“台账只追加、役中不动 ⇒ 仅记录，不要手改”，并用 `tests/test_switch_campaign_redline.py` 钉住（旧文本下红、新文本下绿）。台账一行未删。

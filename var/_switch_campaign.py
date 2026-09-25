@@ -137,7 +137,7 @@ def main():
     print("  判据 bundle   ：%s（%s）" % (bundles, "默认=baseline" if not a.bundles else "显式指定 ✓"))
     print("  起役时间戳    ：%s" % started)
     if stale:
-        print("  台账残留（不影响切换，但建议清理）：%d 条 %s" % (len(stale), stale[:2]))
+        print("  台账残留（**不影响切换**；台账只追加、役中不动 ⇒ 仅记录，不要手改）：%d 条 %s" % (len(stale), stale[:2]))
     if problems:
         print("  检查未通过：")
         for p in problems:

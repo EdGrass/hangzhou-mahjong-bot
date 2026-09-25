@@ -27483,3 +27483,22 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     | **空切片边界** | 自测 | `❌ 没找到复盘文件 ⇒ 本工具不给结论` **rc=2**（fail-closed，绝不把 0 当结论）✓ |
   - 附带：切片目录名自带窗口（`strong_202609252052` / `strong2_202609252052`），且现场还留着役2 的 `strong_202609230313`
     ⇒ **不会被误当成当前口径**（与 R1508b 那份“披着当前名字的旧提案”不同）。自测用的空目录已删（路径已核）。
+
+- [R1511 | 2026-09-26 01:28 ★★★**役3→役4 的“起役 + 注册看护”整链逐段验通**（其中通用注册器此前从未执行过）；
+  并修掉一处**“建议与红线冲突”**（脚本原话“建议清理台账” vs 红线“不动台账”）]
+  - **验证链（逐段，源码实读 + dry-run 实测）**：
+    ① `_adopt_pair` 构造 `_bsegment --go --label <下一役> --baseline <B> --candidates <C> --watch-mechanism melds`（源码 L354-356）；
+    ② `_bsegment`（役 4/5 走**通用**注册器，役 3 走 legacy）→ `_register_campaign_watches.ps1 -Label … -Since … -Baseline … -Candidates … -Mechanism … -Go`；
+    ③ **通用注册器 dry-run 实测**：任务名 `HangzhouMajVerdictWatch_役4_speedvaluebcmeldp45`，
+       实参 `_verdict_watch.py --label "役4speedvaluebcmeldp45" --since "<ts>" --baseline speedvaluebc --candidate speedvaluebcmeldp45 --mechanism <口径>`，
+       间隔 10 分钟 / MultipleInstances=IgnoreNew / ExecutionTimeLimit=PT25M ✓；
+    ④ `-Since` 的来源：`_bsegment` **只认** `_switch_campaign` 输出里“起役时间戳”那一行 + `TS_RE`（解析失败即 fail-closed 返回 2）；
+       而 `_switch_campaign` **确实打印**该行（dry-run 实测：`起役时间戳 ：2026-09-26 01:15:24`）✓；
+    ⑤ `_switch_campaign` 在**有对局在跑时拒绝执行**（实测 rc=2、“中止（未执行任何动作）”）✓ 红线（不强停）。
+  - **发现并修**：`_switch_campaign.py` 打印台账残留时原话是“不影响切换，**但建议清理**”——而本项目红线是**不动台账**
+    （`docs/iter/journal.md:26341`“不手搓台账”、计划多处“不动台账”、多个 ops 脚本自述）。
+    **照“建议”去删行 = 违规 + 破坏证据链**（这类“工具让人违红线”的建议比沉默更坏）。
+    - 改为：`台账残留（不影响切换；台账只追加、役中不动 ⇒ 仅记录，不要手改）`；
+    - 新测试 `tests/test_switch_campaign_redline.py`：**不得出现“但建议清理”**、必须含“不要手改”（旧文本下该测试是红的——先红后绿）；
+    - 那 3 条残留（9/10、9/16 的 `running` 行）**不影响任何分析**（`_pick_arm` / `ab_integrity` / `_seat_h2h` 都按 `ts + status` 过滤）⇒ **一条都不删**。
+  - 证据：dry-run 实测（新措辞 + 拒绝执行）；全量回归 **Ran 1183, OK（skipped=2, xfail=1）**。
