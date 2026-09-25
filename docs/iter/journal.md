@@ -27760,3 +27760,17 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **R1529 其余部分仍成立**：`tools/meld_*.py` 四个确实写着 `ROOT = r'D:\hangzhouMaj'`（**源码就是绝对路径**）⇒ 修正成立；`var/_ps_syntax_check.ps1` 也修了；
     可移植性门扩到 `tools/` 也保留。（另：该轮给 ps1 加中文注释后缺 BOM，已补）。
   - **教训（写进日志供后人）**：判“硬编码路径”必须**看源码文本**，不能看运行时求值；本轮已用脚本→源码逐行核对的方式冻结结论。
+
+- [R1531 | 2026-09-26 05:27 ★★★★**役4→役5 的自动提醒给役5 写了 `--watch-mechanism melds`**（预登记写的是 `none`）⇒ 照它跑会让**硬机制闸去卡“已存在的副露层”**，可能把最终组合臂误判 REFUSE]
+  - **怎么发现**：查“役4→役5 到底谁在提醒”时读 `var/_next_yaku_notice.py`（计划任务 `HangzhouMajNextYakuNotice` 每 10 分钟跑），
+    发现它给役5 生成的可照拄命令是 `--watch-mechanism **melds**`。
+  - **为什么是错的**：役5 的基线 = 役4 赢家（**已含副露层**）；预登记 `prereg-campaign8-combo-20260925.md` §5 写的是 `none`。
+    若用 `melds`，`_gate2` 的机制核对是**硬闸**（z>0 且和牌率不降），而“副露/房”本就持平 ⇒ **可能把最终组合臂误判 REFUSE**。
+    （R1515 已给 `_adopt_pair` 加了同类守卫，但**这条**走 `_bsegment`，没被守卫覆盖。）
+  - **另一个信号**：这个错口径**被端到端测试钉着**（`test_start_branch_writes_copyable_command` 断言 body 必须含 `melds`）
+    ⇒ 说明它是“按实现写的快照”，与**预登记不一致**（而预登记才是权威）。
+  - **修**：① 命令改为 `--watch-mechanism none`（与 campaign8 §5 逐字一致）；
+    ② 提醒包开头补两行**指向读卡**（`yaku4-verdict-readcard.md §0`：三种形状副端点阈值不同；`yaku5-verdict-readcard.md`：定臂口径）；
+    ③ 更新那条旧断言（melds→none，并注明为何）+ 新增断言（役5 命令逐行必须 `none`、不得出现 melds；提醒包必须指向两张读卡）。
+  - **诚实记录**：我写的新断言第一版把 `assertNotIn` 的参数也替换成了 `none` ⇒ 自测立刻报红，已改成“逐行断言”。
+  - 证据：`tests/test_next_yaku_notice.py` **15 项 OK**；全量回归 **Ran 1204, OK（skipped=2, xfail=1）**。

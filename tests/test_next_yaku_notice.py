@@ -95,7 +95,7 @@ class TestEndToEnd(unittest.TestCase):
             self.assertIn("--baseline speedvaluebcmeldp45", body)
             self.assertIn("--candidates speedvaluebcvmeld ", body + " ")
             self.assertIn("--candidates speedvaluebcvmeldp40", body)
-            self.assertIn("--watch-mechanism melds", body)
+            self.assertIn("--watch-mechanism none", body)
 
     def test_idempotent(self):
         with tempfile.TemporaryDirectory() as d:
@@ -148,6 +148,28 @@ class TestEndToEnd(unittest.TestCase):
             body = io.open(os.path.join(d, ".YAKU_NEXT_PENDING"), encoding="utf-8").read()
             self.assertIn("speedvaluebcv", body)
             self.assertIn("--watch-mechanism none", body)
+
+
+class TestYaku5WatchMechanismR1531(unittest.TestCase):
+    """★ R1531：役5 的起役命令**必须** `--watch-mechanism none`。
+
+    为什么：役5 的基线（役4 赢家）**已含副露层** ⇒ 若写 `melds`，
+    `_gate2` 的**硬机制闸**会要求“已存在的层”继续上升 ⇒ 可能把最终组合臂误判 REFUSE。
+    预登记 `prereg-campaign8-combo-20260925.md` §5 写的就是 `none`。
+    """
+
+    def test_yaku5_command_uses_none(self):
+        src = io.open(os.path.join(ROOT, "var", "_next_yaku_notice.py"), encoding="utf-8").read()
+        cmds = [ln for ln in src.splitlines() if "--label 役5" in ln and "watch-mechanism" in ln]
+        self.assertTrue(cmds, "没找到役5 起役命令（测试已失效）")
+        for ln in cmds:
+            self.assertIn("--watch-mechanism none", ln, ln)
+            self.assertNotIn("melds", ln, ln)
+
+    def test_advisory_points_to_readcards(self):
+        src = io.open(os.path.join(ROOT, "var", "_next_yaku_notice.py"), encoding="utf-8").read()
+        self.assertIn("yaku4-verdict-readcard.md", src)
+        self.assertIn("yaku5-verdict-readcard.md", src)
 
 
 if __name__ == "__main__":

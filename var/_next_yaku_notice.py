@@ -154,6 +154,8 @@ def main(argv=None):
 
     lines = [
         "== 役 4 判词已落地 —— “下一步”需要一个判断 ==",
+        "口径（役 4 三种形状的副端点阈值不同）看 docs/iter/reports/yaku4-verdict-readcard.md §0；"
+        "役 5 定臂口径看 yaku5-verdict-readcard.md。本提醒只给命令，不替你判。",
         "时间：%s" % time.strftime("%Y-%m-%d %H:%M:%S"),
         "役 4 判词（%s）：%s" % (vl, (line4 or "（空）")[:90]),
         "役 3 四格：row=%s  BC=%s  V=%s  （役 4 配置：base=%s cands=%s）"
@@ -165,7 +167,9 @@ def main(argv=None):
     if kind == "start":
         lines.append("== 可照拄命令（二选一：§V.186 对剂量口径留了“或”）==")
         for b, c in cmds:
-            lines.append('  python -X utf8 var/_bsegment.py --go --label 役5 --baseline %s --candidates %s --watch-mechanism melds' % (b, c))
+            # ★ R1531：役5 的基线已含副露层 ⇒ `--watch-mechanism` **必须是 none**（与 campaign8 §5 逐字一致）。
+            #   写 melds 会让 `_gate2` 的**硬机制闸**拿“已存在的层”要求上升 ⇒ 可能把最终组合臂误判 REFUSE（R1515 同类）。
+            lines.append('  python -X utf8 var/_bsegment.py --go --label 役5 --baseline %s --candidates %s --watch-mechanism none' % (b, c))
         lines.append("  （一个是无剂量的 3 层组合，一个是剂量对齐 p40；两者都已注册）")
     elif kind == "combo_option":
         lines.append("== 可选合法组合臂（不起役 5；供人判）==")

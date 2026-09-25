@@ -3,7 +3,7 @@
 > | 用途 | 看哪个 |
 > |---|---|
 > | **作战计划（唯一权威，§A–§V.249）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1530**） |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1531**） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | 当前役进度 | `python -X utf8 var/_verdict_watch.py --label 役3bc --since "2026-09-25 20:52:39" --baseline speedvalue --candidate speedvaluebc --mechanism none --check-only`（另一条把 `役3bc/speedvaluebc` 换成 `役3v/speedvaluebaotouv5`） |
