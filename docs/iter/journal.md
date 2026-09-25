@@ -27774,3 +27774,14 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     ③ 更新那条旧断言（melds→none，并注明为何）+ 新增断言（役5 命令逐行必须 `none`、不得出现 melds；提醒包必须指向两张读卡）。
   - **诚实记录**：我写的新断言第一版把 `assertNotIn` 的参数也替换成了 `none` ⇒ 自测立刻报红，已改成“逐行断言”。
   - 证据：`tests/test_next_yaku_notice.py` **15 项 OK**；全量回归 **Ran 1204, OK（skipped=2, xfail=1）**。
+
+- [R1532 | 2026-09-26 05:41 ★★★**上线那一刻的权威规则门在建议一个错的方向**：`rules_guard` 还在叫人改跑旧保险臂（speedc148/153）]
+  - **发现**：`tools/rules_guard.py`（**`_switch_to_official.ps1` 调它** ⇒ 上线那一刻的权威规则门）的建议文案还停在旧保险臂：
+    - 无 `--strategy` 时：「建议：用 **speedc148 / speedc153**（含合法性闸门）」；
+    - `YCBK=true` 不一致时：「⇒ **改跑 `speedc148`（保险臂）或 `speedc153`（强制爆头 v2）**」。
+    照它跑的后果：一旦正式赛是 `YouCaiBiKao=true`，**我们就会主动丢掉逐役选出的强臂**、退回旧保险臂（与 R1502 已备的 13 根**同剂量孪生**完全不相称）。
+  - **修**：两处改为——
+    ① 「建议：用 `<arm>ycbk` 同剂量孪生（见 `bot/ycbk_chain.py`；兜底 speedc148 / speedc153）」；
+    ② 「⇒ **首选**把本策略换成 `<arm>ycbk`（例：speedvaluebcmeldp45 ⇒ speedvaluebcmeldp45ycbk）；孪生未注册时才退回 speedc148 / speedc153」。
+  - **测试**：`tests/test_rules_guard.py` 追加 `TestRulesGuardAdviceR1532`（断言文案含 `<arm>ycbk`、`bot/ycbk_chain.py`，且兜底仍在）；模块 **8 项 OK**。
+  - 证据：全量回归 **Ran 1204, OK（skipped=2, xfail=1）**（该次已含本改动；新增测试在其后单独加并单跑通过）。

@@ -86,4 +86,15 @@ class TestRulesGuard(unittest.TestCase):
         self.assertEqual(rg.main(), 3)
 
 
+class TestRulesGuardAdviceR1532(unittest.TestCase):
+    """★ R1532：`rules_guard` 的建议必须指向**同剂量孪生**（`<arm>ycbk`），而不是只叫人去跑旧保险臂。
 
+    为什么：它是上线那一刻的**权威规则门**（`_switch_to_official.ps1` 调它）；
+    旧文案只说“改跑 speedc148/speedc153”——那是旧保险臂，照它跑等于丢掉逐役选出的强臂。
+    """
+
+    def test_advice_mentions_ycbk_twin(self):
+        src = io.open(os.path.join(ROOT, "tools", "rules_guard.py"), encoding="utf-8").read()
+        self.assertIn("<arm>ycbk", src)
+        self.assertIn("bot/ycbk_chain.py", src)
+        self.assertIn("speedc148 / speedc153", src)   # 兜底仍在

@@ -83,14 +83,17 @@ def main():
     ycbk = bool(ycbk)
     need = ycbk is True
     if not a.strategy:
-        print("建议：%s" % ("用 speedc148 / speedc153（含合法性闸门）" if need
-                          else "用 speedtugc 一族（不含闸门）"))
+        # ★ R1532：旧建议只提 speedc148/153（旧保险臂）——照它跑等于丢掉十天优化。
+        #   现在首选**同剂量孪生** `<arm>ycbk`（bot/ycbk_chain.py，13 根）。
+        print("建议：%s" % ("用 `<arm>ycbk` 同剂量孪生（见 bot/ycbk_chain.py；兜底 speedc148 / speedc153）" if need
+                          else "用不含闸门的策略（speedvalue 一族；本项目当前链就是）"))
         return 0
 
     has_gate = strategy_needs_ycbk(a.strategy)
     if need and not has_gate:
         print("✗ **不一致**：本场 YouCaiBiKao=true，但策略 %s 不含闸门 ⇒ 有白平胡会被 409 拒（历史占我方胡牌 64.4%%）" % a.strategy)
-        print("  ⇒ 改跑 `speedc148`（保险臂）或 `speedc153`（强制爆头 v2），再重跑本校验")
+        print("  ⇒ **首选**把本策略换成同剂量孪生 `<arm>ycbk`（本项目已备 13 根，见 bot/ycbk_chain.py）：")
+        print("     例：speedvaluebcmeldp45 ⇒ speedvaluebcmeldp45ycbk。孪生未注册时才退回 speedc148 / speedc153（旧保险臂）")
         return 2
     if (not need) and has_gate:
         print("✗ **不一致**：本场 YouCaiBiKao=false，但策略 %s 含闸门 ⇒ 会**主动拒掉合法平胡**" % a.strategy)

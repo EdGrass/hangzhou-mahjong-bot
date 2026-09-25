@@ -6000,3 +6000,11 @@ R1502 之前链上**一根孪生都没有** ⇒ 唯一逃生阀是退回 `speedv
 
 **修**：命令改 `none`（与预登记逐字一致）+ 提醒包开头指向两张读卡（役4 三种形状副端点阈值不同 / 役5 定臂口径）。
 **测试**：订正原本钉住 `melds` 的端到端断言，新增逐行断言（役 5 命令必须 `none`）；模块 15 项 OK；全量 **Ran 1204, OK**。
+
+### §V.253 `rules_guard` 的建议指向错方向（R1532）：应换**同剂量孪生**，不是旧保险臂
+
+`tools/rules_guard.py` 是**上线那一刻的权威规则门**（`_switch_to_official.ps1` 调它）。它的建议文案还在写
+「用 speedc148 / speedc153」「⇒ 改跑 speedc148 / speedc153」⇒ 一旦正式赛 `YouCaiBiKao=true`，照它跑 = **丢掉逐役选出的强臂**。
+
+**修**：两处改为「首选 `<arm>ycbk` 同剂量孪生（见 `bot/ycbk_chain.py`，13 根）；孪生未注册时才退回 speedc148 / speedc153」。
+**测试**：`tests/test_rules_guard.py` 追加断言（模块 8 项 OK）。**全量回归 Ran 1204, OK**。
