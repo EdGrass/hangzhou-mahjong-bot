@@ -5519,3 +5519,17 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 ⇒ **R1468–R1494 那一批改动没有一处把生产计划任务拉红**。
 
 时序提醒：`MechWatch` 上次 18:27（改动前），**00:27 才会带新代码跑**；22:07 已手动验过一次（§V.210）。
+
+### §V.220 役 3→役 4 的“接线”测试（R1496）：四格 + 机制闸端到端
+
+新增 `tests/test_adopt_pair_e2e.py`：**假 label**（`自测_w9`）+ 临时判词文件 ⇒ 把 `_adopt_pair.main()` **真跑一遍**
+（`--dry-run`，不启役）；`run_veto`/`mech_state` 打桩；`B2_OUT`/`CONFLICT_OUT` 改指临时路径。
+
+| 情形 | 期望结果 |
+|---|---|
+| bc 判正 | A 行 `speedvaluebc` + `speedvaluebcmeldp45` |
+| 只有 v 判正 | B 行 `speedvaluebaotouv5` + `speedvaluebaotouvmeld` |
+| 双双判负 | NONE 行 `speedvalue` + `speedvaluemeldp45` |
+| **bc 足迹告警** | **四格从 A 翻到 B**（R1480 机制闸端到端） |
+
+意义：之前只有**纯函数**测试；现在**裁决的组合也钉住了** —— 役 3 判词落地时，“读判词 → 过三道闸 → 出四格 → 打印起役命令”这条路已经有端到端证据。
