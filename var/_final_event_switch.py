@@ -98,6 +98,52 @@ def resolve_tid(server="https://10.240.169.190:18080"):
     return "", ("\u5171 %d \u4e2a registering \u8d5b\u4e8b" % len(reg))
 
 
+def rules_guard_rc(arm, token_file, server="https://10.240.169.190:18080"):
+    """★ R1503：只读地跑 `tools/rules_guard.py`，回上它的 rc。
+
+    契约（见 `tools/rules_guard.py`）：**0 = 一致**（无需闸门臂）；**2 = 需换闸门臂**；
+    其他 = 判不了（榜单/Token 不可达…）。任何异常都不记作“无需闸门”，而是返回 None
+    ⇒ 调用方保持原臂（权威检查仍在 `_switch_to_official.ps1` 里，不会被绕过）。
+    """
+    try:
+        p = subprocess.run([sys.executable, "-X", "utf8",
+                            os.path.join(ROOT, "tools", "rules_guard.py"),
+                            "--strategy", arm, "--token-file", token_file, "--server", server],
+                           cwd=ROOT, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=300)
+        return p.returncode, (p.stdout or "")
+    except Exception as e:
+        return None, "跑不了 rules_guard：%s" % str(e)[:120]
+
+
+def resolve_event_arm(arm, rc, registered):
+    """★ R1503（纯函数，可测）：**把最终臂映射成“这场赛事能上场的臂”**。
+
+    为什么要自动：18:50 上线时若 `YouCaiBiKao=true`，无闸门臂会在
+    `_switch_to_official.ps1` 里被 rules_guard **throw** ⇒ 只剩下一张“请人手改”的标记，
+    而那个时刻本来就不该依赖人在电脑前。
+    现在：`rc==2` 且 `<arm>ycbk` **已注册** ⇒ 直接用孪生；否则**原臂不动**（**绝不猜**）。
+    """
+    twin = arm + "ycbk"
+    if rc == 2 and twin in registered:
+        return twin, "rules_guard 要求闸门臂（rc=2）且 %s 已注册 ⇒ 自动换孪生" % twin
+    if rc == 2:
+        return arm, ("rules_guard 要求闸门臂（rc=2）但 %s **未注册** ⇒ 保持原臂"
+                     "（上线会被 rules_guard 挡住并落 .EVENT_SWITCH_BLOCKED）" % twin)
+    return arm, "rules_guard rc=%s ⇒ 无需换臂" % rc
+
+
+def registered_arms():
+    """`run_bot.STRATEGY_FACTORIES` 的键集（失败⇒ 空集 ⇒ 不换臂）。"""
+    try:
+        sys.path.insert(0, ROOT)
+        from run_bot import STRATEGY_FACTORIES as F
+        return set(F)
+    except Exception as e:
+        log("!! 读臂注册表失败：%s" % str(e)[:120])
+        return set()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--go", action="store_true")
@@ -132,6 +178,13 @@ def main():
             return 2
         log("\u95e8\u6237\u89e3\u6790\u5230\u8d5b\u4e8b\uff1a%s\uff08tid=%s\uff09" % (name, tid))
     import _ps
+    # ★ R1503：上线前先做一次**规则门预检** —— 需闸门臂就自动换成已注册的孪生。
+    _rc, _out = rules_guard_rc(arm, a.token_file)
+    _arm2, _why = resolve_event_arm(arm, _rc, registered_arms())
+    log("规则门预检：%s" % _why)
+    if _arm2 != arm:
+        log("★ 最终臂 %s ⇒ 赛事要求合法胡闸门 ⇒ 自动改用孪生 %s（同剂量）" % (arm, _arm2))
+        arm = _arm2
     cmd = _ps.argv("-NoProfile", "-File", "var/_switch_to_official.ps1",
                    "-Strategy", arm, "-TokenFile", a.token_file, "-TournamentId", tid)
     log("\u5373\u5c06\u4e0a\u7ebf\uff1a" + " ".join(cmd))   # \u4e0d\u4f20 -AllowNotReady\uff08fail-safe\uff09

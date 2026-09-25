@@ -27316,3 +27316,31 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     **绝不上阶梯** —— 阶梯是 `YouCaiBiKao=false`，闸门会错误拦掉合法平胡（`speedc153` 的 docstring 早写明）。
     孪生只在显式 `--strategy` 选中时才被用到 ⇒ **不影响正在跑的役 3 A/B**。
   - **对 10/7–10/10 的意义**：无论正式赛 config 是 true 还是 false，**赢家臂都能上场**；不再是“要么上弱臂、要么不上线”。
+
+- [R1503 | 2026-09-25 23:42 ★★★★**把“上线那一刻”两个未知补上：13 根孪生的 M=10 延迟门禁（全过）
+  + 18:50 自动把最终臂映射成合规孪生（不再等人）**]
+  - **① 孪生的 M=10 延迟（此前没人测过）**：R1502 新建的 13 根孪生正是“正式赛 `YouCaiBiKao=true`
+    时真正要上场的臂”，而旧档案（§V.62/V.63）只跳过母臂。补测（`_lowprio_run` + `var/_m10_latency_gate.py --calls 60`，
+    1 实例 × 10 线程 × 4000 局面，33.3s，日志 `var/_r1503_m10_twins.log`）：
+    | 臂 | p50 | p95 | p99 | **max** | **>1s** |
+    |---|---|---|---|---|---|
+    | `speedvaluebcycbk` | 12.0ms | 217.7ms | 370.1ms | 512.9ms | **0** |
+    | `speedvaluemeldycbk` | 1.6ms | 69.4ms | 176.6ms | **668.6ms** | **0** |
+    | `speedvaluebaotouv5ycbk` | 34.6ms | 74.0ms | 87.2ms | 95.0ms | **0** |
+    | `speedvaluebcmeldp45ycbk` | 8.1ms | 67.5ms | 88.5ms | 123.2ms | **0** |
+    | `speedvaluebaotouvmeldycbk` | 35.1ms | 72.0ms | 85.1ms | 94.8ms | **0** |
+    | `speedvaluebcvmeld(ycbk/p40ycbk/p35ycbk)` | 33–34ms | 63–67ms | 79ms | 92–97ms | **0** |
+    | 其余 6 根 | — | ≤217.7ms | ≤370.1ms | ≦668.6ms | **0** |
+    ⇒ **全部 >1s = 0，可上正式赛**。
+    （诚实记一笔：`bcycbk` max 512.9ms 比母臂 `speedvaluebc` 档案的 245.2ms 高——孪生在 `hu` 决策上多一次
+    `calc_fan`。仍 <1s，不动代码；若日后想压尾巴，只需在 `bot/ycbk_fast.py` 的 `decide()` 里先判“手上有白”再进闸门，
+    但那是 **bot/ 既有文件** ⇒ 役中不动，留作役间候选。）
+  - **② 18:50 上线不再“等人”**：`_final_event_switch.py` 新增 **规则门预检**——
+    `rules_guard_rc()` 只读跑 `tools/rules_guard.py`（**0=一致 / 2=需换闸门臂 / 其他=判不了**），
+    `resolve_event_arm()`（纯函数）：**rc==2 且 `<arm>ycbk` 已注册 ⇒ 自动改用孪生**；
+    否则**原臂不动**（绝不猜，权威检查仍在 `_switch_to_official.ps1` 里）。
+    为什么要自动：18:50 本就不该依赖人在电脑前；旧行为是 throw ⇒ 只剩一张“请人手改”的标记。
+  - **证据**：`tests/test_final_day_wiring.py` **22 项 OK**（新增 2 项：纯函数三态 + ★**接线级**——真跑 `main()` dry-run、断言上线臂被换成
+    `speedvaluebcycbk` 且**不落真标记**）；另有一次**真实 dry-run**（用四测令牌真读 `/rules`）→ `rc=3`（判不了）
+    ⇒ 原臂不动 **——正是设计要的“不猜”路径**。
+  - ⇒ 现在 `YouCaiBiKao` 这条线上：**孪生在册、同剂量、真拦得住、M=10 延迟合格、上线时会自动换上**。

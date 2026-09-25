@@ -224,5 +224,60 @@ class TestBoxedSentinel(unittest.TestCase):
         self.assertIn("-TokenFile %s -TournamentId <TID>", src)
 
 
+    def test_event_switch_wiring_actually_switches_arm(self):
+        """★ R1503 接线级：不只是纯函数对，**`main()` 真跑时也会把上线臂换成孪生**（dry-run，不执行、不落标记）。"""
+        import tempfile
+        sys.path.insert(0, os.path.join(ROOT, "var"))
+        import _final_event_switch as S
+        tok = os.path.join(ROOT, "var", ".token_4test_20260924")
+        if not os.path.exists(tok):
+            self.skipTest("缺 var/.token_4test_20260924（clone）")
+        lines = []
+        old_log, old_rc, old_reg = S.log, S.rules_guard_rc, S.registered_arms
+        fd, armfile = tempfile.mkstemp(suffix=".txt")
+        os.close(fd)
+        with io.open(armfile, "w", encoding="utf-8") as f:
+            f.write("speedvaluebc")
+        old_argv = sys.argv
+        try:
+            S.log = lambda m: lines.append(str(m))
+            S.rules_guard_rc = lambda arm, tf, server=None: (2, "自测：需闸门臂")
+            S.registered_arms = lambda: {"speedvaluebcycbk"}
+            sys.argv = ["_final_event_switch.py", "--dry-run", "--final-file", armfile,
+                        "--token-file", tok, "--tid", "t_selftest"]
+            import contextlib
+            with contextlib.redirect_stdout(io.StringIO()):   # 被测脚本会 print（保持测试输出干净）
+                rc = S.main()
+        finally:
+            S.log, S.rules_guard_rc, S.registered_arms = old_log, old_rc, old_reg
+            sys.argv = old_argv
+        self.assertEqual(0, rc, lines)
+        joined = "\n".join(lines)
+        self.assertIn("speedvaluebcycbk", joined, "main() 没把上线臂换成孪生：%s" % joined)
+        self.assertFalse(os.path.exists(os.path.join(ROOT, "var", ".EVENT_SWITCH_BLOCKED")),
+                         "dry-run 不得落真标记")
+
+    def test_event_switch_auto_maps_to_registered_twin(self):
+        """★ R1503：18:50 自动上线时，若赛事要求 YCBK 闸门，必须**自动**换成已注册的同剂量孪生（不能等人）。"""
+        sys.path.insert(0, os.path.join(ROOT, "var"))
+        import _final_event_switch as S
+        from run_bot import STRATEGY_FACTORIES as F
+        reg = set(F)
+        self.assertIn("speedvaluebcycbk", reg, "链上孪生必须已注册，否则自动映射无从谈起")
+        self.assertEqual("speedvaluebcycbk", S.resolve_event_arm("speedvaluebc", 2, reg)[0])
+        # rc=2 但孪生未注册 ⇒ **不猜**，保持原臂（交给权威 rules_guard 挡下并落标记）
+        self.assertEqual("speedvaluebc", S.resolve_event_arm("speedvaluebc", 2, set())[0])
+        # rc=0（不需闸门）/ rc=None（判不了）⇒ 原臂
+        self.assertEqual("speedvaluebc", S.resolve_event_arm("speedvaluebc", 0, reg)[0])
+        self.assertEqual("speedvaluebc", S.resolve_event_arm("speedvaluebc", None, reg)[0])
+        # 覆盖面空洞：役 3→役 5 每一根都必须能被映射到（否则 10/10 会变成“上不了线”）
+        for base in ("speedc151", "speedvaluebc", "speedvaluebcv", "speedvaluebcmeld",
+                     "speedvaluebcmeldp45", "speedvaluebcvmeld", "speedvaluebcvmeldp40",
+                     "speedvaluebcvmeldp35", "speedvaluemeld", "speedvaluemeldp45",
+                     "speedvaluemeldp40", "speedvaluebaotouv5", "speedvaluebaotouvmeld"):
+            self.assertEqual(base + "ycbk", S.resolve_event_arm(base, 2, reg)[0],
+                             "%s 在 YCBK=true 下无孪生可换" % base)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -5630,3 +5630,29 @@ R1502 之前链上**一根孪生都没有** ⇒ 唯一逃生阀是退回 `speedv
 **首选** `-Strategy <最终臂>ycbk`；万一该孪生不在册（`python -X utf8 -c "from run_bot import STRATEGY_FACTORIES as F;print('<arm>ycbk' in F)"`），
 再退回 `speedvalueycbk`。
 **红线**：孪生**不上阶梯**（阶梯 `YouCaiBiKao=false` ⇒ 会误拦合法平胡），只在 `rules_guard` 返回 2 时使用；且不影响役 3 A/B。
+
+### §V.226 “上线那一刻”的两个未知已补（R1503）—— 孪生 M=10 门禁 + 18:50 自动映射
+
+**A. 13 根孪生的 M=10 延迟**（`var/_m10_latency_gate.py --calls 60`，1 实例 × 10 线程 × 4000 局面，33.3s）
+
+| 臂 | p95 | p99 | max | >1s |
+|---|---|---|---:|---:|
+| `speedvaluebcycbk` | 217.7ms | 370.1ms | 512.9ms | **0** |
+| `speedvaluemeldycbk` | 69.4ms | 176.6ms | 668.6ms | **0** |
+| `speedvaluebcvmeld(ycbk/p40ycbk/p35ycbk)` | 63–67ms | ≤79.5ms | ≤97.1ms | **0** |
+| 其余（baotou / bcmeld / meldp / c151） | ≤74.0ms | ≤104.9ms | ≦256.1ms | **0** |
+
+⇒ **全部可上正式赛**（旧档案 §V.62/V.63 只覆盖母臂，孪生今天才补测）。最差 `speedvaluemeldycbk` 668.6ms 仍 <1s。
+
+**B. 18:50 上线自动换臂**（`var/_final_event_switch.py`）
+
+```
+读 .final_arm.txt → 令牌 → tid
+   → 【新】规则门预检 rules_guard_rc(arm, token)
+        rc=2 且 <arm>ycbk 已注册  → 自动改用 <arm>ycbk（日志明写）
+        rc=0 / rc=3 / 孪生未注册  → 原臂（**绝不猜**）
+   → _switch_to_official.ps1（自带**权威** rules_guard）→ 失败则落 .EVENT_SWITCH_BLOCKED（含可照拄命令）
+```
+
+**测试**：`tests/test_final_day_wiring.py` 22 项 OK（纯函数三态 + **接线级 main() dry-run** 断言上线臂被换成孪生、不落真标记）；
+真实 dry-run（四测令牌）跑出 **rc=3 ⇒ 原臂不动** —— 验证了“判不了就不猜”。
