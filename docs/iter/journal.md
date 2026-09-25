@@ -27161,3 +27161,16 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - 至此，**全部终端步骤都已彩排**：10/7 定臂（`_final_arm_confirm --dry-run`）、
     10/7 换臂（`_switch_final --dry-run`，六步计划）、10/8 提交（本条）、10/10 上线（`_final_event_switch --dry-run` 故障关闭）、
     10/10 T-5 保险（`_final_event_ready --dry-run` 选 `switch_then_ready`）。
+
+- [R1495 | 2026-09-25 22:34 ★★★★**34 台任务全量体检：重复性任务全部 RC=0 ⇒ 今晚改了 15+ 个脚本没把生产接线改坏**]
+  - **怎么查的**：`Get-ScheduledTask -like HangzhouMaj*` 逐台取 `LastRunTime / LastTaskResult / NextRunTime`。
+  - **重复性任务全部 RC=0** ✓（共 13 台）：`AutoHeal`、`OfficialGuard`、`VerdictWatch`、**`VerdictWatch3bc`**、**`VerdictWatch3v`**、
+    `AdoptWatch`、**`AdoptPairWatch`**、`ReplayGuard`、`MechWatch`、`LadderSnapshot`、`ScheduleGuard`、**`NextYakuNotice`**、`PortalWatch`——
+    全部 NextRunTime 正常。⇒ **R1468–R1494 那一批改动（熔断标记、快照、机制看护、读数工具、上线标记…）没有一处把计划任务拉红**。
+  - **未来一次性任务 RC=267011**（= 尚未运行），NextRunTime 逐个正确 ✓：10/5 09:00 提案 · 10/7 08:30 定臂 / 09:00 换臂 / 10:30 复核 / 12:00 重试 ·
+    10/8 09:00 复核 / 10:00 提交 · 10/10 18:50 上线 / 19:25 保险。
+  - **非零但无需动作的 4 台**（四测 9/24 的一次性任务，**已无触发器、不会重跑**）：
+    `4TestSwitch` RC=**3221225786**（= 0xC000013A，`STATUS_CONTROL_C_EXIT`——控制台被关）、`4TestSwitchRetry`=2、`4TestFormatWatch`=2、`4TestSwitchLast`=1。
+    ⇒ **记档，不清理**（删计划任务是系统级动作，收益只是好看）。
+  - **一处时序提醒**：`MechWatch` 上次跑 **18:27**（在我今晚改动**之前**）⇒ 下次 **00:27** 才会带着新代码跑；
+    我 22:07 已手动跑过一次（结果见 §V.210：两候选足迹 15.6% / 14.2%，V 机制因样本不足暂不判）。
