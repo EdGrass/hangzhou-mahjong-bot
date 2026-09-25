@@ -5322,3 +5322,22 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 **端到端重跑 `_gate_report.py`**（役 3 窗口）：
 `{'readout': 0, 'first_rate': 0, 'power': 1, 'integrity': 0, 'breaker': 0, 'adopt_*': 3}`——
 **1 = 样本不足（2/1 房）、3 = 未达阈值**，都是正确语义；修前 `first_rate` 是**错误失败**。
+
+### §V.208 机制标记的“出口”：`mech_warn` / `v_mech_unknown` 必须传到人（R1483）
+
+**核出的拉链**：
+
+| 标记 | 读者（改前） | 问题 |
+|---|---|---|
+| `var/.v_mech_unknown` | 仅写入者 + 两份文档 | **完全没人读** |
+| `var/.mech_warn` | `_adopt_pair.py`（代码） | 有消费者，但**没有面向人的出口** |
+
+后果：`.mech_warn` 出现 ⇒ `_adopt_pair` 按 **B3** 把该臂判“不采用” ⇒ **四格行惄惄改变**
+（例：BC 从 ✓ 变 ✗ ⇒ 走 none 行）；而读到 `YAKU_NEXT_PENDING` 的人会以为四格是干净的。
+
+**修 1**：心跳看护新增**步骤 0c** —— 两个标记一旦存在就**原文报出来**，并说明它们如何影响判词；
+**不许看护自己删标记或改判**。
+
+**修 2**：`var/_next_yaku_notice.py` 把两个标记的内容**附进 `var/.YAKU_NEXT_PENDING`** ⇒ 役 4→役 5 的决策包自带机制证据。
+
+验证：`tests/test_next_yaku_notice.py` 共 **13** 项（+2）。

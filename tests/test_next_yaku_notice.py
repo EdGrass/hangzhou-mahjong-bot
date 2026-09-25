@@ -123,6 +123,24 @@ class TestEndToEnd(unittest.TestCase):
             N.main(["--label", "役4", "--var-dir", d])
             self.assertFalse(os.path.exists(os.path.join(d, ".YAKU_NEXT_PENDING")))
 
+    def test_includes_mech_warn_content(self):
+        # \u2605 R1483\uff1a\u673a\u5236\u544a\u8b66\u4f1a\u6539\u5199\u56db\u683c\uff08B3\uff09\u21d2 \u51b3\u7b56\u5305\u5fc5\u987b\u5e26\u4e0a\u5b83\n
+        with tempfile.TemporaryDirectory() as d:
+            _fixture(d, ADOPT4, ADOPT_BC, ADOPT_V)
+            _write(d, ".mech_warn", u"2026-09-25 22:00:00 speedvaluebc draw \u8db3\u8ff9 6.2%/action 0.0% \u8131\u79bb\u9884\u671f\n")
+            N.main(["--label", u"\u5f794", "--var-dir", d])
+            body = io.open(os.path.join(d, ".YAKU_NEXT_PENDING"), encoding="utf-8").read()
+            self.assertIn(".mech_warn", body)
+            self.assertIn("speedvaluebc", body)
+
+    def test_includes_v_mech_unknown(self):
+        with tempfile.TemporaryDirectory() as d:
+            _fixture(d, ADOPT4, ADOPT_BC, ADOPT_V)
+            _write(d, ".v_mech_unknown", u"2026-09-25 22:00:00 speedvaluebaotouv5 \u6837\u672c\u4e0d\u8db3\n")
+            N.main(["--label", u"\u5f794", "--var-dir", d])
+            body = io.open(os.path.join(d, ".YAKU_NEXT_PENDING"), encoding="utf-8").read()
+            self.assertIn(".v_mech_unknown", body)
+
     def test_combo_option_when_meld_fails_but_both_layers_adopt(self):
         with tempfile.TemporaryDirectory() as d:
             _fixture(d, REJ_4, ADOPT_BC, ADOPT_V)

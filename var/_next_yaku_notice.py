@@ -174,6 +174,18 @@ def main(argv=None):
         lines.append("  注：§V.186 说“不起役 5”，§V.161 规则 4 又说看不出差别时选组合臂 —— 两条口径冲突，**由人定**。")
     else:
         lines.append("⇒ 不需要起新役；等 **10/5 09:00 的 `HangzhouMajFinalPickProposal`** 出选臂提案即可。")
+    # ★ R1483：把**机制端点的两个标记**一并附上 —— 它们会直接改写四格结果（B3），
+    #   所以“该不该开下一役、开哪个”的决策包必须包含它们；否则读到提醒的人会以为四格是干净的。
+    for _n, _t in ((".mech_warn", "机制端点告警（指向的臂按预登记 B3⇒不采用）"),
+                   (".v_mech_unknown", "V 轴机制读数缺失（B1/B2/B3 在 V 那一半无法判）")):
+        _p = os.path.join(vd, _n)
+        if os.path.exists(_p):
+            try:
+                _body = io.open(_p, encoding="utf-8-sig", errors="replace").read().strip()
+            except Exception as _e:
+                _body = "(读不出: %s)" % str(_e)[:40]
+            lines += ["", "⚠ %s —— %s" % (_n, _t), "  " + _body.replace("\n", "\n  ")]
+
     lines += ["", "（本文件由 `HangzhouMajNextYakuNotice` 每 10 分钟检查一次；只提醒，不自己起役。）"]
 
     body = "\n".join(lines) + "\n"
