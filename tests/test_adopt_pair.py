@@ -180,5 +180,32 @@ class TestMechState(unittest.TestCase):
         self.assertEqual("unknown", AP.mech_state("speedvaluebc", self.since, path=self.d.name)[0])
 
 
+class TestMechConflictGuard(unittest.TestCase):
+    """★ R1515：不得拿“已存在的层”当硬闸。
+
+    `_gate2 --mechanism X` 的机制核对是硬闸（z>0 且和牌率不降）；
+    若基线已含该层，指标本就持平 ⇒ 会把更好的组合臂误判 REFUSE。
+    """
+    def _A(self):
+        sys.path.insert(0, os.path.join(ROOT, "var"))
+        import _adopt_pair as A
+        return A
+
+    def test_fresh_layer_is_fine(self):
+        A = self._A()
+        self.assertIsNone(A.mech_conflict("speedvaluebc", "speedvaluebcmeldp45", "melds"))
+
+    def test_already_present_layer_conflicts(self):
+        A = self._A()
+        self.assertIsNotNone(A.mech_conflict("speedvaluebcmeldp45", "speedvaluebcvmeld", "melds"))
+        self.assertIsNotNone(A.mech_conflict("speedvaluebaotouvmeld",
+                                             "speedvaluebcvmeld,speedvaluebcvmeldp40", "melds"))
+
+    def test_none_and_other_mech_unaffected(self):
+        A = self._A()
+        self.assertIsNone(A.mech_conflict("speedvaluebcmeldp45", "speedvaluebcvmeld", "none"))
+        self.assertIsNone(A.mech_conflict("speedvalue", "speedvaluebc", "pairs"))
+
+
 if __name__ == "__main__":
     unittest.main()

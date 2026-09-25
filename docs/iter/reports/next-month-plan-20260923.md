@@ -5818,3 +5818,20 @@ R1502 之前链上**一根孪生都没有** ⇒ 唯一逃生阀是退回 `speedv
 
 **闭包门抓到的真缺口**：`var/_arm_path_audit.py` 不在 `$opsScripts` 且未入仓 ⇒ clone 里按命令跑会“文件不存在”。
 已入仓并补进清单（**83 项**）。
+
+### §V.238 役5 口径两处修正（R1515）：机制硬闸不许指向“已存在的层” + V 层检测按 `W_TILES`
+
+**A. `melds` 硬闸 vs “层是不是新的”**
+`_gate2` 的机制核对是**硬闸**（`z>0 且和牌率不降`，否则 REFUSE）。役 5 的基线已含副露层 ⇒ 用 `melds` 会**误杀更好的组合臂**。
+预登记 campaign8 §5 已写死 `--watch-mechanism none`（照它走安全）；危险在于 `_adopt_pair` 默认 `melds`。
+**修**：`_adopt_pair.mech_conflict()` —— 口径层在基线与候选里都已存在 ⇒ **原地不动**并提示 `--watch-mechanism none`（§V.212 纪律）。
+
+**B. V 层检测**
+原判据按名字找 `baotou` ⇒ **漏掉役 5 的候选 `speedvaluebcvmeld`**（其 V 层由 `value_of()` 重写实现，MRO 里也没有 `SpeedValueBaotouV5`）。
+**修**：按共享剂量开关 **`W_TILES`** 判定（V 臂=5.0；非 V 臂无该属性）⇒ 四种 V 形态全部抽中，非 V 臂不误抓。
+
+| 检查 | 结果 |
+|---|---|
+| `has_v_layer` | `bcvmeld`/`bcvmeldp40`/`bcv`/`baotou*` = True；`speedvalue`/`bc`/`bcmeldp45`/`meldp45` = False |
+| `mech_conflict` | 役4 不拦；役5(melds) 拦；役5(none) 不拦；pairs 不拦 |
+| 全量回归 | **Ran 1190, OK（skipped=2, xfail=1）** |

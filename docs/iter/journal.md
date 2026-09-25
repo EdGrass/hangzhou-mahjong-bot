@@ -27548,3 +27548,22 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     ⇒ 公网 clone 里“按预登记起役命令跑第 1 步”会 **`文件不存在`**。已 `git add -f` 入仓 + 清单补到 **83 项**。
     （诚实记录：本轮第一次全量回归是**红的**，报的就是这条；修后转绿。）
   - 证据：新测试 `tests/test_arm_path_audit_meld.py`（源码断言 + 真跑 rc=0 且含提示）；全量回归 **Ran 1187, OK（skipped=2, xfail=1）**。
+
+- [R1515 | 2026-09-26 02:27 ★★★★★**役5（决定最终臂）的口径两处问题**: ① `melds` 硬闸会拿“已存在的层”误杀组合臂；② `_mech_watch` 按名字找 V，**漏掉最终组合臂 `speedvaluebcvmeld`**]
+  - **① 机制硬闸 vs “该层是不是新的”**：读 `_gate2` 源码确认，机制核对是**硬闸**：
+    `ok = (z > 0) and (和牌率差不降)`，不过就是 `★ 判定：REFUSE / CONTINUE`。
+    而**役 5 的基线（役 4 赢家）已经含副露层** ⇒ 若用 `--mechanism melds`，副露/房本就持平 ⇒ **会把更好的组合臂误判 REFUSE**。
+    - 好消息：`prereg-campaign8-combo-20260925.md` §5 **已写死 `--watch-mechanism none`** ⇒ 照预登记走安全；
+    - 风险点：`_adopt_pair` 的**默认是 `melds`** ⇒ 若有人用 `_adopt_pair` 起役 5 而不带 `--watch-mechanism none`，就会踩到。
+    - **修**：`_adopt_pair` 新增纯函数 `mech_conflict(baseline, candidate, mech)`：口径指向的层在**基线与候选里都已存在** ⇒
+      **原地不动**（照 §V.212 口径冲突纪律）+ 明确提示“照预登记传 `--watch-mechanism none`”。五用例验证：
+      役 4（bc → bcmeldp45, melds）**不拦** ✓；役 5（bcmeldp45 → bcvmeld, melds）**拦** ✓；`none` **不拦** ✓。
+  - **② `_mech_watch` 的 V 候选按名字找 ⇒ 漏掉 `speedvaluebcvmeld`**：原判据 `"baotou" in name.lower()`，
+    而役 5 的候选是 `speedvaluebcvmeld`（BC+V+副露）——名字里没有 `baotou` ⇒ **最终组合臂的 V 机制根本没人验**
+    （而役 5 新增的那一层恰好就是 V）。
+    - **修**：改为按**共享剂量开关 `W_TILES`** 判定。V 有**两种形态**：① 继承 `SpeedValueBaotouV5`；② 重写 `value_of()` 加
+      `W_TILES × W_UKEIRE × baotou_value`（`speedvaluebcv` / `speedvaluebcvmeld` 属此类）。实测：V 臂 `W_TILES=5.0`、非 V 臂**无该属性** ⇒ 判据干净。
+    - **诚实记录**：我第一版想用 **MRO** 判（看类是否继承 `SpeedValueBaotouV5`），**实测发现 `speedvaluebcvmeld` 的 MRO 里根本没有 `SpeedValueBaotouV5`**
+      ⇒ 那个判据会漏得更彻底。改用 `W_TILES` 后：`speedvaluebcvmeld` / `...p40` / `speedvaluebcv` / `baotou*` 全部 True，`speedvaluebc` / `bcmeldp45` / `meldp45` 全部 False。
+  - 证据：`has_v_layer` 九臂逐一对；`mech_conflict` 五用例；新测试（`tests/test_mech_watch_arms.py` + `tests/test_adopt_pair.py`）；
+    全量回归 **Ran 1190, OK（skipped=2, xfail=1）**。

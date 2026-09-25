@@ -235,6 +235,33 @@ def run_veto(since, baseline, arm):
     return p.returncode, " ｜ ".join(tail)
 
 
+_LAYER_OF_MECH = {"melds": "meld", "pairs": "pair", "gangs": "gang"}
+
+
+def mech_conflict(baseline, candidate, mech):
+    """★ R1515：机制口径 vs “该层是不是新的” 的一致性检查（纯函数，可测）。
+
+    `_gate2 --mechanism X` 的机制核对是**硬闸**：`(z>0) and 和牌率不降`，否则判 REFUSE。
+    若口径指向的那一层**在基线里已经存在**（例：役 5 拿 `melds`，而基线已是役 4 的副露赢家），
+    该指标本就持平 ⇒ 硬闸会把**更好的组合臂误判 REFUSE**。
+    预登记 `prereg-campaign8-combo-20260925.md` §5 因此写死 `--watch-mechanism none`。
+    返回 None（无冲突）或给操作者看的说明。
+    """
+    token = _LAYER_OF_MECH.get((mech or "").lower())
+    if not token:
+        return None
+    b = (baseline or "").lower()
+    if token not in b:
+        return None
+    hit = [x.strip() for x in (candidate or "").split(",")
+           if x.strip() and token in x.strip().lower()]
+    if hit:
+        return ("机制口径不一致：`--watch-mechanism %s`，但基线 %s **已含该层**（候选 %s 也有）⇒ "
+                "`_gate2` 会拿“已存在的层”当硬闸（要求上升），可能把组合臂误判 REFUSE。"
+                % (mech, baseline, ",".join(hit)))
+    return None
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--label", default="役3")
@@ -350,6 +377,13 @@ def main(argv=None):
     }[row]
     log("四格裁决：BC=%s / V=%s ⇒ 走 %s 行 ⇒ 役 4 = %s + %s"
         % (rows[0][1], rows[1][1], row.upper(), base, cands))
+
+    # ★ R1515：**不许拿“已存在的层”当硬闸** —— 冲突则原地不动（照 §V.212 的口径冲突纪律）。
+    _mc = mech_conflict(base, cands, a.watch_mechanism)
+    if _mc:
+        log("!! %s" % _mc)
+        log("   ⇒ 原地不动（不自动换口径）；若预登记已写死口径，照它传参重跑，例：`--watch-mechanism none`")
+        return 2
 
     cmd = [sys.executable, "-X", "utf8", os.path.join(ROOT, a.bsegment), "--go",
            "--label", a.next, "--baseline", base, "--candidates", cands,

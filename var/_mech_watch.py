@@ -82,6 +82,28 @@ def arms_of(cfg):
     return [x for x in (cfg.get("a"), cfg.get("b")) if x]
 
 
+def has_v_layer(name):
+    """★ R1515：V 层检测 —— V 有**两种形态**，**不能只看名字**：
+
+      ① 继承 `SpeedValueBaotouV5`（名字含 `baotou`）；
+      ② 重写 `value_of()` 加 `W_TILES × W_UKEIRE × baotou_value`（名字如 `speedvaluebcv` / **`speedvaluebcvmeld`**）。
+
+    两者**共享剂量开关 `W_TILES`**（实测：V 臂=5.0；非 V 臂无该属性）⇒ 用它判定。
+    为什么必须抽中 `speedvaluebcvmeld`：**役 5 的候选就是它** ——
+    按名字找 V 会让**最终组合臂的 V 机制根本没人验**（而役 5 新增的层正好就是 V）。
+    """
+    if "baotou" in (name or "").lower():
+        return True
+    try:
+        sys.path.insert(0, ROOT)
+        from run_bot import STRATEGY_FACTORIES as F
+        if name not in F:
+            return False
+        return float(getattr(F[name](), "W_TILES", 0) or 0) > 0.0
+    except Exception:
+        return False
+
+
 def parse_h2h(text):
     """`_seat_h2h.py --by-arm` 的表 ⇒ {(arm, side): {"hu":..,"fan":..,"baotou":..}}。
 
@@ -250,7 +272,7 @@ def main():
     #   「爆头/胡 上升 **且** 番/胡 上升」（足迹只是必要条件），
     #   而它只能用 `_seat_h2h --by-arm` 量。不满足 ⇒ 归入 warns（⇒ `.mech_warn`
     #   ⇒ `_adopt_pair` 按 B3 不采用）；读数缺失 ⇒ 另写 `.v_mech_unknown`（**响亮但不阻塞**）。
-    v_cands = [c for c in cands if "baotou" in c.lower()]
+    v_cands = [c for c in cands if has_v_layer(c)]   # ★ R1515：按 W_TILES 判（抽中 bcvmeld）
     if v_cands and not a.dry_run:
         _since = cfg.get("started") or ""
         cmd = [sys.executable, "-X", "utf8", LOWPRIO, "--",
