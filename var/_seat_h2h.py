@@ -24,9 +24,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ME = "u_7a3fba48d70b"
 
 
-def rooms_since(since):
+def rooms_since(since, ledger=None):
     out = {}
-    for ln in io.open(os.path.join(ROOT, "var", "auto_ranking.jsonl"), encoding="utf-8", errors="ignore"):
+    ledger = ledger or os.path.join(ROOT, "var", "auto_ranking.jsonl")
+    for ln in io.open(ledger, encoding="utf-8", errors="ignore"):
         ln = ln.strip()
         if not ln:
             continue
@@ -47,13 +48,22 @@ def main(argv=None):
     ap.add_argument("--by-arm", action="store_true")
     ap.add_argument("--top", type=int, default=0,
                     help=">0 时按榜单 topN 把对手再拆成 top / 其他（只读门户榜）")
+    ap.add_argument("--ledger", default=None, help="台账路径（默认 var/auto_ranking.jsonl；测试用）")
+    ap.add_argument("--replays", action="append", default=None,
+                    help="复盘的 glob（可重复；默认 var/replays/recent/*.json + var/replays/auto_*/*.json）")
+    ap.add_argument("--top-uids", default="",
+                    help="逗号分隔的 TOP uid（给了就不读门户榜；测试 / 榜单不可达时用）")
     a = ap.parse_args(argv)
-    rooms = rooms_since(a.since)
+    rooms = rooms_since(a.since, a.ledger)
     if not rooms:
         print("台账里没有 since 之后的房"); return 2
 
     topu = set()
-    if a.top:
+    if a.top_uids:
+        topu = {u.strip() for u in a.top_uids.split(",") if u.strip()}
+        if not a.top:
+            a.top = 32      # 只是给标签用；实际分层按 --top-uids
+    elif a.top:
         try:
             sys.path.insert(0, os.path.join(ROOT, "tools"))
             from gang_gap import board_top
@@ -62,8 +72,10 @@ def main(argv=None):
             print("（榜单不可达，退化为全部对手：%s）" % e)
     S = collections.defaultdict(collections.Counter)
     seen = set()
-    for pat in (os.path.join(ROOT, "var", "replays", "recent", "*.json"),
-                os.path.join(ROOT, "var", "replays", "auto_*", "*.json")):
+    pats = a.replays or [os.path.join(ROOT, "var", "replays", "recent", "*.json"),
+                         os.path.join(ROOT, "var", "replays", "auto_*", "*.json")]
+    pats = [q if os.path.isabs(q) else os.path.join(ROOT, q) for q in pats]
+    for pat in pats:
         for p in glob.glob(pat):
             try:
                 j = json.load(io.open(p, encoding="utf-8"))
@@ -96,9 +108,13 @@ def main(argv=None):
                 others = tuple(i for i in range(4) if i != my)
                 sides = [("me", (my,)), ("oth", others)]
                 if topu:
+                    # ★ R1501：**必须同时累积 oth**。旧代码在 --top 时只写 top/other 两个键，
+                    #   而每臂「另三家」那行读的是 oth ⇒ **恒为 0**（看着像“对手不赢分”）。
+                    #   而 `_pick_arm.py`（10/5 定臂 + §V.66 ②破平）**强制**用 --top 32 ⇒ 10/5 那天必踩。
                     sides = [("me", (my,)),
                              ("top", tuple(i for i in others if uids[i] in topu)),
-                             ("other", tuple(i for i in others if uids[i] not in topu))]
+                             ("other", tuple(i for i in others if uids[i] not in topu)),
+                             ("oth", others)]
                 for side, idxs in sides:
                     if not idxs:
                         continue
@@ -169,6 +185,12 @@ def main(argv=None):
         for arm in sorted({k[0] for k in S}):
             show("%s 我方" % arm, S[(arm, "me")])
             show("%s 另三家" % arm, S[(arm, "oth")])
+            if a.top:
+                # ★ R1501：分层也要**按臂**给 —— 否则「哪根臂在 TOP 同桌下更好」根本读不出来
+                if S[(arm, "top")]["rounds"]:
+                    show("%s vs TOP%s" % (arm, a.top), S[(arm, "top")])
+                if S[(arm, "other")]["rounds"]:
+                    show("%s vs 非TOP" % arm, S[(arm, "other")])
         print("-" * 150)
     for side, label in (("me", "★ 我方"), ("top", "★ 同桌 TOP%s" % a.top), ("other", "★ 同桌其他")):
         if a.top and side == "top" and not S[("*", "top")]["rounds"]:
