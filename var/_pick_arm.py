@@ -71,10 +71,10 @@ def main(argv=None):
         uids = [x.get("user_id") for x in rk]
         strong = any(u in top for u in uids if u != a.me)
         rows.append((d.get("strategy") or "?", float(mine[0].get("total_score") or 0),
-                     int(mine[0].get("rank") or 0), strong))
+                     int(mine[0].get("rank") or 0), strong, d.get("room") or ""))
 
     by = collections.defaultdict(lambda: {"all": [], "strong": [], "first": 0})
-    for arm, score, rank, strong in rows:
+    for arm, score, rank, strong, _room in rows:
         c = by[arm]
         c["all"].append(score)
         if strong:
@@ -104,6 +104,58 @@ def main(argv=None):
     for r in table:
         print("%-24s %5d %6d %12.1f %9.1f %10.1f %7.1f%%"
               % (r["arm"], r["n"], r["ns"], r["mean_strong"], r["se"], r["mean_all"], 100 * r["first"]))
+    print()
+    # ★ R1512：把「对手强度」放进同一张读数里（**只加读数，不改排序与阈值**）。
+    #   为什么：三臂是 round-robin 开的，房数头对称但**桌强**仍可能不对称；
+    #   §V.66 的主序列用“强手房”分层就是为了控这个，而读数里直接看到对手强度能避免“把桌差当策略差”。
+    try:
+        sys.path.insert(0, os.path.join(ROOT, "tools"))
+        from opp_strength import load_rows as _lr, opponent_strength as _os, slope as _sl
+        _rows = _lr(os.path.join(ROOT, "var", "auto_ranking.jsonl"))
+        _opp = _os(_rows)
+        _pts = []
+        _pts_beta = []   # ★ β 用**全样本**估（窗口内的 17 房估不稳：实测 β=-4.07 vs 全样本 -0.84）
+        _all = []
+        for _d in _rows:
+            _rk2 = _d.get("ranking") or []
+            _me2 = next((x for x in _rk2 if x.get("user_id") == a.me), None)
+            _o2 = _opp.get(_d.get("room"))
+            if _d.get("status") == "finished" and _me2 is not None and _o2 is not None and len(_rk2) == 4:
+                _ot2 = [x.get("total_score") or 0 for x in _rk2 if x.get("user_id") != a.me]
+                _all.append(((_me2.get("total_score") or 0) - sum(_ot2) / 3.0, _o2))
+            if _d.get("status") != "finished" or (_d.get("ts") or "") < a.since:
+                continue
+            _rk = _d.get("ranking") or []
+            _me = next((x for x in _rk if x.get("user_id") == a.me), None)
+            if _me is None or len(_rk) != 4:
+                continue
+            _o = _opp.get(_d.get("room"))
+            if _o is None:
+                continue
+            _oth = [x.get("total_score") or 0 for x in _rk if x.get("user_id") != a.me]
+            _net = (_me.get("total_score") or 0) - sum(_oth) / 3.0
+            _strong = any(u in top for u in (x.get("user_id") for x in _rk)
+                          if u and u != a.me)
+            _pts.append((_d.get("strategy") or "?", _net, _o, _strong))
+            _pts_beta = _all
+        if _pts:
+            _beta = _sl([x[1] for x in _pts_beta], [x[0] for x in _pts_beta]) if len(_pts_beta) >= 20 else float("nan")
+            _gmean = (sum(x[1] for x in _all) / len(_all)) if _all else 0.0   # ★ 基准=全样本桌强均值（与 `_campaign_strength` 同口径）
+            print("对手强度（因果口径，只作读数；β=%+.3f 分/分；基准=全样本桌强均值 %+.1f）：" % (_beta, _gmean))
+            print("  %-24s %5s %12s %12s %14s" % ("臂", "房", "桌强均值", "强手房桌强", "桌强调整后净胜"))
+            for _arm in [r["arm"] for r in table]:
+                _xs = [x for x in _pts if x[0] == _arm]
+                if not _xs:
+                    continue
+                _m = sum(x[2] for x in _xs) / len(_xs)
+                _ms = [x[2] for x in _xs if x[3]]
+                _net = sum(x[1] for x in _xs) / len(_xs)
+                _adj = _net - _beta * (_m - _gmean)
+                print("  %-24s %5d %12.1f %12s %14.1f"
+                      % (_arm, len(_xs), _m, ("%.1f" % (sum(_ms) / len(_ms))) if _ms else "—", _adj))
+            print("  （提示：若各臂桌强差异大，先看调整后列与两层强手房读数，再按 §V.66 序列定案。）")
+    except Exception as _e:
+        print("（对手强度读数不可得：%s）" % str(_e)[:60])
     print()
     if len(table) >= 2:
         a0, a1 = table[0], table[1]
