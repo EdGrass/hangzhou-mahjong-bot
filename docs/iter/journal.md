@@ -27668,3 +27668,18 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     - 新增**可移植性门** `tests/test_no_hardcoded_root.py`：凡“把 ROOT 赋成硬编码路径”即红；
       （诚实记录：我第一版正则太宽，被**自己写的注释**（提到那条路径）假阳性咬到；已收紧为“真的赋值”）。
   - 证据：`_gate2` 实跑新增段（rc=0，两候选的两档读数）；新门 1 项 OK；全量回归 **Ran 1198, OK（skipped=2, xfail=1）**。
+
+- [R1523 | 2026-09-26 03:43 ★★★**最终可能部署的组合臂（含 ycbk 孪生）在最紧的 1s 响应窗口下并发延迟全过**]
+  - **为什么补测**：10/7 最可能装的是役4/5 的组合臂（`speedvaluebcmeldp45` / `baotouvmeld` / `meldp45` / `bcvmeld(p40)` + 各自 ycbk 孪生），
+    此前它们只测过 **draw 层**（3s 预算）；而**响应窗口只有 1s**，是最紧的一环。
+  - **实测**（`_concurrency_bench --threads 10 --per-thread 20 --kind window-live`，**同步起爆**，n=200/臂，固定语料）：
+    | 臂 | p95 | p99 | max | >1s |
+    |---|---|---|---|---|
+    | `speedvaluebcmeldp45` | 236.8ms | 415.7ms | **485ms** | **0** |
+    | `speedvaluebaotouvmeld` | 257.7ms | 395.6ms | 444ms | **0** |
+    | `speedvaluemeldp45` | 262.8ms | 436.4ms | 512ms | **0** |
+    | **`speedvaluebcvmeld`** | 278.1ms | 385.6ms | 403ms | **0** |
+    | `speedvaluebcvmeldp40` | 243.9ms | 459.2ms | 497ms | **0** |
+    | + 三个 `*ycbk` 孪生 | 272–302ms | 403–485ms | 414–502ms | **0** |
+    ⇒ **全部 0 超 1s**（最差 512ms ≈ 半个窗口）✓。
+  - 意义：10/7 无论选哪根组合臂（含 `YouCaiBiKao=true` 分支的孪生），**响应窗口侧都有 ≥2× 余量**；结合 R1501/R1503/R1504 的 draw 层与 M=20/40 数据，延迟这条线基本封口。
