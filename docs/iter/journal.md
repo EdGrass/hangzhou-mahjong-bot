@@ -27437,3 +27437,14 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     - **明确不做**：不在 9/28 点火前给自动链加新的 fail-closed 门槛 —— 那会把“判据不完整”变成“役起不来”（更贵），
       而且本战役之后没有下一役；把它记为下一轮战役的改进项。
   - 证据：两次 dry-run 原始输出 + 既有测试断言（R1445 分层读数 / R1450 回退口径）。
+
+- [R1508b | 2026-09-26 00:56 ★★**`var/_final_pick_proposal.txt` 里躺着一份 9/24（役2 口径）的陈旧提案 ⇒ 已用脚本自身重生成到当前窗口**]
+  - 发现：彩排时看到 `_final_pick_proposal.txt` 的 `LastWriteTime = 2026-09-24 20:01:02`，内容是**役 2 窗口**（`started=2026-09-23 03:13:44`）、
+    参与臂 `speedc151,speedvalue`、基线 `speedc151` —— 它会一直躺到 10/5 09:00 才被覆盖。
+  - **先查谁读它**：全仓只有 `_final_pick_proposal.py` 自己那一行 `OUT=` 引用它；
+    `_final_arm_confirm.py` 读的是 `.ab_mode` / `_keeper_strategy.txt` / 台账 / `.final_arm.txt` / `var/_verdict_*.txt` ⇒ **程序上不会污染 10/7 定臂**；
+    风险只在**人读**（一份叫“最终臂选择提案”的文件里写着旧窗口 + 旧基线）。
+  - 处置：**不删文件**，用脚本自己的正常路径重生成（`python -X utf8 var/_final_pick_proposal.py`）⇒ 现在写的是
+    `started=2026-09-25 20:52:39`、参与臂 `speedvalue,speedvaluebc,speedvaluebaotouv5`、基线 `speedvalue`，
+    并如实报“没有满足 --min-rooms 的臂”（当前房数远未到 30）；日志追加一行留痕（9/24 与 9/26 两条都在）。
+  - ⇒ 仓里/现场不再有“披着当前名字的旧口径提案”。
