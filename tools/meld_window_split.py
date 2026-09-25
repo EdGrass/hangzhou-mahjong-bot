@@ -8,7 +8,7 @@ bucket from the arm's OWN metric.  READ-ONLY.
 """
 from __future__ import annotations
 import argparse, collections, glob, importlib.util, io, json, os, sys
-ROOT = r'D:\hangzhouMaj'
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # ★ R1529：从 __file__ 推（原写死本机绝对路径 ⇒ clone 必崩）
 sys.path.insert(0, ROOT)
 _spec = importlib.util.spec_from_file_location('rm_ws2', os.path.join(ROOT, 'var', '_replay_model.py'))
 RM = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(RM)

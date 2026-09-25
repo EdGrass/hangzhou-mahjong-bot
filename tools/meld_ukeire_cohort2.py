@@ -8,7 +8,7 @@ wider/narrower".  READ-ONLY.
 """
 from __future__ import annotations
 import argparse, collections, glob, importlib.util, json, os, ssl, sys, urllib.request
-ROOT = r'D:\hangzhouMaj'
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # ★ R1529：从 __file__ 推（原写死本机绝对路径 ⇒ clone 必崩）
 sys.path.insert(0, ROOT)
 _s = importlib.util.spec_from_file_location('mua_c2', os.path.join(ROOT, 'tools', 'meld_ukeire_audit.py'))
 mua = importlib.util.module_from_spec(_s); sys.modules['mua_c2'] = mua; _s.loader.exec_module(mua)

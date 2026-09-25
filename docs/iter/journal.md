@@ -27731,3 +27731,20 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     ② **clone 行为实证**：把它拷到临时目录跑 ⇒ 打印的是**临时目录**、只报“缺交付物” ⇒ **不会碰 D:\hangzhouMaj** ✓；
     ③ **`_final_switch_retry.ps1 -DryRun` 首次演练**（安全档）：confirm 只打印、`_switch_final` 正确 fail-closed（缺 `.final_arm.txt` ⇒ 拒绝），整体 **rc=0** ✓。
   - 证据：全量回归 **Ran 1201, OK（skipped=2, xfail=1）**（第一次后台跑是红的，红的正是可移植性门抓到的那项；修后转绿）。
+
+- [R1529 | 2026-09-26 04:33 ★★★★**扫全仓本机绝对路径**（34 处）⇒ 修可修的 5 处；并把 **`bot/` 里 4 个臂的网默认路径是绝对路径**列为**提交前补丁项**]
+  - **怎么扫**：`git ls-files` 里所有 `.py/.ps1` 逐个 `Select-String "D:[\\/]+hangzhouMaj"`，排除注释行 ⇒ **34 处非注释命中**，分三类：
+  - **① 可修且已修（本轮）**：
+    `tools/meld_gate_check.py`、`tools/meld_ukeire_cohort.py`、`tools/meld_ukeire_cohort2.py`、`tools/meld_window_split.py`
+    —— 四个都是 `ROOT = r'D:\hangzhouMaj'` ⇒ clone 里必崩，**而它们不在 `$opsScripts`**（旧门扫不到）；
+    另 `var/_ps_syntax_check.ps1` 待检脚本路径写死 ⇒ 改为从本脚本位置推。
+  - **② 故意保留（不改、门也不查）**：`var/_register_*.ps1`（约 16 个）里的绝对路径 —— 它们生成的正是
+    **本机计划任务定义**（任务 action 必须是绝对路径）；已写进门的文档注释，防止后人“修”坏注册。
+  - **③ ★ 役中冻结 ⇒ 提交前补丁项**：`bot/` 里 **4 个臂的网默认路径是本机绝对路径**：
+    `speedvaluemeld.py`（`DEFAULT_MELD`）、`speedvaluebcmeld.py`（`DEFAULT_BC`/`DEFAULT_MELD`）、
+    `speedvaluebcvmeld.py`（`DEFAULT_BC`/`DEFAULT_MELD`）、`speedvaluebaotouvmeld.py`（`DEFAULT_MELD`）。
+    后果：**clone 到其他路径时网加载失败 ⇒ 静默退化**（“看着完整其实断链”，正是本项目反复抓的那类）。
+    —— `bot/` **役中不可改**（红线）⇒ 计划：**役5 收口后（~10/4）、10/8 提交前**统一改为相对路径（从 `__file__` 推 `var/`），
+    验证 = ① 解析到**同一个 `.pt` 文件**；② 决策足迹与现状**逐条一致**（同样语料）。
+  - **门扩展**：可移植性门 → 也扫 **`tools/*.py`**（当场就会抓到那四个）；测试 2 项 OK。
+  - **验证**：4 个 tools 脚本均 `import os` ✓、`meld_gate_check.py` 烟测输出正常 ✓；门 2 项 OK。

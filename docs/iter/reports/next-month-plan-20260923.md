@@ -5980,3 +5980,14 @@ R1502 之前链上**一根孪生都没有** ⇒ 唯一逃生阀是退回 `speedv
 **门扩展**：可移植性门 → 也查 `.ps1`（当场抓出第二个）。
 **验证**：本地 `_prepare_submission` rc=0；clone 行为实证（临时目录跑 ⇒ 打印临时路径、不碰 D: 目录）；**`_final_switch_retry.ps1 -DryRun` 首次演练 rc=0**。
 全量回归 **Ran 1201, OK**。
+
+### §V.251 本机绝对路径扫全（R1529）：修 5 处；`bot/` 4 个臂的网路径列为**提交前补丁项**
+
+| 类 | 内容 | 处置 |
+|---|---|---|
+| ① 可修 | `tools/meld_gate_check.py`、`meld_ukeire_cohort.py`、`meld_ukeire_cohort2.py`、`meld_window_split.py`（`ROOT = r'D:\hangzhouMaj'`）；`var/_ps_syntax_check.ps1`（待检路径写死） | **已改**为从 `__file__`/`$MyInvocation` 推 |
+| ② 故意 | `var/_register_*.ps1`（16）的绝对路径（它们生成的就是**本机任务定义**） | **不改**；已写进门注释 |
+| ③ **待补丁** | `bot/`：`speedvaluemeld.py`、`speedvaluebcmeld.py`、`speedvaluebcvmeld.py`、`speedvaluebaotouvmeld.py` 的 `DEFAULT_BC`/`DEFAULT_MELD` 是**本机绝对路径** | 役中冻结 ⇒ **役5 收口后、10/8 提交前**改相对路径；验证 = 解析到同一 `.pt` + 足迹一致 |
+
+**为什么 ③ 重要**：clone 到其他路径时网加载失败 ⇒ **静默退化成 no-op**（“看着完整其实断链”）。
+**门**：可移植性门→也扫 `tools/*.py`（2 项 OK）。

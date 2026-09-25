@@ -7,6 +7,7 @@
 （注释里提到那条路径不算——只查“真的赋值”。）
 """
 from __future__ import annotations
+import glob
 import io
 import os
 import re
@@ -39,6 +40,23 @@ class TestNoHardcodedRoot(unittest.TestCase):
                 bad.append(rel)
         self.assertEqual([], bad,
                          "这些脚本把 ROOT 赋成了硬编码路径 ⇒ clone 里会崩：%s" % bad)
+
+
+class TestToolsNoHardcodedRoot(unittest.TestCase):
+    """★ R1529：`tools/*.py`（会进公开仓）也不得把 `ROOT` 赋成硬编码本机路径。
+
+    实测拉网：`tools/meld_gate_check.py`、`meld_ukeire_cohort.py`、`meld_ukeire_cohort2.py`、`meld_window_split.py` 四个都是
+    `ROOT = r'D:\hangzhouMaj'` ⇒ clone 里必崩（而它们不在 `$opsScripts` 里，旧门扫不到）。
+    注意：`var/_register_*.ps1` 里的绝对路径是**故意的**（它们生成的就是**本机计划任务定义**）⇒ 不在本门范围。
+    """
+
+    def test_tools_derive_root_from_file(self):
+        bad = []
+        for p in sorted(glob.glob(os.path.join(ROOT, "tools", "*.py"))):
+            t = io.open(p, encoding="utf-8", errors="replace").read()
+            if RX_PY.search(t):
+                bad.append(os.path.relpath(p, ROOT).replace("\\", "/"))
+        self.assertEqual([], bad, "这些 tools 脚本把 ROOT 赋成了硬编码路径 ⇒ clone 里会崩：%s" % bad)
 
 
 if __name__ == "__main__":
