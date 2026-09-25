@@ -13,6 +13,7 @@
 | `.B2_CANDIDATES` | `_adopt_pair.py` | — | **0d** | 机制成立/主端点未证实 ⇒ 供人并行比较（不进自动池） |
 | `.VERDICT_RULE_CONFLICT` | `_adopt_pair.py` | — | **0e** | 按 `yaku3-verdict-readcard.md` §0 定性（V 的 B1 是否成立） |
 | `.EVENT_SWITCH_BLOCKED` | `_final_event_switch.py`**与** `_final_event_ready.py` | — | **0f** | 10/10 上线没成功：照抄文件里的命令（含 `-AllowNotReady` 逃生阀、ycbk 孪生） |
+| `.EVENT_M_HIGH` | `_final_event_switch.py`（18:50 读 `/rules`） | — | **0g** | 赛事 **M>10**（超出阶梯上见过的 M=10）⇒ **人定**：保留链上赢家臂，或换 M 已验证轻臂族（c136/c146/c148/c153/speedtugc；YCBK=true 时只有 c148/c153 合规）。M≤10 时脚本**自动清除** |
 | `.SCHEDULE_TIGHT` | `_schedule_guard.py` | — | **0g** | 排期不够 ⇒ 按 §V.160 丢弃顺序**丢一个役**（丢哪个由人定） |
 | `.FINAL_ARM_UNRESOLVED` | `_final_arm_confirm.py` | — | **0g** | 定臂被拒（臂未注册/不能实例化）⇒ 10/7 换臂会失败 |
 | `.FINAL_NOT_READY` / `.FINAL_READY` | `_final_ready_check.py` | — | **0g** | 就绪校验 FAIL 清单（10/7 10:30 / 10/8 09:00 各跑一次） |

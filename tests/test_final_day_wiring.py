@@ -224,6 +224,55 @@ class TestBoxedSentinel(unittest.TestCase):
         self.assertIn("-TokenFile %s -TournamentId <TID>", src)
 
 
+    def test_m_high_marker_written_and_cleared(self):
+        """★ R1504：M>10 必须落**可见标记** .EVENT_M_HIGH（不能只埋日志）；M≤10 自动清除。"""
+        import tempfile
+        sys.path.insert(0, os.path.join(ROOT, "var"))
+        import _final_event_switch as S
+        tok = os.path.join(ROOT, "var", ".token_4test_20260924")
+        if not os.path.exists(tok):
+            self.skipTest("缺 var/.token_4test_20260924（clone）")
+        self.assertIsNone(S.m_high_note(10))
+        self.assertIsNone(S.m_high_note(None))
+        self.assertIn("M=16", S.m_high_note(16))
+        fd, armfile = tempfile.mkstemp(suffix=".txt")
+        os.close(fd)
+        with io.open(armfile, "w", encoding="utf-8") as f:
+            f.write("speedvaluebc")
+        fd2, mfile = tempfile.mkstemp(suffix=".mk")
+        os.close(fd2)
+        os.remove(mfile)
+        olds = (S.log, S.rules_guard_rc, S.registered_arms, S.M_HIGH, sys.argv)
+        try:
+            S.log = lambda m: None
+            S.M_HIGH = mfile
+            S.registered_arms = lambda: set()
+            sys.argv = ["x", "--dry-run", "--final-file", armfile,
+                        "--token-file", tok, "--tid", "t_x"]
+            import contextlib
+            S.rules_guard_rc = lambda a, t, server=None: (
+                0, '锦标赛 config：{"M": 16, "Rounds": 16, "YouCaiBiKao": false}')
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(0, S.main())
+            self.assertTrue(os.path.exists(mfile), "M=16 必须落 .EVENT_M_HIGH")
+            self.assertIn("M=16", io.open(mfile, encoding="utf-8").read())
+            S.rules_guard_rc = lambda a, t, server=None: (
+                0, '锦标赛 config：{"M": 10, "Rounds": 16, "YouCaiBiKao": false}')
+            with contextlib.redirect_stdout(io.StringIO()):
+                S.main()
+            self.assertFalse(os.path.exists(mfile), "M=10 必须自动清除")
+        finally:
+            S.log, S.rules_guard_rc, S.registered_arms, S.M_HIGH, sys.argv = olds
+
+    def test_config_summary_parses_event_M(self):
+        """★ R1504：18:50 要在日志里记下赛事的 M（正式赛 M 未知；M 直接决定延迟风险）。"""
+        sys.path.insert(0, os.path.join(ROOT, "var"))
+        import _final_event_switch as S
+        line = '锦标赛 config：{"M": 10, "Rounds": 16, "BaseScore": 1, "YouCaiBiKao": true}'
+        self.assertEqual((10, 16, True), S.config_summary(line))
+        self.assertEqual((None, None, None), S.config_summary("noise only"))
+        self.assertEqual((None, None, None), S.config_summary(None))
+
     def test_event_switch_wiring_actually_switches_arm(self):
         """★ R1503 接线级：不只是纯函数对，**`main()` 真跑时也会把上线臂换成孪生**（dry-run，不执行、不落标记）。"""
         import tempfile

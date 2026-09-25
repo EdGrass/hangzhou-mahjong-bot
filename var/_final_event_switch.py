@@ -35,7 +35,8 @@ LOG = os.path.join(ROOT, "var", "_final_event_switch.log")
 FINAL_ARM = os.path.join(ROOT, "var", ".final_arm.txt")
 TOKEN_DEFAULT = os.path.join(ROOT, "var", ".token_final_20261010")
 OFFICIAL = os.path.join(ROOT, "var", ".official_mode")
-BLOCKED = os.path.join(ROOT, "var", ".EVENT_SWITCH_BLOCKED")   # ★ R1491：18:50 失败也要留一个有人读的标记
+BLOCKED = os.path.join(ROOT, "var", ".EVENT_SWITCH_BLOCKED")
+M_HIGH = os.path.join(ROOT, "var", ".EVENT_M_HIGH")   # ★ R1504：M 超过已见 M=10 时的**可见**标记   # ★ R1491：18:50 失败也要留一个有人读的标记
 
 
 def blocked(reason, token_file, dry=False):
@@ -144,6 +145,45 @@ def registered_arms():
         return set()
 
 
+def config_summary(out):
+    """★ R1504：从 `rules_guard` 的 stdout 里抠出赛事 config 的 (M, Rounds, YouCaiBiKao)。
+
+    为什么在 18:50 还要再看一眼 M：**正式赛的 M 本就未知**（`docs/开赛操作单-20260917.md:695` 写明“不能默认 M=10”），
+    而延迟与 M 直接相关。R1504 已把链上臂测到 **M=20 全过 / M=40 基本过**；
+    下面只**记录**它，不拒绝上线（不参赛比慢一点更糟）。
+    """
+    for line in (out or "").splitlines():
+        if "锦标赛 config" in line and "{" in line:
+            try:
+                cfg = json.loads(line[line.index("{"):])
+            except Exception:
+                return None, None, None
+            return cfg.get("M"), cfg.get("Rounds"), cfg.get("YouCaiBiKao")
+    return None, None, None
+
+
+def m_high_note(m, limit=10):
+    """★ R1504：M > limit ⇒ 返回 `.EVENT_M_HIGH` 正文；否则 None（含 M 未知）。
+
+    依据：`docs/开赛操作单-20260917.md:695` 已写“正式赛 M 未知 ⇒ 不能默认 M=10”。
+    R1504 实测（**同步起爆**，即多桌同时开局的形态）：M=10 draw/window 全过；
+    M=16 时 `speedc151` / `speedvalue` 各 **1/800 条 >3s**（边缘），`speedvaluebc` 0 条。
+    所以这里**只记录、不自动换臂**（换成旧轻臂族意味着放弃十天的强度证据；而不参赛更糟）。
+    """
+    try:
+        m = float(m)
+    except (TypeError, ValueError):
+        return None
+    if m <= limit:
+        return None
+    return ("赛事 M=%g 超过我们在阶梯上见过的 M=10（R1504 同步起爆实测：M=10 draw/window 全过；"
+            "M=16 时 speedc151/speedvalue 各 1/800 条 >3s）。\n"
+            "两个选项（**人定**，脚本不自动换臂）：\n"
+            "  ① 保持链上赢家臂（>3s 的期望 ≈ 1/800 决策，且只在 draw 窗口 3s 预算下）；\n"
+            "  ② 换 M 已验证的轻臂族（c136/c146/c148/c153/speedtugc，"
+            "见 docs/开赛操作单-20260917.md 的 M>10 表）。\n"
+            "注意：若同时 YouCaiBiKao=true，选项②里只有 c148/c153 合规。\n" % m)
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--go", action="store_true")
@@ -182,6 +222,21 @@ def main():
     _rc, _out = rules_guard_rc(arm, a.token_file)
     _arm2, _why = resolve_event_arm(arm, _rc, registered_arms())
     log("规则门预检：%s" % _why)
+    _m, _rounds, _ycbk = config_summary(_out)
+    log("赛事 config 预检：M=%s Rounds=%s YouCaiBiKao=%s" % (_m, _rounds, _ycbk))
+    _mnote = m_high_note(_m)
+    try:
+        if _m is None:
+            log("（M 未知 ⇒ 不动 .EVENT_M_HIGH）")
+        elif _mnote:
+            with io.open(M_HIGH, "w", encoding="utf-8", newline="\n") as f:
+                f.write(_mnote)
+            log("!! M=%s > 10 ⇒ 已落 .EVENT_M_HIGH（人定：保留链上赢家臂 / 换 M 已验证轻臂族）" % _m)
+        elif os.path.exists(M_HIGH):
+            os.remove(M_HIGH)
+            log("已清除 .EVENT_M_HIGH（M=%s ≤ 10）" % _m)
+    except Exception as e:
+        log("!! 写/清 .EVENT_M_HIGH 失败：%s" % str(e)[:80])
     if _arm2 != arm:
         log("★ 最终臂 %s ⇒ 赛事要求合法胡闸门 ⇒ 自动改用孪生 %s（同剂量）" % (arm, _arm2))
         arm = _arm2
