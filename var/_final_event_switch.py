@@ -35,6 +35,36 @@ LOG = os.path.join(ROOT, "var", "_final_event_switch.log")
 FINAL_ARM = os.path.join(ROOT, "var", ".final_arm.txt")
 TOKEN_DEFAULT = os.path.join(ROOT, "var", ".token_final_20261010")
 OFFICIAL = os.path.join(ROOT, "var", ".official_mode")
+BLOCKED = os.path.join(ROOT, "var", ".EVENT_SWITCH_BLOCKED")   # ★ R1491：18:50 失败也要留一个有人读的标记
+
+
+def blocked(reason, token_file, dry=False):
+    """★ R1491：**18:50 首次上线失败也落 `var/.EVENT_SWITCH_BLOCKED`**。
+
+    原实现失败只 `log()` + `return 2` ⇒ **只有日志**；而标记只有 19:25 的
+    `_final_event_ready.py` 才写 ⇒ 18:50–19:25 这 **35 分钟里没有任何可被看见的信号**，
+    而 10/10 只有一次机会。现在两个时刻落同一个标记（内容含可照抄命令与逃生阀）。
+    """
+    if dry:
+        log("!! %s ⇒ （dry-run：不落 .EVENT_SWITCH_BLOCKED）" % reason)
+        return
+    cmd = ("powershell -NoProfile -File var/_switch_to_official.ps1 "
+           "-Strategy <最终臂> -TokenFile %s -TournamentId <TID>") % token_file
+    twin = ("# 若失败原因是 rules_guard（YouCaiBiKao ↔ 策略）：链上臂无 ycbk 孪生，"
+            "唯一已注册的合规孪生是 speedvalueycbk：\n"
+            "powershell -NoProfile -File var/_switch_to_official.ps1 -Strategy speedvalueycbk "
+            "-TokenFile %s -TournamentId <TID>") % token_file
+    try:
+        with io.open(BLOCKED, "w", encoding="utf-8", newline="\n") as f:
+            f.write("%s %s（18:50 首次上线失败，距开赛约 40 分钟）\n"
+                    % (time.strftime("%Y-%m-%d %H:%M:%S"), reason))
+            f.write("先看：var/_final_event_switch.log（若到了 19:25 还没好，再看 var/_final_event_ready.log）\n")
+            f.write("人工命令：%s\n" % cmd)
+            f.write("逃生阀（人决定）：%s -AllowNotReady   # ← 仅在已确认该 BREAKING 无害时\n" % cmd)
+            f.write(twin + "\n")
+    except Exception:
+        pass
+    log("!! %s ⇒ 已落 .EVENT_SWITCH_BLOCKED（含可照抄命令）" % reason)
 
 
 def log(msg):
@@ -72,13 +102,16 @@ def main():
     a = ap.parse_args()
 
     if not os.path.exists(a.final_file):
+        blocked("缺 .final_arm.txt（最终臂未定）", a.token_file, a.dry_run)
         log("!! \u7f3a %s\uff08\u6700\u7ec8\u81c2\u672a\u5b9a\uff09\u21d2 \u4e0d\u4e0a\u7ebf" % os.path.basename(a.final_file))
         return 2
     arm = io.open(a.final_file, encoding="utf-8-sig").read().strip()
     if not arm:
+        blocked(".final_arm.txt 为空", a.token_file, a.dry_run)
         log("!! .final_arm.txt \u4e3a\u7a7a \u21d2 \u4e0d\u4e0a\u7ebf")
         return 2
     if not os.path.exists(a.token_file):
+        blocked("缺令牌文件", a.token_file, a.dry_run)
         log("!! \u7f3a\u4ee4\u724c\u6587\u4ef6 %s\uff08\u9700\u5148\u628a\u5f53\u5929\u4ee4\u724c\u5b58\u5230\u8fd9\u91cc\uff09\u21d2 \u4e0d\u4e0a\u7ebf" % a.token_file)
         return 2
     tid = a.tid
@@ -110,6 +143,12 @@ def main():
     import psutil
     ka = [pr.info["pid"] for pr in psutil.process_iter(["pid", "cmdline"])
           if "_official_keepalive.py" in " ".join(str(x) for x in (pr.info.get("cmdline") or []))]
+    if ok_flag and ka and os.path.exists(BLOCKED):
+        try:
+            os.remove(BLOCKED)
+            log("已清除 .EVENT_SWITCH_BLOCKED（本次上线成功）")
+        except Exception:
+            pass
     log("\u2605 \u4e0a\u7ebf\u6821\u9a8c\uff1a.official_mode=%s\uff0ckeepalive=%s" % (ok_flag, ka))
     return 0 if (ok_flag and ka) else 2
 

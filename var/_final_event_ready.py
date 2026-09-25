@@ -101,6 +101,12 @@ def main(argv=None):
             pass
         log("!! 仍未进入官方模式 ⇒ 已落 .EVENT_SWITCH_BLOCKED（含可照抄命令）")
         return 2
+    if os.path.exists(BLOCKED):
+        try:
+            os.remove(BLOCKED)
+            log("已清除 .EVENT_SWITCH_BLOCKED（保险完成）")
+        except Exception:
+            pass
     log("官方模式在位 ⇒ 保险完成（ready 已补发 rc=%s）" % rc2)
     return 0
 

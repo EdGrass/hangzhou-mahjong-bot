@@ -5459,3 +5459,20 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 | `_final_ready_check.py` | **PASS 6**（git 干净且 ==origin/main）、**PASS 7**（提交物 rc=0）；FAIL 1–5 = 尚未发生，符合预期 |
 
 **故障关闭实测生效**：`.final_arm.txt` 缺 ⇒ 不换臂、不上线。演习干净：`.final_arm.txt` / `.final_installed` / `.official_mode` 都未被建，现场六个标记全空。
+
+### §V.216 10/10 上线失败的**前 35 分钟**也要有可见信号 + 标记要会自消（R1491）
+
+**缺口 1**：`.EVENT_SWITCH_BLOCKED` **只有 19:25 的 `_final_event_ready.py` 写**；18:50 的首次上线失败只打日志
+⇒ **18:50–19:25 这 35 分钟里没有任何人/看护能看到“上线没成功”**（而 10/10 只有一次机会）。
+
+**缺口 2（同类）**：两个脚本**都只写不清** ⇒ 落过标记后**成功了也不会消** ⇒ 永久告警。（同 R1484 在 `_mech_watch` 上修过的错。）
+
+**修法**
+
+1. `var/_final_event_switch.py` 新增 `blocked(…, dry=)`：三条提前失败路径（**缺最终臂 / 臂为空 / 缺令牌**）
+   **都落 `.EVENT_SWITCH_BLOCKED`**（内容与 19:25 版一致：可照拄人工命令 + `-AllowNotReady` 逃生阀 + `speedvalueycbk` 合规孪生）；
+   **`--dry-run` 不落**（彩排不污染状态）。
+2. **成功即清**：`_final_event_switch.py` 上线校验通过时、`_final_event_ready.py` 保险完成时，都**删除**该标记。
+3. 心跳新增**步骤 0f**：一旦存在就**贴全文**（含命令与逃生阀），**不自己执行上线命令**。
+
+**实测**：`--dry-run` 不落标记；真失败路径 ⇒ **rc=2 + 标记落盘**；测完删标记，现场干净；相关测试 **72 项全绿**。
