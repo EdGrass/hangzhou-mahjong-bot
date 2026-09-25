@@ -7,6 +7,7 @@
 另钉住 V 轴机制（campaign7 §2：**爆头/胡 上升 且 番/胡 上升**）的表格解析与判据。
 """
 from __future__ import annotations
+import io
 import os
 import sys
 import unittest
@@ -70,6 +71,44 @@ class TestParseH2H(unittest.TestCase):
     def test_garbage_and_header_ignored(self):
         self.assertEqual({}, M.parse_h2h(""))
         self.assertEqual({}, M.parse_h2h(u"没有表头的一行\n另一行"))
+
+
+class TestParseH2HCompatR1501(unittest.TestCase):
+    """★ R1509：`_seat_h2h` 在 R1501 之后会多打 `vs TOPn` / `vs 非TOP` 两类行。
+
+    这些行**不是**“臂 + 我方/另三家”口径 ⇒ 解析必须丢弃它们（宁可缺读数，不拼假的），
+    且不能因此把 `我方` / `另三家` 两行弄丢。这里用真实输出形状钉住。
+    """
+
+    SAMPLE = (
+        "speedvaluebc \u6211\u65b9         \u5c40    400 | \u80e1/\u8f6e 29.75% | \u756a/\u80e1 1.45 | \u5206/\u8f6e   +2.40 | "
+        "\u8d62   +6.68 \u8f93   -4.28 | \u7206\u5934/\u80e1  27.7% \u8d22\u98d8  1.7% \u6760\u5f00 2.52% | "
+        "\u526f\u9732/\u8f6e 0.330 \u6760/\u8f6e 0.018(\u660e0.007\u88650.010\u66970.000)\n"
+        "speedvaluebc \u53e6\u4e09\u5bb6        \u5c40   1200 | \u80e1/\u8f6e 22.08% | \u756a/\u80e1 1.33 | \u5206/\u8f6e   -0.80 | "
+        "\u8d62   +4.27 \u8f93   -5.07 | \u7206\u5934/\u80e1  23.8% \u8d22\u98d8  1.5% \u6760\u5f00 1.89% | "
+        "\u526f\u9732/\u8f6e 0.315 \u6760/\u8f6e 0.020(\u660e0.009\u88650.008\u66970.003)\n"
+        "speedvaluebc vs TOP32   \u5c40    400 | \u80e1/\u8f6e 26.50% | \u756a/\u80e1 1.42 | \u5206/\u8f6e   +0.45 | "
+        "\u8d62   +5.36 \u8f93   -4.91 | \u7206\u5934/\u80e1  30.2% \u8d22\u98d8  0.9% \u6760\u5f00 2.83% | "
+        "\u526f\u9732/\u8f6e 0.398 \u6760/\u8f6e 0.020(\u660e0.007\u88650.013\u66970.000)\n"
+        "speedvaluebc vs \u975eTOP    \u5c40    800 | \u80e1/\u8f6e 19.88% | \u756a/\u80e1 1.28 | \u5206/\u8f6e   -1.43 | "
+        "\u8d62   +3.73 \u8f93   -5.16 | \u7206\u5934/\u80e1  19.5% \u8d22\u98d8  1.9% \u6760\u5f00 1.26% | "
+        "\u526f\u9732/\u8f6e 0.274 \u6760/\u8f6e 0.020(\u660e0.010\u88650.006\u66970.004)\n"
+    )
+
+    def test_vs_top_rows_are_ignored_and_me_rows_survive(self):
+        rows = M.parse_h2h(self.SAMPLE)
+        self.assertEqual({("speedvaluebc", "\u6211\u65b9"), ("speedvaluebc", "\u53e6\u4e09\u5bb6")}, set(rows))
+        self.assertAlmostEqual(29.75, rows[("speedvaluebc", "\u6211\u65b9")]["hu"], places=2)
+        self.assertAlmostEqual(1.45, rows[("speedvaluebc", "\u6211\u65b9")]["fan"], places=2)
+        self.assertAlmostEqual(23.8, rows[("speedvaluebc", "\u53e6\u4e09\u5bb6")]["baotou"], places=1)
+        self.assertEqual(1200, rows[("speedvaluebc", "\u53e6\u4e09\u5bb6")]["rounds"])
+
+    def test_empty_parse_leaves_diagnostic(self):
+        """★ R1509：解析为空时必须留 rc/stderr/长度（否则“读数缺失”无法诊断）。"""
+        src = io.open(os.path.join(ROOT, "var", "_mech_watch.py"), encoding="utf-8").read()
+        self.assertIn("\u89e3\u6790\u4e3a\u7a7a", src)
+        self.assertIn("stderr=", src)
+        self.assertIn("stdout=%d", src)
 
 
 class TestJudgeVMech(unittest.TestCase):

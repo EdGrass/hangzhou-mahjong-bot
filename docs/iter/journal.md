@@ -27448,3 +27448,20 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     `started=2026-09-25 20:52:39`、参与臂 `speedvalue,speedvaluebc,speedvaluebaotouv5`、基线 `speedvalue`，
     并如实报“没有满足 --min-rooms 的臂”（当前房数远未到 30）；日志追加一行留痕（9/24 与 9/26 两条都在）。
   - ⇒ 仓里/现场不再有“披着当前名字的旧口径提案”。
+
+- [R1509 | 2026-09-26 00:58 ★★★**34 台任务实参体检**（结论：判词/采用/下一步/机制看护都不陈旧）；顺手补上 `_mech_watch` 的“读数缺失无法诊断”]
+  - **体检结论（逐台看 `Actions.Arguments`）**：
+    - `HangzhouMajVerdictWatch3bc/3v`：`--since "2026-09-25 20:52:39"` = **役 3 窗口** ✓；
+    - `HangzhouMajAdoptPairWatch`：`--go --label 役3 --baseline speedvalue` ✓；`HangzhouMajNextYakuNotice`：`--label 役4` ✓；
+    - `HangzhouMajMechWatch`：只有 `--files 200` —— 臂**必须来自 `.ab_mode`**；读源码证实它是**动态**的（`arms_of()` 支持三臂，R1481 修过）⇒ **不陈旧** ✓；
+    - 已过期但有记录（不动）：役 2 的 `VerdictWatch`/`AdoptWatch`、`4Test*`/`After4Test*`/`TminusReady`（一次性任务，无触发器或已跑完）。
+  - **体检中发现的真问题（诊断缺口）**：`var/_mech_watch.log` 里 00:37 那次 V 机制变成
+    `读数缺失（base=False cand=False）`，而 22:12 那次还能读出（base 160 局 / cand 80 局）。
+  - **手工复现**：同一条命令（`_lowprio_run` → `_seat_h2h --since 役3 --by-arm --top 32`）现在**正常**：
+    18.3s，`speedvaluebc 我方 400 局`、`speedvaluebaotouv5 我方 320 局`，另三家与 `vs TOP32/非TOP` 行齐全
+    ⇒ 00:37 是**瞬时失败**，而 `_mech_watch` **把它吞了**（只对 `TimeoutExpired` 记日志，rc/stderr/stdout 长度一概不记）⇒ 事后无法判断“崩了”还是“解析不上”。
+  - **修**：① `_mech_watch.py` 在解析为空时**必须留证据**（`rc` / `stdout` 长度 / `stderr` 前 200 字），超时与异常分别记；
+    ② 新测试 `tests/test_mech_watch_arms.TestParseH2HCompatR1501`：用**真实输出形状**（含 R1501 新增的 `vs TOP32` / `vs 非TOP` 行）
+    钉住“只认 `我方`/`另三家`、其余丢弃”，防止下一轮表格格式变动把机制读数打成 0；并钉住“空解析必须留 rc/stderr/长度”。
+  - **影响评估（诚实）**：读数缺失 ⇒ `ok=None` ⇒ 只写 `.v_mech_unknown`（**响亮但不阻塞**），**不会**让 `_adopt_pair` 判 B3 作废
+    （B3 作废要求 `ok=False`，且判据门槛是 ≥320 局/臂）⇒ 这次瞬时失败**没有**影响 9/28 判决安全；修的是“同类问题下次能一眼看出”。

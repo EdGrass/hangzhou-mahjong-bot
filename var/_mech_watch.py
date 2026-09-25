@@ -261,8 +261,17 @@ def main():
             p3 = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
                                 encoding="utf-8", errors="replace", timeout=1800)
             rows = parse_h2h(p3.stdout or "")
+            if not rows:
+                # ★ R1509：**读数缺失不能被吞掉** —— 必须留下可诊断证据。
+                #   实测：00:37 那次写了 `.v_mech_unknown`（“读数缺失（base=False cand=False）”），
+                #   而日志里**没有 rc / stderr / 行数** ⇒ 无法判断是崩了还是解析不上（而超时是会记的）。
+                log("!! V 机制读数（_seat_h2h）解析为空：rc=%s stdout=%d 字 stderr=%s"
+                    % (getattr(p3, "returncode", "?"), len(p3.stdout or ""),
+                       ((p3.stderr or "").strip().replace("\n", " ")[:200]) or "（空）"))
         except subprocess.TimeoutExpired:
-            log("!! V 机制读数（_seat_h2h）超时")
+            log("!! V 机制读数（_seat_h2h）超时（>1800s）")
+        except Exception as e:
+            log("!! V 机制读数（_seat_h2h）异常：%s" % str(e)[:120])
         base_row = rows.get((baseline, "我方"))
         for cand in v_cands:
             ok, why = judge_v_mech(base_row, rows.get((cand, "我方")))

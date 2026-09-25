@@ -5743,3 +5743,17 @@ R1502 之前链上**一根孪生都没有** ⇒ 唯一逃生阀是退回 `speedv
 **R1508b（同日追加）**：`var/_final_pick_proposal.txt` 原是一份 **9/24（役 2 窗口、基线 speedc151）**的陈旧提案。
 先核“谁读它”：仅 `_final_pick_proposal.py` 的 `OUT=` 引用；`_final_arm_confirm` 不读它 ⇒ 程序无污染风险，风险只在人读。
 处置：**不删**，用脚本自身重生成到当前役 3 窗口（如实报“房数不足”），日志两条留痕。
+
+### §V.232 任务实参体检 + 机制看护的诊断缺口（R1509）
+
+**体检（34 台，逐台看 Arguments）**：役 3 的 `VerdictWatch3bc/3v` 用的是当前窗口 ✓；`AdoptPairWatch --label 役3 --baseline speedvalue` ✓；
+`NextYakuNotice --label 役4` ✓；`MechWatch` 仅 `--files 200`，但**臂从 `.ab_mode` 动态取**（`arms_of()` 支持三臂，R1481）⇒ 不陈旧 ✓；
+其余为已过期但有记录的一次性/旧役任务（不动）。
+
+**发现的诊断缺口**：00:37 的 V 机制读数变成“读数缺失（base=False cand=False）”，而手工复跑同一命令**正常**
+（18.3s；bc 我方 400 局 / V 我方 320 局；`vs TOP32/非TOP` 行齐全）⇒ 是**瞬时失败**，但 `_mech_watch` 只对超时记日志，
+**rc/stderr/长度全不记** ⇒ 无法诊断。
+
+**修**：解析为空时记 `rc` + `stdout` 长度 + `stderr` 前 200 字（超时/异常分别记）；
+新测试 `TestParseH2HCompatR1501` 钉住“只认 我方/另三家、丢弃 `vs TOPn`”，并钉住空解析必须留证据。
+**影响**：读数缺失 ⇒ `ok=None` ⇒ 只写 `.v_mech_unknown`（不阻塞），**不影响** B3 判决安全。
