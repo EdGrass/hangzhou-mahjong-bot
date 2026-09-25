@@ -6149,3 +6149,33 @@ V 既**判不出 PASS 也判不出 FAIL**（只能 UNKNOWN）⇒ ① `.mech_warn
 
 **连带收益（怎么发现的）**：这条 bug 只有把"**写了但没人读**"那把尺子坚持到底才会暴露 ——
 日志里那句 `解析为空` 从 00:37 就躺在那里，而它看起来像"样本不足"，实际是**测量管线断了**。
+
+### §V.259 ★★★★ 官方模式**不等于**比赛在跑：看护反复失败时，链路与心跳都说是"正常"（R1537）
+
+**怎么发现的**：核 R1536 的同一类风险（"输出/证据在 pythonw 下会不会丢"）时，把 19 个 **pythonw 计划任务**
+脚本的全部子进程调用点逐个过了一遍（结论：**只有** `_mech_watch` 那条 V 读数受影响，已由 R1536 修掉；
+其余要么显式重定向、要么是 level-1 直调）。但顺手读到 10/10 的上线链，发现**两个真的洞**：
+
+| # | 洞 | 后果 |
+|---|---|---|
+| ① | `_official_guard.py` 拉起 keepalive 时**不重定向** stdout/stderr（本脚本由计划任务用 pythonw 起、无控制台） | keepalive **启动即崩**（token 缺、参数不对、导入错）时，`_official_guard.log` 里只有一句「**✓ 已按 spec 拉起**」，**下一条证据都没有** |
+| ② | 心跳第 2 步写的是「`.official_mode` 在位 ⇒ **正常，静默**」 | `.official_mode` 在位但 keepalive**已经死了/一直起不来**时，**没人报** ⇒ 比赛期间**静默丢分** |
+
+②尤其危险：`_final_event_ready.py`（19:25 保险）**也只检查 `.official_mode` 是否存在**，也不看 keepalive 是否活着
+⇒ 18:50/19:25 两道关都过了、`.EVENT_SWITCH_BLOCKED` 不落、心跳静默 —— 而**分是 0**。
+
+**修（三处，都不改任何比赛逻辑）**：
+| 位置 | 改动 |
+|---|---|
+| `var/_official_guard.py` | 拉起 keepalive 时把它的 stdout/stderr **追加**到 `var/_official_keepalive.out`（`stderr=STDOUT`）；`_official_1024.out` 仍只装 run_bot 的输出，两者互补 |
+| `var/_ensure_all.py` | `_start()` 增加可选 `log_path=`（官方 keepalive 那条路传它；其余仍 DEVNULL）；**开文件失败 ⇒ 退回 DEVNULL**，绝不让自愈链因日志而挂掉 |
+| 心跳提示词（automation 10-7）步骤 2 | 新增**低误报**规则：`.official_mode` 在位 **且** keepalive 与 run_bot **都不在跑** **且** `_official_guard.log` 末 3 行有 `⚠`/`✗` ⇒ **立刻报人**（贴三份日志的尾部），不自动动手 |
+
+**为什么这条规则不会变成噪声**：被淘汰后 keepalive "起了又退"（§见四测复盘）是**正常**的，
+而那时守卫日志写的是 **`✓`**（拉起成功）不是 `⚠`/`✗`；只有**守卫自己都没能拉起**时才会出现 `⚠`/`✗`
+⇒ 该条件**恰好**指向"真的在丢分"。自动化的 `status/rrule/target_thread_id` 均未变，新提示词与目标文本**逐字比对一致**（5501 字符）。
+
+**测试**：`tests/test_official_guard.py` +1（拉起必须带 `stdout=` 且 `stderr=STDOUT`）；
+`tests/test_ensure_all_ab_mode.py` +1（**功能**测试：假脚本 + 临时 ROOT，真的把子进程输出写进 `log_path`，
+并抓住 `Popen` 显式 `wait()` 避免漏进程）。两处测试桩放宽为 `**kw`，并把新的 `KEEPALIVE_OUT` 也隔离到 temp
+（延续"**测试绝不写生产 `var/`**"那条既有纪律）。

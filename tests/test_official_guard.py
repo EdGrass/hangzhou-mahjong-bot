@@ -76,6 +76,33 @@ class TestOfficialGuard(unittest.TestCase):
             self.assertTrue(argv[-len(fake):] == fake, "必须把 spec argv 原样附在末尾：%r" % (argv,))
             self.assertTrue(any(str(x).endswith("_official_keepalive.py") for x in argv), argv)
 
+    def test_spawn_redirects_child_output(self):
+        """★ R1537：本脚本由计划任务用 **pythonw**（无控制台）起 ⇒ 拉起 keepalive 时**必须**重定向输出。
+
+        否则子进程“启动即崩”时日志里只剩一句「✓ 已按 spec 拉起」，**下一条证据都没有**
+        （本项目反复抓的“看着成功其实没跑”）。
+        """
+        import tempfile
+        d = tempfile.TemporaryDirectory()
+        try:
+            out = os.path.join(d.name, "_official_keepalive.out")
+            fake = ["--strategy", "speedvalue"]
+            with mock.patch.object(g, "FLAG", self._flag(True)), \
+                 mock.patch.object(g, "KEEPALIVE_OUT", out), \
+                 mock.patch.object(g, "_has", return_value=None), \
+                 mock.patch.object(g, "_log"), \
+                 mock.patch.object(g, "spec_freshness", return_value=(True, "test")), \
+                 mock.patch.object(g, "_load_ensure_all") as le, \
+                 mock.patch.object(g.subprocess, "Popen") as popen:
+                le.return_value.official_argv.return_value = fake
+                self.assertEqual(g.main(), 0)
+            kw = popen.call_args[1]
+            self.assertIn("stdout", kw, "必须把子进程 stdout 重定向到 %s" % out)
+            self.assertEqual(g.subprocess.STDOUT, kw.get("stderr"), "stderr 必须并入同一份日志")
+            self.assertTrue(os.path.exists(out), "日志文件应被创建/追加")
+        finally:
+            d.cleanup()
+
     def test_no_action_when_spec_missing(self):
         """④ spec 无效：不动作（宁可交兜底）。"""
         with mock.patch.object(g, "FLAG", self._flag(True)), \

@@ -27,6 +27,8 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FLAG = os.path.join(ROOT, "var", ".official_mode")
 LOG = os.path.join(ROOT, "var", "_official_guard.log")
+# ★ R1537：keepalive **自己**的 stdout/stderr 落点（run_bot 的输出仍由 keepalive 自己写 _official_1024.out）
+KEEPALIVE_OUT = os.path.join(ROOT, "var", "_official_keepalive.out")
 
 
 def _log(msg):
@@ -123,9 +125,15 @@ def main():
         _log("⚠ 官方模式但 .official_spec.json 缺失/无效 ⇒ 不动作（避免用错令牌/策略）")
         return 1
     try:
-        subprocess.Popen([sys.executable, "-X", "utf8", "-u",
-                          os.path.join(ROOT, "var", "_official_keepalive.py")] + argv,
-                         cwd=ROOT, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        # ★ R1537：本脚本由计划任务用 **pythonw**（无控制台）起 ⇒ 原实现只 Popen、不重定向，
+        #   子进程的输出直接落进虚空：**“启动即崩”时日志只剩一句「✓ 已按 spec 拉起」，下一条证据都没有**
+        #   （本项目反复抓的“看着成功其实没跑”）。这里把 keepalive 自己的生命周期/异常留下来；
+        #   `_official_1024.out` 仍然只装 run_bot 的输出，两者互补。
+        with io.open(KEEPALIVE_OUT, "a", encoding="utf-8") as _out:
+            subprocess.Popen([sys.executable, "-X", "utf8", "-u",
+                              os.path.join(ROOT, "var", "_official_keepalive.py")] + argv,
+                             cwd=ROOT, stdout=_out, stderr=subprocess.STDOUT,
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         _log("✓ 官方模式且 keepalive 缺失 ⇒ 已按 spec 拉起：%s" % " ".join(argv))
     except Exception as e:
         _log("✗ 拉起失败: %s" % e)

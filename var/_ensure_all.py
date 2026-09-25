@@ -26,13 +26,39 @@ def _has(script_base):
     return False
 
 
-def _start(script, *args):
-    subprocess.Popen([sys.executable, "-X", "utf8", "-u", os.path.join(ROOT, "var", script)] + list(args),
-                     cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+def _start(script, *args, **kw):
+    """按脚本名拉一个子进程（默认丢弃输出）。
+
+    ★ R1537：`log_path=` 给定时改为**追加**到该文件 —— 本脚本由计划任务用 **pythonw**（无控制台）起，
+    只靠 DEVNULL 的话子进程“启动即崩”**不留任何证据**；官方 keepalive 这条路必须能留证
+    （与 `_official_guard.py` 同一处理）。开文件失败 ⇒ 退回 DEVNULL（绝不让自愈链因日志而挂掉）。
+    """
+    log_path = kw.pop("log_path", None)
+    std = {}
+    fh = None
+    if log_path:
+        try:
+            fh = open(log_path, "a", encoding="utf-8")
+            std = {"stdout": fh, "stderr": subprocess.STDOUT}
+        except Exception:
+            fh = None
+            std = {}
+    if not std:
+        std = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    try:
+        subprocess.Popen([sys.executable, "-X", "utf8", "-u", os.path.join(ROOT, "var", script)] + list(args),
+                         cwd=ROOT, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), **std)
+    finally:
+        if fh is not None:
+            try:
+                fh.close()      # Popen 已 dup 句柄，关掉父进程这份不影响子进程
+            except Exception:
+                pass
 
 
 LOG_PATH = os.path.join(ROOT, "var", "_ensure_all.log")
+# ★ R1537：keepalive 自己的输出落点（run_bot 的输出仍由 keepalive 写 _official_1024.out）
+KEEPALIVE_OUT = os.path.join(ROOT, "var", "_official_keepalive.out")
 FLAG = os.path.join(ROOT, "var", ".official_mode")
 SPEC = os.path.join(ROOT, "var", ".official_spec.json")
 
@@ -120,7 +146,7 @@ def main():
                                 "（策略/令牌可能不对！）\n" % time.strftime("%Y-%m-%d %H:%M:%S"))
                 except Exception:
                     pass
-            _start("_official_keepalive.py", *argv)
+            _start("_official_keepalive.py", *argv, log_path=KEEPALIVE_OUT)
         return
     if ab_mode():
         # A/B 期间排批由 _ab_driver 负责：不拉 keeper，但要保证**驱动**活着

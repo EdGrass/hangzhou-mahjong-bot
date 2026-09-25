@@ -1,16 +1,16 @@
-> ⚠ **入口指引（2026-09-26 07:00 更新 · 在此之前的内容均为历史记录）**
+> ⚠ **入口指引（2026-09-26 07:25 更新 · 在此之前的内容均为历史记录）**
 >
 > | 用途 | 看哪个 |
 > |---|---|
-> | **作战计划（唯一权威，§A–§V.258）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1536**） |
+> | **作战计划（唯一权威，§A–§V.259）** | `docs/iter/reports/next-month-plan-20260923.md` |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1537**） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | 当前役进度 | `python -X utf8 var/_verdict_watch.py --label 役3bc --since "2026-09-25 20:52:39" --baseline speedvalue --candidate speedvaluebc --mechanism none --check-only`（另一条把 `役3bc/speedvaluebc` 换成 `役3v/speedvaluebaotouv5`） |
 > | 一屏总览 / 排期 / 环境 | `var/_campaign_status.py` · `var/_schedule_guard.py` · `tools/preflight.py` |
 > | **完整性（R1526）** | `python -X utf8 tools/ab_integrity.py --since "役3起点" --arms speedvalue,speedvaluebc,speedvaluebaotouv5`（含**每房 10 份复盘**检查） |
 >
-> **当前状态（2026-09-26 07:00）**
+> **当前状态（2026-09-26 07:25）**
 > - **役 3 在跑**：`speedvalue`（共享基线）+ `speedvaluebc` + `speedvaluebaotouv5`；窗口 `started = 2026-09-25 20:52:39`。
 >   判词 ETA（★ 按实测 **1.23 房/时/臂**（20:52→06:36 走 12 房）重算）：**80 房/臂 ≈ 9/28 13:41**；役盒 120/臂 ≈ 9/29 22:06。当前 **36 房（12/12/12）**；已完成的 35 房**复盘各 10/10 份**（唯一未齐的是刚结束那房，抓取延迟）。
 > - **机制端点**：`speedvaluebc` 足迹 **15.6%**（预登记 10–20% 带内）✓；
@@ -22,7 +22,7 @@
 > - **上场侧（已封口）**：`YouCaiBiKao=true` ⇒ 13 根同剂量孪生 + 18:50 自动映射（R1502/R1503）；`M>10` ⇒ `.EVENT_M_HIGH`（R1504）；
 >   组合臂 **1s 响应窗口同步起爆全过**（R1523）。
 > - **末端五步已重彩排**：10/5 提案（含否决/桌强/|z|）· 10/7 换臂（六步）· **10/8 提交门禁现为 GO** · 10/10 上线（fail-closed）· 10/10 T-5 保险。
-> - **交付物**：公网 clone ⇒ **1237 项测试全绿** + 文案↔代码版本门 + 泄密门 + 闭包门 + **可移植性门（R1522）** + 行尾门（R1500b）。
+> - **交付物**：公网 clone ⇒ **1239 项测试全绿** + 文案↔代码版本门 + 泄密门 + 闭包门 + **可移植性门（R1522）** + 行尾门（R1500b）。
 > - **★ R1534（判词前的关键修复）**：V 的采用路径原本 **fail-open** —— `_adopt_pair.mech_state()` 只在
 >   `_mech_watch` **判出“不达标”**时写 `.mech_warn`，而**判不出**（读数缺失/样本不足）写的是 `.v_mech_unknown`，
 >   **采用链不读它** ⇒ 旧路径把“判不出”当成“机制正常” ⇒ **未验证的 V 可以被采用并起役 4 的 B 行**。
@@ -43,6 +43,11 @@
 >   且一旦四格由 V 决定 ⇒ R1534 的 fail-closed 会停摆。已修（显式转发句柄）＋真·pythonw 回归测试（非空洞性已证）。
 >   ⇒ **下一次 `_mech_watch`（~12:36）起读数不再为空**（会正常报「样本不足 ⇒ 不判」）；
 >   **V 的第一次真判（PASS/WARN）要到「每臂 ≥40 房 ⇒ ≈9/27 06:36 那一次」**（按实测 1.23 房/时/臂）。
+> - **★ R1537（10/10 的静默失效洞，已修）**：`_official_guard.py` 拉起 keepalive 时**不重定向输出**
+>   ⇒ keepalive“启动即崩”时日志只剩一句「✓ 已按 spec 拉起」；而心跳第 2 步把「`.official_mode` 在位」
+>   当**正常静默**、`_final_event_ready.py`（19:25）**也只查 mode 存在** ⇒ 两道关都“过”、分是 0 也没人报。
+>   已修：两个 launcher 都留证（`var/_official_keepalive.out`）＋心跳新增**低误报**规则
+>   （official_mode 在位 ∧ keepalive/run_bot 都不在 ∧ `_official_guard.log` 末 3 行有 ⚠/✗ ⇒ 立刻报人）。
 > - **唯一人工输入**：10/10 前把当天令牌存成 **`var/.token_final_20261010`**（缺它 ⇒ 不上线）。
 
 # 交接 Prompt —— 杭麻 SpeedA Bot 项目（交接日期 2026-09-09 夜）

@@ -27886,3 +27886,32 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     源码必须显式转发句柄）。**非空洞性已证**：同探针指向**旧的临时副本** ⇒ `False`，指向修复后 ⇒ `True`。
   - **教训（写给后人）**：`var/_mech_watch.log` 里那句 `解析为空` 从 **00:37** 就躺在那里，
     看起来像"样本不足"，**实际是测量管线断了**。只有把"写了但没人读/没人验"那把尺子坚持到底才会暴露。
+
+- [R1537 | 2026-09-26 07:20 ★★★★**官方模式 ≠ 比赛在跑**：keepalive 反复拉起失败时，链路与心跳都说是“正常”]
+  - **怎么发现**：核 R1536 的同类风险（pythonw 下证据是否被丢）⇒ 把 **19 个 pythonw 计划任务脚本**的全部子进程
+    调用点逐个过了一遍（结论：**只有** `_mech_watch` 那条 V 读数受影响，已由 R1536 修掉；其余要么显式重定向、
+    要么是 level-1 直调）。顺手读到 10/10 上线链，发现两个**真洞**：
+    ① `_official_guard.py` 拉起 keepalive 时**不重定向**（本脚本由计划任务用 pythonw 起、无控制台）⇒
+    keepalive **启动即崩**时日志只有一句「✓ 已按 spec 拉起」，**下一条证据都没有**；
+    ② 心跳第 2 步写「`.official_mode` 在位 ⇒ 正常，静默」⇒ `.official_mode` 在位但 keepalive 死了**没人报**。
+    —— 而 `_final_event_ready.py`（19:25 保险）**也只查 `.official_mode` 是否存在**、不看 keepalive ⇒
+    18:50/19:25 两关都“过”、`.EVENT_SWITCH_BLOCKED` 不落、心跳静默，而**分是 0**。
+  - **修（三处，不改任何比赛逻辑）**：① `_official_guard.py` 把 keepalive 的 stdout/stderr **追加**到
+    `var/_official_keepalive.out`（`stderr=STDOUT`；`_official_1024.out` 仍只装 run_bot 的输出）；
+    ② `_ensure_all.py` 的 `_start()` 增加可选 `log_path=`（keepalive 那条路传它，其余仍 DEVNULL；
+    **开文件失败即退回 DEVNULL**，绝不让自愈链因日志挂掉）；③ 心跳步骤 2 新增**低误报**规则：
+    `.official_mode` 在位 **且** keepalive 与 run_bot **都不在跑** **且** `_official_guard.log` 末 3 行有 `⚠`/`✗`
+    ⇒ **立刻报人**（贴三份日志尾），不自动动手。
+  - **为什么不会变噪声**：被淘汰后 keepalive“起了又退”是**正常**的，那时守卫日志是 **`✓`**；只有守卫**自己没拉起**才写 `⚠`/`✗`
+    ⇒ 该条件恰好指向“真的在丢分”。
+  - **心跳提示词已改并逐字校验**：5501 字符、与目标文本 `identical: True`；`status/rrule/target_thread_id` 未变。
+  - **测试**：`tests/test_official_guard.py` +1（必须带 `stdout=` 且 `stderr=STDOUT`）；
+    `tests/test_ensure_all_ab_mode.py` +1（**功能**测试：假脚本 + 临时 ROOT，真的把输出写进 `log_path`，
+    并抓住 `Popen` 显式 `wait()` 避免漏进程）。两处桩放宽为 `**kw`，新的 `KEEPALIVE_OUT` 也隔离到 temp
+    （延续“测试绝不写生产 var/”的既有纪律）。
+  - 证据：上述两模块 **29 项 OK**。
+  - **★ 全量回归第一次是红的，红的正是我自己的错**：`tests/test_line_endings.py::test_no_wholesale_lineending_flip`
+    抓到我把 `tests/test_official_guard.py`（HEAD **100% CRLF**）整体写成了 LF ⇒ numstat 虚增到 155/128。
+    根因：我的补丁助手是“**默认 newline 读**（universal newlines 把 CRLF 折成 LF）+ `newline=""` 写” ⇒ 行尾翻转。
+    已按 HEAD 的占比还原（1.0），diff 收敛回 27/0；行尾门 + 4 个相关模块 **31 项 OK**。
+    （这门就是 R1500b 为“我三次踩同一个坑”建的 —— 它这次**当场叫住了我**，说明它值。）

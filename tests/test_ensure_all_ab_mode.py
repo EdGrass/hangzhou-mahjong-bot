@@ -13,6 +13,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
@@ -47,18 +48,57 @@ class TestEnsureAllAbMode(unittest.TestCase):
         os.close(fd_l)
         self.addCleanup(lambda: os.path.exists(logp) and os.unlink(logp))
         self._last_log = logp
-        old = (ea.AB_FLAG, ea.FLAG, ea.LOG_PATH, ea.SPEC, ea._has, ea._start, ea._fm.handle_pause_on_startup)
+        # ★ R1537：KEEPALIVE_OUT 也指向 temp —— 保证“测试绝不写生产 var/”（本文件第 79 行那条教训）
+        ka = os.path.join(os.path.dirname(logp), 'ka_keepalive.out')
+        old = (ea.AB_FLAG, ea.FLAG, ea.LOG_PATH, ea.SPEC, ea.KEEPALIVE_OUT,
+               ea._has, ea._start, ea._fm.handle_pause_on_startup)
         started = []
-        ea.AB_FLAG, ea.FLAG, ea.LOG_PATH, ea.SPEC = ab, off, logp, spec
+        ea.AB_FLAG, ea.FLAG, ea.LOG_PATH, ea.SPEC, ea.KEEPALIVE_OUT = ab, off, logp, spec, ka
         ea._fm.handle_pause_on_startup = lambda: False
         running = set(running)
         ea._has = lambda name: name in running
-        ea._start = lambda name, *a: started.append(name)
+        ea._start = lambda name, *a, **k: started.append(name)
         try:
             ea.main()
         finally:
-            ea.AB_FLAG, ea.FLAG, ea.LOG_PATH, ea.SPEC, ea._has, ea._start, ea._fm.handle_pause_on_startup = old
+            (ea.AB_FLAG, ea.FLAG, ea.LOG_PATH, ea.SPEC, ea.KEEPALIVE_OUT,
+             ea._has, ea._start, ea._fm.handle_pause_on_startup) = old
         return started
+
+    def test_start_writes_child_output_when_log_path_given(self):
+        """★ R1537：`_start(..., log_path=)` 必须把子进程输出**真的**落到该文件。
+
+        本脚本由计划任务用 pythonw（无控制台）起 ⇒ 只靠 DEVNULL 的话“启动即崩”不留证据；
+        官方 keepalive 这条路必须能留证。这里用假脚本 + 临时 ROOT 做**功能**验证
+        （不是只查源码字符串），并**抓住 Popen 对象显式 wait**，避免漏进程/GC 警告。
+        """
+        import time as _t
+        d = tempfile.mkdtemp(prefix="start_probe_")
+        vd = os.path.join(d, "var")
+        os.makedirs(vd)
+        with io.open(os.path.join(vd, "probe.py"), "w", encoding="utf-8") as f:
+            f.write(u"print('PROBE-' + 'OK')\n")
+        out = os.path.join(d, "out.txt")
+        created = []
+        real_popen = ea.subprocess.Popen
+
+        def _spy(*a, **k):
+            pr = real_popen(*a, **k)
+            created.append(pr)
+            return pr
+
+        old_root = ea.ROOT
+        ea.ROOT = d
+        try:
+            with mock.patch.object(ea.subprocess, "Popen", _spy):
+                ea._start("probe.py", log_path=out)
+            self.assertEqual(1, len(created), "应当真的起了一个子进程")
+            created[0].wait(timeout=30)
+            with io.open(out, encoding="utf-8") as fh:
+                body = fh.read()
+            self.assertIn("PROBE-OK", body, u"子进程输出必须落进 log_path 指定的文件")
+        finally:
+            ea.ROOT = old_root
 
     def test_ab_mode_starts_driver_not_keeper(self):
         started = self._run(ab_present=True, official_present=False)

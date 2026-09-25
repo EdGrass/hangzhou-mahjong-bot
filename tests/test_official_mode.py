@@ -70,16 +70,16 @@ class TestEnsureAllStartsOfficialKeepalive(unittest.TestCase):
         flag = os.path.join(tmp, ".official_mode")
         with io.open(flag, "w", encoding="utf-8") as f:
             f.write("x")
-        old = (ea.FLAG, ea._has, ea._start, ea._fm.handle_pause_on_startup)
+        old = (ea.FLAG, ea.KEEPALIVE_OUT, ea._has, ea._start, ea._fm.handle_pause_on_startup)
         started, running = [], set()
         ea.FLAG = flag
         ea._has = lambda name: name in running
-        ea._start = lambda name, *a: started.append(name)
+        ea._start = lambda name, *a, **k: started.append(name)
         ea._fm.handle_pause_on_startup = lambda: False
         try:
             ea.main()
         finally:
-            ea.FLAG, ea._has, ea._start, ea._fm.handle_pause_on_startup = old
+            ea.FLAG, ea.KEEPALIVE_OUT, ea._has, ea._start, ea._fm.handle_pause_on_startup = old
         self.assertIn("_official_keepalive.py", started, "必须拉起正式赛 keepalive")
         self.assertNotIn("_keeper.py", started, "正式赛期间绝不可拉测试房 keeper")
 
@@ -88,16 +88,16 @@ class TestEnsureAllStartsOfficialKeepalive(unittest.TestCase):
         flag = os.path.join(tmp, ".official_mode")
         with io.open(flag, "w", encoding="utf-8") as f:
             f.write("x")
-        old = (ea.FLAG, ea._has, ea._start, ea._fm.handle_pause_on_startup)
+        old = (ea.FLAG, ea.KEEPALIVE_OUT, ea._has, ea._start, ea._fm.handle_pause_on_startup)
         started = []
         ea.FLAG = flag
         ea._has = lambda name: name in ("_watchdog.py", "_official_keepalive.py")
-        ea._start = lambda name, *a: started.append(name)
+        ea._start = lambda name, *a, **k: started.append(name)
         ea._fm.handle_pause_on_startup = lambda: False
         try:
             ea.main()
         finally:
-            ea.FLAG, ea._has, ea._start, ea._fm.handle_pause_on_startup = old
+            ea.FLAG, ea.KEEPALIVE_OUT, ea._has, ea._start, ea._fm.handle_pause_on_startup = old
         self.assertEqual(started, [], "已在运行则不得重复启动")
 
 
