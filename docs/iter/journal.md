@@ -27418,3 +27418,22 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **验证**：改后逐字复核 23 项关键段/标记（含 `.EVENT_M_HIGH`、四个旧标记、四个步骤、红线）**全在**；
     仍为 `kind=heartbeat` / `status=ACTIVE` / `FREQ=HOURLY;INTERVAL=2` / 同一目标线程；4283 字（原 3605）。
   - ⇒ 现在“总账写的看护步骤”与“心跳实际做的事”一致：正式赛 M>10 会在 10/10 被报出来，而不是埋在日志里。
+
+- [R1508 | 2026-09-26 00:55 ★★★**把两步“从未实弹跑过”的无人值守步骤各彩排一次：10/5 提案、10/7 定臂**（都首次）；
+  并记录一个“自动起役链不跑预登记格式门”的不对称（本战役无风险，不改链）**]
+  - **彩排 A · 10/5 09:00 提案**（计划任务 `HangzhouMajFinalPickProposal` → `var/_final_pick_proposal.py`，此前从未运行）：
+    `--dry-run` 实跑 ⇒ 头行（`started` / 参与臂 / 签名基线 bundles）正确；`_pick_arm` 结论当前**正确报“没有满足 --min-rooms 的臂”**（今日仅 5 房/臂）；
+    并附**分层读数**（强手房 ≥1 / ≥2 两层）—— 正是 §V.214 要求的“别只看一层”。
+  - **10/5 的真实处境已核**：役收口时 `ab_ctl.stop` 会**删 `.ab_mode`**，脚本有 R1450 回退（最近 12 天窗口 + 从台账推臂集），
+    且该回退已被测试钉住（`tests/test_final_day_wiring.test_fallback_when_no_ab_mode` 断言 `--fallback-days`/`fallback = True`/“回退口径”）⇒ **收口后仍会出提案**。
+  - **彩排 B · 10/7 08:30 定臂**（任务 `HangzhouMajFinalArmConfirm` → `_final_arm_confirm.py --go`，此前只做过口径测验）：
+    `--dry-run` 实跑 ⇒ 基线 `speedvalue`（来源 `.ab_mode.bundles[0]`）、提名 `speedvaluebc, speedvaluebaotouv5`、
+    **“合格（已判正）层：（无） ⇒ 结论：speedvalue / 理由：无已判正的新层 ⇒ 保持基线”**、实例化校验通过、将写 `.final_arm.txt = speedvalue`。
+    即**故障关闭口径正确**：没判正的层绝不进最终臂（§V.161/§V.165）。
+  - **发现的不对称（记档，不改链）**：自动起役路径 `_adopt_pair --go` → `_bsegment --go` 的 preflight 只跑
+    `_apply_p0_404 --go` + `tools/preflight.py`（引擎/延迟），**不跑** `_campaign_ready.py` 里 R1506 新加的**预登记格式门**
+    ⇒ 那道门只对**人工 Phase A** 生效。
+    - 本战役**无实际风险**：8 份在用预登记当前全绿，且役 4/5 用的那几份已逐一核过；
+    - **明确不做**：不在 9/28 点火前给自动链加新的 fail-closed 门槛 —— 那会把“判据不完整”变成“役起不来”（更贵），
+      而且本战役之后没有下一役；把它记为下一轮战役的改进项。
+  - 证据：两次 dry-run 原始输出 + 既有测试断言（R1445 分层读数 / R1450 回退口径）。
