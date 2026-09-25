@@ -27102,3 +27102,16 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     §3 **决定规则（campaign8 §4 逐字）**——就是“10/7 部署哪根臂”的规则；
     §4 与 10/5–10/7 换臂链的衔接（提案 → 定臂 → 换臂 → 复核/重试，`.final_arm.txt` **故障关闭**）；§5 纪律。
   - **心跳同步**：step 1 加了役 5 的“主端点不是 `_gate2` 第一行”提醒；读卡指针行现在列全 4 役。
+
+- [R1490 | 2026-09-25 22:24 ★★★**末端链彩排（全程 dry-run）：10/7 换臂计划 + 10/10 上线的故障关闭路径都对**]
+  - **怎么做的**：用临时 `.final_arm.txt`（放 `$env:TEMP`，**不放 `var/`**）+ `--final-file` 参数跑：
+    ① `var/_switch_final.py --dry-run --final-file <tmp>`；② `var/_final_event_switch.py --dry-run`；③ `var/_final_ready_check.py`。
+  - **结果①（10/7 换臂）**：读到臂 = `speedvalue`（实例化校验 ok），打印六步计划：
+    `ab_ctl stop` → 写 `_keeper_strategy.txt` → **只杀 `_keeper.py` 监督器** → 等对局自然结束（≤25min）→ `_switch_test_strategy.py` → 校验 + 写
+    **`.rate_guard_off`**（防熔断回退）+ **`.final_installed`**。**干净**：演习后 `.final_arm.txt` / `.final_installed` **都没被建**。
+  - **结果②（10/10 上线）**：`_final_event_switch --dry-run` ⇒ **rc=2 且报 `!! 缺 .final_arm.txt（最终臂未定）⇒ 不上线`**
+    （故障关闭生效，且它是**先查最终臂、后查令牌**）；演习后 `.official_mode` **未被建**。
+  - **结果③（就绪校验）**：`_final_ready_check` 7 项 ⇒ **PASS 6（git 干净且本地==origin/main）、PASS 7（提交物 rc==0）**；
+    FAIL 1–5 正是尚未发生的那些（最终臂/实例化/`.final_installed`/keeper==最终臂且熔断关/役已收口）—— **符合预期**。
+  - **意义**：这是在改了 R1468–R1489 十几处之后，**重跑一遍末端链**的审核；两处故障关闭（`.final_arm.txt` 缺 ⇒ 不换臂 / 不上线）**都实测生效**。
+  - **现场**：`.final_arm.txt` / `.final_installed` / `.official_mode` / `.rate_guard_off` / `.CAMPAIGN_ABORTED` / `.SCHEDULE_TIGHT` **全部不存在**（无残留）；`git` 干净。

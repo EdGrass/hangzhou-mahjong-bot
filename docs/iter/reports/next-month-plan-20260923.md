@@ -5447,3 +5447,15 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 | §5 | 纪律（不改阈值、不延役盒、否决优先于主端点） |
 
 ⇒ 读卡集现在完整：役2 / 役3 / 役4 / 役5 各一张。
+
+### §V.215 末端链彩排（R1490）：10/7 换臂计划 + 10/10 故障关闭都对
+
+用临时 `.final_arm.txt`（**放 `$env:TEMP`，不放 `var/`**，用 `--final-file` 指向）跑三个 dry-run。
+
+| 跑什么 | 观察到什么 |
+|---|---|
+| `_switch_final.py --dry-run --final-file <tmp>` | rc=0；读到臂 + 实例化 ok；打印六步：stop A/B → 写 keeper → **只杀 `_keeper.py`** → 等对局结束（≤25min）→ 切策略 → 写 `.rate_guard_off` + `.final_installed` |
+| `_final_event_switch.py --dry-run` | **rc=2 + `!! 缺 .final_arm.txt（最终臂未定）⇒ 不上线`**（先查最终臂、后查令牌） |
+| `_final_ready_check.py` | **PASS 6**（git 干净且 ==origin/main）、**PASS 7**（提交物 rc=0）；FAIL 1–5 = 尚未发生，符合预期 |
+
+**故障关闭实测生效**：`.final_arm.txt` 缺 ⇒ 不换臂、不上线。演习干净：`.final_arm.txt` / `.final_installed` / `.official_mode` 都未被建，现场六个标记全空。
