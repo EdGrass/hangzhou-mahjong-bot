@@ -15,10 +15,12 @@
 param(
   [switch]$Go,
   [switch]$CloneVerify,
-  [string]$Root = "D:\hangzhouMaj"
+  [string]$Root = ""   # ★ R1528：空值 ⇒ 从脚本自身位置推（原默认写死 D:\hangzhouMaj
+                        #   ⇒ 在 clone 里跑会去操作**另一个目录的 git**）
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $Root) { $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path) }
 Set-Location $Root
 
 $deliverables = @("requirements.txt", "README.md", "docs/参赛说明.md")

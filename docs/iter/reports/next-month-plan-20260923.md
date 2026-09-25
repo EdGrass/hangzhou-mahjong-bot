@@ -5969,3 +5969,14 @@ R1502 之前链上**一根孪生都没有** ⇒ 唯一逃生阀是退回 `speedv
 **修**：`replay_file_counts()`（唯一 gid 去重）+ `check_integrity(replay_counts=…, stale_min=30, expect_replays=10)`：**超 30 分钟仍 <10 ⇒ 异常**；30 分钟内未齐 ⇒ “抓取延迟”不计异常。
 **实测**：役3 窗口 24/25 房各 10 份，唯一 0 份的是 4 分钟前刚结束的房 ⇒ `干净 ✓`。
 **测试**：+3；本模块 13 项 OK；全量 **Ran 1201, OK**。
+
+### §V.250 两个 .ps1 的硬编码 `$Root`（R1528）
+
+| 脚本 | 问题 | 修 |
+|---|---|---|
+| `var/_prepare_submission.ps1` | `$Root = "D:\hangzhouMaj"` ⇒ **clone 里跑会去操作另一个目录的 git** | 从 `$MyInvocation.MyCommand.Path` 推 |
+| `var/_final_switch_retry.ps1`（10/7 12:00 任务） | 同样写死 | 同上 |
+
+**门扩展**：可移植性门 → 也查 `.ps1`（当场抓出第二个）。
+**验证**：本地 `_prepare_submission` rc=0；clone 行为实证（临时目录跑 ⇒ 打印临时路径、不碰 D: 目录）；**`_final_switch_retry.ps1 -DryRun` 首次演练 rc=0**。
+全量回归 **Ran 1201, OK**。

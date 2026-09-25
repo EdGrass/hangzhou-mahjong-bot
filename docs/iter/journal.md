@@ -27719,3 +27719,15 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **实测**：`ab_integrity --since 役3 --arms speedvalue,speedvaluebc,speedvaluebaotouv5` ⇒
     `ⓘ 抓取延迟 1 房（结束 <30min，复盘未齐 ⇒ 不计异常）：[('a_3ae08c2a1b4b', 0)]` + `干净 ✓` ✓。
   - **测试**：+3（超时未齐 ⇒ 异常 / 刚结束未齐 ⇒ 不算 / 全齐 ⇒ 干净）；本模块 **13 项 OK**；全量回归 **Ran 1201, OK（skipped=2, xfail=1）**。
+
+- [R1528 | 2026-09-26 04:31 ★★★**两个 .ps1 也把 `$Root` 默认写死 `D:\hangzhouMaj`**（提交物准备 + **10/7 12:00 重试任务**）⇒ 已改从脚本位置推，并把可移植性门扩到 .ps1]
+  - **隐患（比 .py 更重）**：`var/_prepare_submission.ps1` 原第 18 行 `[string]$Root = "D:\hangzhouMaj"` ⇒ 在 **clone 里跑它会
+    `Set-Location D:\hangzhouMaj`**，即**去操作另一个目录的 git**（该目录存在时）；不存在则报错。
+    `var/_final_switch_retry.ps1`（**10/7 12:00 那台计划任务的脚本**）同样写死。
+  - **修**：两处改为 `$Root = ""` + `if (-not $Root) { $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path) }`（本地行为不变）。
+  - **门扩展**：可移植性门从只查 `.py` 扩到 **`.ps1`**（正则 `\$Root\s*=\s*["']D:[\\/]hangzhouMaj`），并把清单里的 .ps1 全部纳入
+    ⇒ **它一下就抓出了 `_final_switch_retry.ps1`**（我第一次只修了 `_prepare_submission.ps1`）。
+  - **验证**：① 本地 `_prepare_submission.ps1` 实跑 ⇒ `提交物检查（D:\hangzhouMaj）` + **rc=0**；
+    ② **clone 行为实证**：把它拷到临时目录跑 ⇒ 打印的是**临时目录**、只报“缺交付物” ⇒ **不会碰 D:\hangzhouMaj** ✓；
+    ③ **`_final_switch_retry.ps1 -DryRun` 首次演练**（安全档）：confirm 只打印、`_switch_final` 正确 fail-closed（缺 `.final_arm.txt` ⇒ 拒绝），整体 **rc=0** ✓。
+  - 证据：全量回归 **Ran 1201, OK（skipped=2, xfail=1）**（第一次后台跑是红的，红的正是可移植性门抓到的那项；修后转绿）。

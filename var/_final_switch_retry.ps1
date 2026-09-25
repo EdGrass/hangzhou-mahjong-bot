@@ -10,8 +10,9 @@
 #   · `_switch_final.py --go`：官方模式在位/臂未选定/臂不可实例化 ⇒ 一律拒绝；
 #     对"臂变了"是幂等的（重新停 A/B → 等对局自然结束 → 换臂）。
 # 红线：不杀进程、不强停对局（等待超时也只是退出并记日志）。
-param([string]$Root = "D:\hangzhouMaj", [switch]$DryRun)
+param([string]$Root = "", [switch]$DryRun)   # ★ R1528：空值 ⇒ 从脚本位置推（原写死 D:\hangzhouMaj）
 $ErrorActionPreference = "Continue"
+if (-not $Root) { $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path) }
 Set-Location $Root
 $log = Join-Path $Root "var\_final_switch_retry.log"
 function Write-Log($m) { "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $m" | Add-Content -LiteralPath $log -Encoding UTF8 }

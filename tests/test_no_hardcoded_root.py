@@ -14,13 +14,15 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PS1 = os.path.join(ROOT, "var", "_prepare_submission.ps1")
-RX = re.compile(r"""ROOT\s*=\s*r?["']D:[\\/]hangzhouMaj""")
+RX_PY = re.compile(r"""ROOT\s*=\s*r?["']D:[\\/]hangzhouMaj""")
+RX_PS1 = re.compile(r"""\$Root\s*=\s*["']D:[\\/]hangzhouMaj""")
 
 
 def _ops_py():
     s = io.open(PS1, encoding="utf-8", errors="replace").read()
     m = re.search(r"\$opsScripts\s*=\s*@\((.*?)\)", s, re.S)
-    return [x for x in re.findall(r'"([^"]+)"', m.group(1)) if x.endswith(".py")]
+    return [x for x in re.findall(r'"([^"]+)"', m.group(1))
+            if x.endswith((".py", ".ps1"))]
 
 
 @unittest.skipUnless(os.path.exists(PS1), "var/ 不在仓库里（gitignore）")
@@ -32,7 +34,8 @@ class TestNoHardcodedRoot(unittest.TestCase):
             if not os.path.exists(p):
                 continue
             t = io.open(p, encoding="utf-8", errors="replace").read()
-            if RX.search(t):
+            rx = RX_PS1 if rel.endswith(".ps1") else RX_PY
+            if rx.search(t):
                 bad.append(rel)
         self.assertEqual([], bad,
                          "这些脚本把 ROOT 赋成了硬编码路径 ⇒ clone 里会崩：%s" % bad)
