@@ -26976,3 +26976,26 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     导致函数体被吞进 `arms_of` 里（`AttributeError: no attribute 'parse_h2h'`）⇒ 已恢复并重跑。
   - **验证**：新增 `tests/test_mech_watch_arms.py` **11 项**（`arms_of` N 臂/旧格式、表格解析、
     两项都升/只升一项/样本不足）；相关测试 **70 项全绿**。
+
+- [R1482 | 2026-09-25 21:5x ★★★★**系统性扫“读 `.ab_mode` 却只认 a/b”的脚本：再查出 3 处 + 未入仓的证据链 5 个文件**]
+  - **扫法**：把全部读 `.ab_mode` 的 **42 个脚本**列出来，逐个看它们是否认 `arms`（N 臂）。
+  - **查出 3 处真问题（全在 `_gate_report.py` 八步链里）**：
+    ① **`var/_first_rate_readout.py`** 只读 `a`/`b` ⇒ 三臂役下输出“None vs None / 数据不足”并 **返回 1**。
+      而**第1率正是用户只看的那一项**（“你要对比的只有第一率”）；
+    ② **`var/_breaker_watch.py`** 只读 `a`/`b`；而且它**连 `--since` 都不接**（`_gate_report.py` 传了，旧版静默忽略）；
+    ③ **`var/_power_two_endpoints.py`** 默认臂**写死**为 `speedtugc`/`speedc151` ⇒ `_gate_report` 只传 `--since` 时，这一步
+      **惄惄对着错的两个臂算功率**（实测输出“数据不足: 0 / 0”）。
+      更隐蔽的是：给它加上 `.ab_mode` 推导后**仍然 0/0** —— 因为它**漏了 `import io`**，
+      `NameError` 被 `except Exception` 吃掉、静默落回错的默认臂。
+  - **修法**：三处都接/复用 `arms_of(cfg)`（N 臂优先、兼容 `a`/`b`）；`_power_two_endpoints` 抽出纯函数
+    `arms_from_cfg()` 并补 `import io`；`_breaker_watch` 接受并尊重 `--since`；`_first_rate_readout` 拆成
+    `_report(base, cand, since)` + 循环每个候选。
+  - **顺腾出一个更大的发现**：`_gate_report.py` **自己也没入仓**，它调用的四个 var 工具
+    （`_first_rate_readout` / `_breaker_watch` / `_power_two_endpoints` / `_camp_integrity`）**同样既不在 `$opsScripts` 也未入仓**
+    ⇒ 预登记里点名的护栏工具与“八步彩排”在 **clone 里根本不存在**。这是 `tests/test_submission_closure.py`
+    的 R1346 规则（“测试引用的 var 文件必须在清单里”）**当场抓出**的。
+  - **补齐**：5 个文件加入 `$opsScripts` + `git add -f`（CloneVerify 门随即变绿）；
+    `_prepare_submission.ps1 检查模式` 兴跑：**文案版本门 OK（v35）· 泄密门 OK（85 个文件无 64 位串）· 未追踪 0 · 模型 4/4 · 运行期脚本 81/81**。
+  - **端到端重跑 `_gate_report.py`**（役 3 窗口）：`{'readout': 0, 'first_rate': 0, 'power': 1, 'integrity': 0, 'breaker': 0, 'adopt_*': 3}`
+    —— 其中 **1 = “样本不足（2/1 房）”**、**3 = “未达阈值”**，都是正确语义；修前 `first_rate` 是 **1（错误失败）**。
+  - **单测 +9**（`tests/test_ab_readouts_arms.py`）。

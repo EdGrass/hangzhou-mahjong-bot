@@ -98,6 +98,15 @@ $opsScripts = @(
   "var/_final_ready_check.py",           # ★ R1407：10/7·10/8 最终就绪校验（7 项）
   "var/_submit_final.py",                # ★ R1448：10/8 提交自动化（门禁 fail-closed + commit + push）
   "var/_schedule_guard.py",              # ★ R1454：排期护栏（全到盒投影 vs 10/7 截止；只读）
+  # ★ R1482：**决策证据链**（预登记里点名的护栏工具 + 八步彩排工具）
+  #   为什么补：`docs/iter/reports/prereg-*.md` 点名了 `_first_rate_readout`（第1率）与 `_breaker_watch`（熔断），
+  #   `_gate_report.py` 八步链会调它们及 `_power_two_endpoints` / `_camp_integrity`；
+  #   之前它们**既不在清单也未入仓** ⇒ clone 里复现不了役次判词与护栏读数。
+  "var/_first_rate_readout.py",         # ★ R1482：第1率口径 A/B 读出（预登记护栏 1）
+  "var/_breaker_watch.py",              # ★ R1482：熔断余量读出（预登记“熔断”行）
+  "var/_power_two_endpoints.py",        # ★ R1482：两端点功率/MDE（_gate_report 步骤 3）
+  "var/_camp_integrity.py",             # ★ R1482：本役完整性/混臂房（_gate_report 步骤 4）
+  "var/_gate_report.py",                # ★ R1482：八步全链路彩排（本书 §T 的门禁夜彩排）
   "var/_register_schedule_guard.ps1",    # ★ R1454：上行看护的注册脚本
   "var/_next_yaku_notice.py",           # ★ R1476：役 4 判词落地后的“下一步”提醒（只读 + 照抄命令）
   "var/_register_next_yaku_notice.ps1",  # ★ R1476：上行看护的注册脚本

@@ -5298,3 +5298,27 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 最后一行是刻意的：开局 2 房的噪声若被当成 B3，**会把好臂挂掉**。
 
 **验证**：`tests/test_mech_watch_arms.py` **11 项**；相关 **70 项全绿**。
+
+### §V.207 系统扫“只认两臂”的读数工具（R1482）：3 处修好 + 证据链 5 个文件入仓
+
+**扫法**：列出全部读 `var/.ab_mode` 的 **42 个脚本**，逐个看是否认 `arms`（N 臂）。结果：
+
+| 脚本 | 问题 | 后果 |
+|---|---|---|
+| `var/_first_rate_readout.py` | 只读 `a`/`b` | 三臂役下输出“None vs None”并 **rc=1**（**第1率是用户只看的指标**） |
+| `var/_breaker_watch.py` | 只读 `a`/`b`；**不接 `--since`** | `_gate_report` 传了也被静默忽略；三臂下无读数 |
+| `var/_power_two_endpoints.py` | 默认臂**写死** `speedtugc`/`speedc151`；且**漏 `import io`** | 八步链第 3 步**对着错的臂算功率**（0/0） |
+
+第三条最阴险：补上 `.ab_mode` 推导后仍然 0/0 —— 因为 `io.open` 抛 `NameError`，被 `except Exception` 吃掉、
+静默落回旧默认。**“宽容的 except” 会把真错变成假数。**
+
+**顺腾出的更大问题**：`_gate_report.py`（八步全链路彩排）**本身也未入仓**，它调用的四个 var 工具也一样
+⇒ 预登记里点名的护栏工具在 **clone 里根本不存在**（无法复现役次判词与护栏读数）。
+这是 `tests/test_submission_closure.py` 的 R1346 规则**当场抓出**的。
+
+**补齐**：5 个文件加入 `$opsScripts` + `git add -f`。`_prepare_submission.ps1` 检查模式：
+**文案版本门 OK（v35）· 泄密门 OK（85 个文件无 64 位串）· 未追踪 0 · 模型 4/4 · 运行期脚本 81/81**。
+
+**端到端重跑 `_gate_report.py`**（役 3 窗口）：
+`{'readout': 0, 'first_rate': 0, 'power': 1, 'integrity': 0, 'breaker': 0, 'adopt_*': 3}`——
+**1 = 样本不足（2/1 房）、3 = 未达阈值**，都是正确语义；修前 `first_rate` 是**错误失败**。
