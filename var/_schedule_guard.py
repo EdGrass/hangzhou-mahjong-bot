@@ -23,9 +23,11 @@
 from __future__ import annotations
 import argparse
 import datetime as dt
+import glob
 import io
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -35,6 +37,34 @@ MARK = os.path.join(ROOT, "var", ".SCHEDULE_TIGHT")
 LOG = os.path.join(ROOT, "var", "_schedule_guard.log")
 BOX = 120      # 役盒（房/臂）
 FORMAL = 80    # 正式判词线（房/臂）
+
+
+# 役次计划（残役固定）：(役号, 臂数)。役 2 = 本次战役的第 1 役。
+PLAN = ((2, 2), (3, 3), (4, 2), (5, 2))
+
+
+def adopted_done(markers):
+    """已采用的役数（取 `.adopted_*役2` 最大役号 − 1；役 2 ⇒ 1 役已完）。"""
+    n = 0
+    for path in markers:
+        m = re.search(r"(\d+)", os.path.basename(path))
+        if m:
+            n = max(n, int(m.group(1)) - 1)
+    return n
+
+
+def plan_items(here_box, done, box=BOX):
+    """本役剩余 + 后续役的完整役盒 ⇒ [( 名称, 房数 )]。
+
+    ★ 修正（R1469）：原实现无条件追加 役3/4/5，当当前役**就是**役 3 时会把它数两遍
+    （本役 360 + 役3 360），把 840 房虚报成 1200 房并误写 `.SCHEDULE_TIGHT`。
+    现在按“已采用的役数”切片，本役只计一次。
+    """
+    idx = min(max(0, int(done)), len(PLAN) - 1)
+    items = [("本役(役%d)" % PLAN[idx][0], int(here_box))]
+    for num, narm in PLAN[idx + 1:]:
+        items.append(("役%d" % num, box * narm))
+    return items
 
 
 def say(msg):
@@ -138,11 +168,12 @@ def main(argv=None):
     say("实测吞吐：%.2f 房/小时（最近 %d 小时）" % (thr, a.hours))
     say("当前役：%s（%d 臂）｜到正式线 %d 还差 %d 房；到役盒 %d 还差 %d 房"
           % (",".join(arms) or "(无 .ab_mode)", len(arms), FORMAL, here_formal, BOX, here_box))
-    plan = []            # (名称, 房数)——按臂数估算全到盒的总房数
-    if arms:
-        plan.append(("本役", here_box))
-    for name, narm in (("役3", 3), ("役4", 2), ("役5", 2)):
-        plan.append((name, BOX * narm))
+    done = adopted_done(glob.glob(os.path.join(ROOT, "var", ".adopted_*")))
+    plan = plan_items(here_box, done) if arms else []
+    if done:
+        say("已采用 %d 役 ⇒ 本役 = 役%d（后续只计役%s）"
+            % (done, PLAN[min(done, len(PLAN) - 1)][0],
+               "/".join(str(n) for n, _ in PLAN[min(done, len(PLAN) - 1) + 1:]) or "无"))
     total_box = sum(n for _, n in plan)
     h_box = total_box / thr
     eta_box = now + dt.timedelta(hours=h_box)

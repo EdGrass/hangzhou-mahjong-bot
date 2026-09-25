@@ -57,6 +57,31 @@ class TestPure(unittest.TestCase):
         self.assertEqual(1, len(r))
         self.assertEqual("speedvalue", r[0][1])
 
+    def test_adopted_done_counts_markers(self):
+        self.assertEqual(0, G.adopted_done([]))
+        self.assertEqual(1, G.adopted_done([".adopted_役2"]))
+        self.assertEqual(2, G.adopted_done([".adopted_役2", ".adopted_役3"]))
+        self.assertEqual(2, G.adopted_done([".adopted_役3", ".adopted_役2"]))
+
+    def test_plan_items_does_not_double_count_current_yaku(self):
+        # ★ R1469 回归：役 3 起时 done=1（役 2 已采用）。
+        #   旧实现：本役 360 + 役3 360 + 役4 240 + 役5 240 = 1200（虚报）。
+        #   正确：本役 360 + 役4 240 + 役5 240 = 840。
+        items = G.plan_items(360, 1)
+        self.assertEqual(840, sum(n for _, n in items))
+        self.assertEqual(["本役(役3)", "役4", "役5"], [nm for nm, _ in items])
+
+    def test_plan_items_yaku2_case_matches_old_behaviour(self):
+        # 旧输出（役 2 当前）：here_box + 360 + 240 + 240。
+        items = G.plan_items(21, 0)
+        self.assertEqual(861, sum(n for _, n in items))
+        self.assertEqual("本役(役2)", items[0][0])
+
+    def test_plan_items_drop_order_pops_tail(self):
+        # 丢役顺序：先役 5 → 再役 4；本役不可被丢。
+        items = G.plan_items(360, 1)
+        self.assertEqual("役5", items[-1][0])
+
     def test_arms_now_n_arm_and_legacy(self):
         with tempfile.TemporaryDirectory() as d:
             p = os.path.join(d, "ab.json")
