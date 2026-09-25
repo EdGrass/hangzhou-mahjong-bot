@@ -112,40 +112,66 @@ class TestParseH2HCompatR1501(unittest.TestCase):
 
 
 class TestJudgeVMech(unittest.TestCase):
-    BASE = {"baotou": 22.4, "fan": 1.29, "hu": 25.11, "rounds": 960}
+    """★ R1520：机制口径 = 预登记原文的「**爆头/胡 与 赢分/胡 两者均上升**」。
+
+    旧实现用的是**番/胡**（不是预登记的那个量）—— 本类用“番/胡 下降但赢分/胡 上升 ⇒ PASS”这种打脸用例钉住。
+    赢分/胡 = （赢（分/轮））÷（胡率/100）。
+    """
+    # win/hu = 4.67 / 0.2511 = 18.6 分/胡
+    BASE = {"baotou": 22.4, "fan": 1.29, "hu": 25.11, "win": 4.67, "rounds": 960}
 
     def test_both_up_is_pass(self):
-        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": 24.8, "rounds": 960})
+        # 爆头 22.4→26.9；赢分/胡 18.6→21.4
+        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": 24.8,
+                                            "win": 5.30, "rounds": 960})
+        self.assertTrue(ok, why)
+
+    def test_fan_down_but_win_per_hu_up_is_pass(self):
+        """★ 预登记里番/胡**不是**机制的第二项 ⇒ 它下降不能当不达标。"""
+        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.20, "hu": 24.8,
+                                            "win": 5.30, "rounds": 960})
         self.assertTrue(ok, why)
 
     def test_only_baotou_up_is_fail(self):
-        # 只升爆头不升番/胡 = 只把命中换成了爆头标签，没把牌打大
-        ok, _ = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.20, "hu": 25.0, "rounds": 960})
+        # 爆头升但赢分/胡反而降 = 只把命中换成了爆头标签，没把牌打大
+        ok, _ = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.20, "hu": 25.0,
+                                          "win": 4.40, "rounds": 960})
         self.assertFalse(ok)
 
-    def test_only_fan_up_is_fail(self):
-        ok, _ = M.judge_v_mech(self.BASE, {"baotou": 21.0, "fan": 1.40, "hu": 25.0, "rounds": 960})
+    def test_fan_up_but_baotou_flat_is_fail(self):
+        ok, _ = M.judge_v_mech(self.BASE, {"baotou": 21.0, "fan": 1.40, "hu": 25.0,
+                                          "win": 5.00, "rounds": 960})
         self.assertFalse(ok)
 
     def test_hu_guardrail_beyond_1sigma_is_fail(self):
-        """★ R1517：预登记护栏“胡率不得低于基线 1σ”**必须有人执行**（此前只写在读卡里）。"""
-        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": 22.0, "rounds": 960})
+        """★ R1517：预登记护栏“胡率不得低于基线 1σ”必须有人执行。"""
+        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": 22.0,
+                                            "win": 4.80, "rounds": 960})
         self.assertFalse(ok, why)
         self.assertIn("护栏未过", why)
 
     def test_hu_guardrail_within_1sigma_is_pass(self):
-        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": 24.1, "rounds": 960})
+        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": 24.1,
+                                            "win": 5.16, "rounds": 960})
         self.assertTrue(ok, why)
 
     def test_hu_guardrail_missing_reading_is_unknown(self):
-        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": None, "rounds": 960})
+        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": None,
+                                            "win": 5.0, "rounds": 960})
         self.assertIsNone(ok, why)
-        self.assertIn("护栏读数缺失", why)
+        self.assertIn("胡率读数缺失", why)
+
+    def test_win_reading_missing_is_unknown(self):
+        """机制的第二项（赢分/胡）缺失 ⇒ 不判（不猜）。"""
+        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": 25.0,
+                                            "win": None, "rounds": 960})
+        self.assertIsNone(ok, why)
+        self.assertIn("赢分/胡", why)
 
     def test_small_sample_is_not_judged(self):
-        # ★ R1481：局数不够就**不判**（否则 2 房的噪声会被当成 B3，把好臂挂掉）
-        ok, why = M.judge_v_mech({"baotou": 22.4, "fan": 1.29, "rounds": 40},
-                                 {"baotou": 26.9, "fan": 1.35, "rounds": 40})
+        # ★ R1481：局数不够就不判（否则 2 房的噪声会被当成 B3，把好臂挂掉）
+        ok, why = M.judge_v_mech({"baotou": 22.4, "fan": 1.29, "hu": 25.0, "win": 4.6, "rounds": 40},
+                                 {"baotou": 26.9, "fan": 1.35, "hu": 25.0, "win": 5.0, "rounds": 40})
         self.assertIsNone(ok, why)
         self.assertIn(u"样本不足", why)
 
@@ -153,6 +179,7 @@ class TestJudgeVMech(unittest.TestCase):
         rows = M.parse_h2h(H2H)
         self.assertEqual(960, rows[("speedvalue", u"我方")]["rounds"])
         self.assertEqual(2880, rows[("speedvalue", u"另三家")]["rounds"])
+        self.assertAlmostEqual(5.11, rows[("speedvalue", u"我方")]["win"], places=2)
 
     def test_missing_readings_is_none(self):
         ok, why = M.judge_v_mech(self.BASE, None)

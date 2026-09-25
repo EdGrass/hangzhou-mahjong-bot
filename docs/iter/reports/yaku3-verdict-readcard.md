@@ -134,7 +134,7 @@ python -X utf8 var/_bsegment.py --label 役4 --baseline <基线> --candidates <�
 | 臂 | 预登记机制端点 | 工具 |
 |---|---|---|
 | `speedvaluebc` | **决策改动率 ∈[10,20]% 且 action 差异 = 0**（离线 draw 足迹） | `tools/offline_replay.py --phase draw`（`_mech_watch` 每 6h 自动跑） |
-| `speedvaluebaotouv5` | **爆头/胡 与 赢分/胡 两者均上升**（同房口径）；护栏：**胡率不得低于基线 1σ**（★ R1517：**已由 `_mech_watch.judge_v_mech` 执行**；读数缺失 ⇒ 不判） | `var/_seat_h2h.py --by-arm --top 32` + `tools/hu_gap_split.py --by-arm` |
+| `speedvaluebaotouv5` | **爆头/胡 与 赢分/胡 两者均上升**（★ R1520：**已由 `_mech_watch.judge_v_mech` 按此口径执行**；番/胡 仅作读数）（同房口径）；护栏：**胡率不得低于基线 1σ**（★ R1517：**已由 `_mech_watch.judge_v_mech` 执行**；读数缺失 ⇒ 不判） | `var/_seat_h2h.py --by-arm --top 32` + `tools/hu_gap_split.py --by-arm` |
 
 ⇒ `_mech_watch` 对 V 臂给出的 "tile 改动 13.5%、action 0% ⇒ PASS" 只是**代用护栏**（同一个"含 baotou 就走 draw 相位"的分支），
 **不能代替** V 的机制端点；判词时必须按上表右列**手工并读**。

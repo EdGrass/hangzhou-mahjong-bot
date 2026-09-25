@@ -138,6 +138,9 @@ def parse_h2h(text):
             "rounds": int(_mr.group(1)) if _mr else None,
             "hu": num(r"胡/轮\s+([\d.]+)%"),
             "fan": num(r"番/胡\s+([\d.]+)"),
+            # ★ R1520：预登记的 V 机制是「爆头/胡 与 **赢分/胡** 均上升」
+            #   —— 不是番/胡（番/胡 只作读数）。这里把「赢（分/轮）」也抽出来。
+            "win": num(r"\u8d62\s+([+-]?[\d.]+)"),
             "baotou": num(r"爆头/胡\s+([\d.]+)%"),
         }
     return out
@@ -173,9 +176,24 @@ def judge_v_mech(base, cand, min_rounds=None):
         return None, "样本不足（局 %s vs %s < %d）⇒ 不判" % (
             base.get("rounds"), cand.get("rounds"), _mr)
     up_b = cand["baotou"] > base["baotou"]
-    up_f = cand["fan"] > base["fan"]
-    why = "爆头/胡 %.1f%%→%.1f%%、番/胡 %.2f→%.2f" % (
-        base["baotou"], cand["baotou"], base["fan"], cand["fan"])
+    # ★ R1520：**修正为预登记口径** —— campaign7 §2 与役3 读卡写的是
+    #   「爆头/胡 与 **赢分/胡** 两者均上升」；旧实现用的是**番/胡**（不是预登记的那个量）。
+    #   赢分/胡 = （赢（分/轮））÷（胡率/100）。番/胡 仍打在 why 里供人读。
+    def _win_per_hu(row):
+        try:
+            if row.get("win") is None or not row.get("hu"):
+                return None
+            return float(row["win"]) / (float(row["hu"]) / 100.0)
+        except Exception:
+            return None
+    if not base.get("hu") or not cand.get("hu"):
+        return None, "胡率读数缺失（机制的赢分/胡 与 1σ 护栏都要用它）⇒ 不判"
+    wph_b, wph_c = _win_per_hu(base), _win_per_hu(cand)
+    if wph_b is None or wph_c is None:
+        return None, "赢分/胡 读数缺失（预登记机制的第二项）⇒ 不判"
+    up_w = wph_c > wph_b
+    why = "爆头/胡 %.1f%%→%.1f%%、**赢分/胡 %.1f→%.1f**（番/胡 %.2f→%.2f，仅读数）" % (
+        base["baotou"], cand["baotou"], wph_b, wph_c, base["fan"], cand["fan"])
     # ★ R1517：**预登记护栏必须有人执行** —— `yaku3-verdict-readcard.md` 写着
     #   V 臂“胡率不得低于基线 1σ”，而 R1517 全仓搜证发现**任何代码都没执行它**
     #   ⇒ 不补的话，V 可以“爆头/番都上升、但胡率明显塌”而被采用。这里按字面执行：
@@ -189,7 +207,7 @@ def judge_v_mech(base, cand, min_rounds=None):
     guard_ok = d_hu >= -1.0 * se_d
     why += "；胡率 %+.1fpp（1σ=%.1fpp）%s" % (
         d_hu, se_d, "" if guard_ok else " ⇐ 护栏未过")
-    return (bool(up_b and up_f and guard_ok)), why
+    return (bool(up_b and up_w and guard_ok)), why
 
 
 def unk_action(v_cands, states):
