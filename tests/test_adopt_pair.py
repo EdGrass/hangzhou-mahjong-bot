@@ -207,5 +207,103 @@ class TestMechConflictGuard(unittest.TestCase):
         self.assertIsNone(A.mech_conflict("speedvalue", "speedvaluebc", "pairs"))
 
 
+
+
+class TestVMechVerdict(unittest.TestCase):
+    """★ R1534：V 机制读数的**采用口径** —— 取“最新一条 ok 非 None”，不是“最后一条”。
+
+    为什么：`_mech_watch` 会把“读数缺失/样本不足”也写成一条 `ok=null` 的记录
+    （2026-09-26 00:37 实测过一次解析为空的瞬时失败）⇒ 按“最后一条”读，一次抖动
+    就会把**已判成立**的臂打成“读不出”。
+    """
+
+    def _rec(self, d, rows):
+        return AP.v_mech_verdict("speedvaluebaotouv5", path=self._file(d, rows))
+
+    def _file(self, d, rows):
+        f = os.path.join(d, "v.jsonl")
+        with io.open(f, "w", encoding="utf-8") as fh:
+            for r in rows:
+                fh.write(r + u"\n")
+        return f
+
+    def test_non_v_arm_is_not_applicable(self):
+        self.assertEqual("n/a", AP.v_mech_verdict("speedvaluebc")[0])
+        self.assertEqual("n/a", AP.v_mech_verdict("speedvaluebcmeldp45")[0])
+
+    def test_pass_when_latest_non_none_is_true(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            st, why = self._rec(d, [u'{"arm": "speedvaluebaotouv5", "ok": null, "why": "\u6837\u672c\u4e0d\u8db3"}',
+                                   u'{"arm": "speedvaluebaotouv5", "ok": true, "why": "\u4e24\u9879\u90fd\u5347"}'])
+            self.assertEqual("pass", st)
+            self.assertIn(u"\u4e24\u9879", why)
+
+    def test_transient_none_after_pass_does_not_flip_it(self):
+        """★ 核心用例：最后一条是 None（抖动），但上一条是 True ⇒ 仍判 pass。"""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            st, _ = self._rec(d, [u'{"arm": "speedvaluebaotouv5", "ok": true, "why": "x"}',
+                                  u'{"arm": "speedvaluebaotouv5", "ok": null, "why": "\u8bfb\u6570\u7f3a\u5931"}'])
+            self.assertEqual("pass", st)
+
+    def test_fail_when_latest_non_none_is_false(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            st, why = self._rec(d, [u'{"arm": "speedvaluebaotouv5", "ok": true, "why": "old"}',
+                                    u'{"arm": "speedvaluebaotouv5", "ok": false, "why": "\u7206\u5934\u4e0b\u964d"}'])
+            self.assertEqual("fail", st)
+            self.assertIn(u"\u7206\u5934", why)
+
+    def test_unknown_when_only_none_records(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            st, why = self._rec(d, [u'{"arm": "speedvaluebaotouv5", "ok": null, "why": "no"}'])
+            self.assertEqual("unknown", st)
+            self.assertIn(u"\u53ea\u6709", why)
+
+    def test_unknown_when_no_record_for_arm(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            st, why = self._rec(d, [u'{"arm": "speedvaluebc", "ok": true}'])
+            self.assertEqual("unknown", st)
+            self.assertIn(u"\u65e0\u8bb0\u5f55", why)
+
+    def test_unknown_when_unreadable(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            st, _ = AP.v_mech_verdict("speedvaluebaotouv5", path=d)
+            self.assertEqual("unknown", st)
+
+    def test_marker_path_in_var(self):
+        self.assertTrue(AP.UNK_OUT.replace("\\", "/").endswith("var/.v_mech_unknown"), AP.UNK_OUT)
+
+
+class TestApplyVGate(unittest.TestCase):
+    """★ R1534：V 的采用必须以**明确的机制读数**为前提（fail-closed）。
+
+    旧路径把“判不出”（`.v_mech_unknown`）当成“无 `.mech_warn` ＝ 机制正常”
+    ⇒ V 可以在**机制从未验证**的情况下被采用、并据此起役 4 的 B 行。
+    """
+
+    def test_pass_keeps_adopted(self):
+        self.assertEqual((True, None), AP.apply_v_gate(True, "pass", ""))
+
+    def test_fail_downgrades_to_not_adopted(self):
+        # B3：机制不达标 ⇒ 本役作废 ⇒ V 记 ✗（四格会重算，不再走 B 行）
+        self.assertEqual((False, None), AP.apply_v_gate(True, "fail", "x"))
+
+    def test_unknown_stalls_loudly(self):
+        out, why = AP.apply_v_gate(True, "unknown", u"\u65e0\u8bb0\u5f55")
+        self.assertIsNone(out)
+        self.assertTrue(why and u"\u539f\u5730\u4e0d\u52a8" in why)
+
+    def test_not_adopted_never_blocked(self):
+        # V 本来就没被判正（A/NONE 行）⇒ 不得因为 V 读不出而拦
+        for state in ("pass", "fail", "unknown", "n/a"):
+            self.assertEqual((False, None), AP.apply_v_gate(False, state, "x"))
+        self.assertEqual((None, None), AP.apply_v_gate(None, "unknown", "x"))
+
+
 if __name__ == "__main__":
     unittest.main()

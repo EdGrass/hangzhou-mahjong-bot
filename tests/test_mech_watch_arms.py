@@ -202,5 +202,53 @@ class TestJudgeVMech(unittest.TestCase):
         self.assertIsNone(ok3)
 
 
+
+
+class TestR1534Clarity(unittest.TestCase):
+    """★ R1534：判据第二项是**赢分/胡**（不是番/胡）—— 源码里人也读的那几处必须一致。"""
+
+    def _src(self):
+        return io.open(os.path.join(ROOT, "var", "_mech_watch.py"), encoding="utf-8").read()
+
+    def test_log_label_matches_the_judged_metric(self):
+        s = self._src()
+        self.assertIn(u"机制（爆头/胡、赢分/胡）", s)
+        self.assertNotIn(u"机制（爆头/胡、番/胡）", s)
+
+    def test_judge_docstring_matches_the_judged_metric(self):
+        s = self._src()
+        self.assertIn(u"**爆头/胡 上升 且 赢分/胡 上升**", s)
+
+    def test_fan_reading_missing_does_not_block_the_verdict(self):
+        """番/胡 只是读数 ⇒ 它缺了也**必须照判**（否则会永远判不出＝静默停摆）。"""
+        base = {"baotou": 22.4, "hu": 25.11, "win": 4.67, "rounds": 4000}
+        cand = {"baotou": 26.9, "hu": 24.8, "win": 5.30, "rounds": 4000}
+        ok, why = M.judge_v_mech(base, cand)
+        self.assertTrue(ok, why)
+
+    def test_dry_run_never_touches_real_markers(self):
+        """★ R1534：`--dry-run` 零副作用。
+
+        原实现里 `unk_action(v_cands, _states)` 在 dry-run 下也执行，而 V 分支被整块跳过
+        ⇒ `_states` 恒为空 ⇒ 返回 "clear" ⇒ **真实的 `var/.v_mech_unknown` 被删掉**。
+        2026-09-26 实测踩到（跑一次 dry-run 就删了当时在场的标记）。
+        """
+        self.assertEqual("noop", M.marker_action(True, ["speedvaluebaotouv5"], []))
+        self.assertEqual("noop", M.marker_action(True, ["speedvaluebaotouv5"], [None]))
+        self.assertEqual("noop", M.marker_action(True, [], []))
+
+    def test_real_run_still_writes_and_clears(self):
+        # 真跑的口径不变：判不出 ⇒ write；都判出了（或没有 V 候选）⇒ clear
+        self.assertEqual("write", M.marker_action(False, ["speedvaluebaotouv5"], [None]))
+        self.assertEqual("clear", M.marker_action(False, ["speedvaluebaotouv5"], [True]))
+        self.assertEqual("clear", M.marker_action(False, [], []))
+
+    def test_baotou_missing_is_unknown_with_useful_message(self):
+        base = {"baotou": 22.4, "fan": 1.29, "hu": 25.11, "win": 4.67, "rounds": 4000}
+        ok, why = M.judge_v_mech(base, {"baotou": None, "hu": 24.8, "win": 5.30, "rounds": 4000})
+        self.assertIsNone(ok)
+        self.assertIn(u"爆头/胡", why)
+
+
 if __name__ == "__main__":
     unittest.main()

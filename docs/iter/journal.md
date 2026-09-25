@@ -27785,3 +27785,64 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     ② 「⇒ **首选**把本策略换成 `<arm>ycbk`（例：speedvaluebcmeldp45 ⇒ speedvaluebcmeldp45ycbk）；孪生未注册时才退回 speedc148 / speedc153」。
   - **测试**：`tests/test_rules_guard.py` 追加 `TestRulesGuardAdviceR1532`（断言文案含 `<arm>ycbk`、`bot/ycbk_chain.py`，且兜底仍在）；模块 **8 项 OK**。
   - 证据：全量回归 **Ran 1204, OK（skipped=2, xfail=1）**（该次已含本改动；新增测试在其后单独加并单跑通过）。
+
+- [R1533 | 2026-09-26 05:50 ★★★**役 3 读卡 §0 汇总表把 V 的机制写成“番/胡”**（人判词当天最先看的那张表）]
+  - **订正**：`yaku3-verdict-readcard.md` §0 第 13 行「爆头/胡 与 **番/胡** 都上升」⇒ 改为
+    「爆头/胡 与 **赢分/胡** 都上升」，并就地注明“番/胡 仅作读数”。
+  - **为什么**：campaign7 §2 端点表 + `_mech_watch.judge_v_mech`（R1520 起）用的都是 **赢分/胡**；
+    读卡是 9/28 判词当天的入口，它写错就等于**把人引到错的那个量上**。
+  - **同轮追加**（见 R1534 开头的调查）：campaign7 **自身**也措辞不一致（§2 写赢分/胡，§3/§4 B1/B2 写番/胡）。
+    ⇒ 以 §2 为准；预登记役中不改，只在读卡 §0b 说明。
+  - 证据：`git diff` 单行改动；读卡渲染已核（单元格内单行，不破表）。
+
+- [R1534 | 2026-09-26 05:50 ★★★★★ **V 的采用路径是 fail-open**：机制“判不出”被当成“机制正常”⇒ **未验证的 V 可以被采用并起役 4**]
+  - **怎么发现**：查“谁读 `var/.v_mech_unknown`”⇒ 全仓**只有 `_next_yaku_notice.py`（一个提醒）**读它，
+    **采用链根本不读**。而 `_adopt_pair.mech_state()` 的规则是「**无 `.mech_warn` ⇒ ok**」——
+    `_mech_watch` **只在判出“不达标”时**才写 `.mech_warn`，**判不出**（读数缺失/样本不足）写的是 `.v_mech_unknown`
+    ⇒ 旧路径把“判不出”读成“无告警＝机制正常”。
+  - **为什么严重（就在关键路径上，直接决定 10/7 上哪根臂）**：campaign7 §4 的 **B1 要求「主 z≥1.50 **且机制上升**」**，
+    V 臂的**全部采用理由就是机制**（§2：“本轴的全部理由就是赢得大”）。旧路径下
+    **V 可以在机制从未被验证的情况下被采用**，并据此起役 4 的 **B 行**（`speedvaluebaotouvmeld`）
+    ⇒ 后面整套“叠加验证”都建在一个没验证过的轴上。
+    而 `_adopt_pair` 自己的 docstring（`v_mech_last` 第 80–82 行）**早就写过**这条纪律
+    （“不能拿‘没有 `.mech_warn`’当成‘机制成立’”）—— 只是**只落在 B2 分支**（`is_b2` 要求 `v_ok is True`），
+    **采用分支没有执行**。（这就是本项目的典型形态：纪律写对了，但执行只覆盖了一半。）
+  - **修**：新增两个纯函数并接到四格 ——
+    ① `v_mech_verdict(arm)` ⇒ `pass`/`fail`/`unknown`/`n/a`，取**最新一条 `ok` 非 None** 的记录；
+    ② `apply_v_gate(adopted, state, why)`：`pass`⇒True、`fail`⇒False（B3 本役作废）、`unknown`⇒`(None, 说明)`。
+    **只在四格由 V 决定时拦**（`raw row == "b"`）：BC 已判正 ⇒ 必走 A 行、V 不改变走向 ⇒ **不拦**（避免无谓停摆）；
+    `unknown` ⇒ **原地不动 + 大声记日志**（fail-closed，等人补读数）。
+  - **为什么取“最新非 None”而不是“最后一条”**：2026-09-26 **00:37 实测**过一次 h2h 解析为空的**瞬时抖动**
+    （`_v_mech_readings.jsonl` 里 `ok=null`）⇒ 按“最后一条”读，一次抖动就会把**已判成立**的臂打成“读不出”。
+  - **真实数据核对（05:50，33 房）**：`v_mech_verdict("speedvaluebaotouv5")` 现返回 `unknown`
+    ⇒ 若 9/28 落 B 行，链会**停在原地等人**，而不是拿一根未验证的 V 去起役 4。
+  - **★ 本轮顺带抓到并修掉两个同源缺陷**：
+    ① `_mech_watch.judge_v_mech` 的守卫清单把**只作读数**的 `fan` 当必填 ⇒ h2h 表一旦少“番/胡”列就
+    **永远判不出**（= 静默停摆）。改为只守 `baotou`；`win`/`hu` 各有带说明的检查；`why` 里番/胡 改**容缺**打印（`—`）。
+    —— 这个改动**当场被我自己新写的测试抓出一个 KeyError**（`base["fan"]` 直取），已改 `_fmt()`。
+    ② `_mech_watch.py --dry-run` **有副作用**：`unk_action(v_cands, _states)` 那块**没被 `if not a.dry_run` 包住**，
+    而 dry-run 下 V 分支被整块跳过 ⇒ `_states` 恒空 ⇒ 返回 `"clear"` ⇒ **删掉真实的 `.v_mech_unknown`**。
+    **我就是在做“改完判据脚本先演练一次”的复核时踩到的 —— 演练把现场标记删了。**
+    修：新增 `marker_action(dry_run, v_cands, states)`（`dry_run` ⇒ `"noop"`）。
+  - **★ 现场处置（如实记录，不掩盖）**：被删的标记按证据**逐字重建**——
+    内容 `2026-09-26 00:37:14 V 轴机制读数缺失（候选 speedvaluebaotouv5）`；该行在**默认换行**（`\r\n`）下
+    正好 **76 字节**，与删前 `Get-ChildItem` 报的 76 字节一致（LF 只有 75 ⇒ 反推出原写法的换行），
+    mtime 一并还原为 00:37:14。**回归验证**：修后重跑 `--dry-run`，标记**仍在**（76 字节、mtime 不变）。
+  - **测试**：`tests/test_adopt_pair.py` +9（`TestVMechVerdict` / `TestApplyVGate`）、
+    `tests/test_mech_watch_arms.py` +7（口径钉源码 + dry-run 零副作用 + 番/胡 容缺）⇒ 两模块 **63 项 OK**。
+  - **★ 停摆必须有出口**：光“原地不动”不够（本项目已抓过 12 例“写了没人读”）⇒ 停摆时写
+    **`var/.ADOPT_V_MECH_STALL`**（含四格原始值 + 恢复方向），**心跳新增 0c2 步**专门读它；换行/读数到了即**自动清**；
+    `--dry-run` **不写**。`.v_mech_unknown` 保留“样本不足、会自愈”的语义，**不用它区分停摆**。
+  - **★ 心跳提示词（automation 10-7）已同步改**：0c 的“会自愈”加了 0c2 例外 + 新增 0c2 步；
+    改后**逐字比对**通过（4956 字符，与目标文本 `identical: True`），`status/rrule/target_thread_id` 均未变。
+  - **★ 端到端测试当场抓到接线的另一面**：全量回归先是**红**的 —— `tests/test_adopt_pair_e2e.py` 的
+    `test_only_v_adopt_takes_row_b` / `test_mech_warn_on_bc_switches_row_to_b` 两个用例**读的是真实的
+    `var/_v_mech_readings.jsonl`**（那里只有 `ok=null`）⇒ 被新闸正确拦住、走不到 B 行。
+    这暴露了夹具本身的隐患：**接线测试会读真实现场文件**。已修：`VREC`/`VSTALL_OUT` 一并改指临时路径、
+    夹具显式声明 V 读数（`pass`/`fail`/`unknown`），并**新增 3 条用例**（fail⇒改走 NONE、unknown⇒停摆+落标记、
+    dry-run⇒不落标记）。
+  - **读数侧的当轮结论（预告，非判词；详见读卡 §0c）**：33 房实测两个候选**赢法不同** ——
+    `speedvaluebc` = **赢得更大**（爆头/胡 20.7%→**25.6%**、番/胡 1.28→1.38、赢分/胡 18.29→**20.47**）⇒ 机制两项都成立；
+    `speedvaluebaotouv5` = **赢得更频繁**（胡率 24.66%→**29.00%**、赢/轮 +1.08）但**爆头/胡 −2.2pp（→18.5%）**
+    ⇒ **机制第一项不成立** ⇒ §2/§3/§4 的任何读法都是 **B3**。
+    ⇒ **9/28 最可能落 NONE 行**（役 4 = `speedvalue` + `speedvaluemeldp45`），bc 进 `.B2_CANDIDATES`。

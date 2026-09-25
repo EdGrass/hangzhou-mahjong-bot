@@ -50,6 +50,8 @@ AB = os.path.join(ROOT, "var", ".ab_mode")
 LAST = "★ 判定："  # ★ 判定：
 MECH_WARN = os.path.join(ROOT, "var", ".mech_warn")
 VREC = os.path.join(ROOT, "var", "_v_mech_readings.jsonl")
+UNK_OUT = os.path.join(ROOT, "var", ".v_mech_unknown")
+VSTALL_OUT = os.path.join(ROOT, "var", ".ADOPT_V_MECH_STALL")
 B2_OUT = os.path.join(ROOT, "var", ".B2_CANDIDATES")
 CONFLICT_OUT = os.path.join(ROOT, "var", ".VERDICT_RULE_CONFLICT")
 Z_MAIN_MIN = 1.50      # 主端点（所有役）
@@ -77,7 +79,8 @@ def last_verdict(text):
 def v_mech_last(arm, path=None):
     """最新一条该臂的 **V 机制读数** ⇒ (ok, why)。没记录 ⇒ (None, "无记录")。
 
-    为什么：V 的机制是「爆头/胡 与 番/胡 都升」（campaign7 §2），它由
+    为什么：V 的机制是「爆头/胡 与 **赢分/胡** 都升」（campaign7 §2 端点表；★ R1533/R1534
+    订正：早先此处误写「番/胡」——番/胡 只作读数，不是 §2 的第二项），它由
     `_mech_watch` 每 6h 写入 `var/_v_mech_readings.jsonl`。判 B2（机制成立、主端点未证实）
     必须读这个读数，而不能拿“没有 `.mech_warn`”当成“机制成立”。
     """
@@ -100,6 +103,72 @@ def v_mech_last(arm, path=None):
     if not last:
         return None, "无记录"
     return last.get("ok"), (last.get("why") or "")
+
+
+def v_mech_verdict(arm, path=None):
+    """★ R1534：V 臂**机制读数**的采用口径 ⇒ (state, why)，state ∈ {"pass","fail","unknown","n/a"}。
+
+    与 `v_mech_last` 的关键区别：本函数取**最新一条 `ok` 非 None 的记录**，
+    而 `v_mech_last` 取**最后一条**。原因：`_mech_watch` 会把“读数缺失/样本不足”也写成一条
+    `ok=null` 的记录（2026-09-26 00:37 实测遇过一次解析为空的瞬时失败）⇒ 按“最后一条”读，
+    一次抖动就会把**已判成立**的臂打成“读不出”。取“最新非 None”则抖动不影响结论。
+
+    · 臂名不含 `baotou` ⇒ `"n/a"`（本条只管 V 轴）；
+    · 最新非 None 记录 ok=True ⇒ `"pass"`；ok=False ⇒ `"fail"`；
+    · 只有 None 记录 / 无记录 / 文件读不到 ⇒ `"unknown"`（调用方**不得**当成通过）。
+    """
+    if "baotou" not in (arm or "").lower():
+        return "n/a", u"非 V 轴（本条只管 V 臂）"
+    pp = path or VREC
+    latest, last_any = None, None
+    try:
+        with io.open(pp, encoding="utf-8", errors="replace") as f:
+            for ln in f:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    d = json.loads(ln)
+                except Exception:
+                    continue
+                if str(d.get("arm") or "") != arm:
+                    continue
+                last_any = d
+                if d.get("ok") is not None:
+                    latest = d
+    except Exception as e:
+        return "unknown", u"V 机制读数文件读不到（%s）" % str(e)[:40]
+    if latest is None:
+        if last_any is None:
+            return "unknown", u"无记录"
+        return "unknown", u"只有“判不出”的记录（%s）" % (last_any.get("why") or u"无 why")
+    return ("pass" if latest.get("ok") is True else "fail"), (latest.get("why") or "")
+
+
+def apply_v_gate(v_adopted, v_state, v_why):
+    """★ R1534：把 V 的机制读数接到**四格**上（纯函数，可测）⇒ (v_adopted', stall_why|None)。
+
+    为什么需要：V 臂的**全部采用理由**就是机制（campaign7 §4 B1「主端点 z≥1.50 **且机制上升**」）。
+    采用路径上原来只有 `mech_state()` —— 它**只在 `_mech_watch` 判出“不达标”时**写
+    `var/.mech_warn`；判不出（读数缺失/样本不足）写的是 `var/.v_mech_unknown`，而
+    **除了提醒脚本没有任何人读它** ⇒ 旧路径把“判不出”当成“无告警＝机制正常”
+    ⇒ **V 可以在机制从未验证的情况下被采用**、并据此起役 4 的 B 行。
+    （本模块 `v_mech_last` 的 docstring 早就写过这条纪律——“不能拿‘没有 .mech_warn’当成
+    ‘机制成立’”——但此前只落在 B2 分支，**采用分支没有执行**。）
+
+    · v_adopted 不是 True（V 本来就没被判正）⇒ 原样返回，不拦（A/NONE 行不受影响）；
+    · "pass" ⇒ True；
+    · "fail" ⇒ False（按 B3 本役作废 ⇒ V 记 ✗ ⇒ 四格重算，不会走 B 行）；
+    · "unknown" ⇒ (None, 说明) ⇒ 调用方**原地不动**（fail-closed，等人看）。
+    """
+    if v_adopted is not True:
+        return v_adopted, None
+    if v_state == "pass":
+        return True, None
+    if v_state == "fail":
+        return False, None
+    return None, (u"V 机制读不到（%s ⇒ %s）⇒ 依 B1「机制必须上升」**原地不动**（fail-closed）；"
+                  u"标记见 var/.v_mech_unknown" % (v_state, (v_why or "")[:60]))
 
 
 def parse_gate2_zs(line):
@@ -293,6 +362,7 @@ def main(argv=None):
 
     since = a.since or since_of()
     rows, undecided = [], False
+    v_idx, v_state, v_why = None, "n/a", ""   # ★ R1534：V 臂在 rows 里的位置与机制读数
     b2 = []            # ★ R1486：机制成立、主端点未证实 ⇒ 预登记的 B2（保留为备选臂）
     for suf, arm in ((a.suffix_a, a.arm_a), (a.suffix_b, a.arm_b)):
         sent = os.path.join(ROOT, "var", ".verdict_done_%s%s" % (a.label, suf))
@@ -338,6 +408,9 @@ def main(argv=None):
         if adopted is None:
             undecided = True
         rows.append((arm, adopted))
+        if "baotou" in (arm or "").lower():
+            v_idx = len(rows) - 1
+            v_state, v_why = v_mech_verdict(arm)
         # ★ R1486：预登记的 B2 分支（例：campaign7 §4）要求把“机制成立、主端点未证实”的臂
         #   **记录下来并保留为正式赛备选臂**（与 §V.66 选臂口径并行比较）。
         #   之前这个分支**没有任何落盘** ⇒ 10/5 选臂时根本看不到它。
@@ -345,7 +418,10 @@ def main(argv=None):
         if adopted is False:
             _v_ok, _v_why = (True, "")
             if "baotou" in arm.lower():
-                _v_ok, _v_why = v_mech_last(arm)
+                # ★ R1534：改用 v_mech_verdict（取“最新非 None”）——
+                #   与采用闸同源；否则一次瞬时 `ok=null` 抖动就会让 B2 备选**漏记**。
+                _vst, _v_why = v_mech_verdict(arm)
+                _v_ok = (_vst == "pass")
             if is_b2(adopted, mstate, _v_ok):
                 b2.append((arm, "机制成立、主端点未证实（判词：%s）" % (line[:48] or "（空）")))
     if b2:
@@ -370,6 +446,39 @@ def main(argv=None):
         return 2
 
     row = pick_row(rows[0][1], rows[1][1])
+
+    # ★ R1534：V 臂的采用必须以**明确的机制读数**为前提（fail-closed）。
+    #   只在“V 真的决定这一行”时才拦（raw row == "b"）：BC 已判正 ⇒ 四格必走 A 行，
+    #   V 的状态不改变走向 ⇒ 不拦（否则会给 A 行造成无谓停摆）。
+    if v_idx is not None and row == "b":
+        _v_new, _v_stall = apply_v_gate(True, v_state, v_why)
+        if _v_stall:
+            # ★ R1534：**停摆要有出口** —— 写一个能被心跳 0c2 一眼看到的标记
+            #   （`.v_mech_unknown` 还兼着“样本不足、会自愈”的语义，不能用它区分“停摆”）
+            if not a.dry_run:      # ★ dry-run 零副作用（R1534 同一纪律）：演练时不改现场标记
+                try:
+                    with io.open(VSTALL_OUT, "w", encoding="utf-8") as f:
+                        f.write("%s %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), _v_stall))
+                        f.write(u"  四格原始：BC=%s / V=%s ⇒ raw row = b\n" % (rows[0][1], rows[1][1]))
+                        f.write(u"  恢复方向（心跳 0c2）：先确认 `_seat_h2h --by-arm` 能出表，再等 `_mech_watch` 落读数；"
+                                u"若读数是“不达标”那属 B3、不是停摆。\n")
+                except Exception as _e:
+                    log("!! 写 V 机制停摆标记失败：%s" % str(_e)[:40])
+            log("!! " + _v_stall)
+            return 2
+        if _v_new is not True:
+            log(u"★ %s：V 机制读数=%s（%s）⇒ 按 B3 本役作废，V 记 ✗"
+                % (rows[v_idx][0], v_state, (v_why or "")[:60]))
+            rows[v_idx] = (rows[v_idx][0], _v_new)
+            row = pick_row(rows[0][1], rows[1][1])
+            log(u"   四格改走 %s 行" % row.upper())
+
+    # ★ R1534：没有因 V 机制停摆 ⇒ 清掉陈旧标记（与 `.VERDICT_RULE_CONFLICT` 同风格）
+    if os.path.exists(VSTALL_OUT):
+        try:
+            os.remove(VSTALL_OUT)
+        except Exception:
+            pass
     base, cands = {
         "a": (a.row_a_base, a.row_a_cands),
         "b": (a.row_b_base, a.row_b_cands),

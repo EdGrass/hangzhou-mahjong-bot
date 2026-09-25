@@ -9,7 +9,8 @@
 | `.CAMPAIGN_ABORTED` | `_ab_driver.py`（熔断） | — | **0** | 按文件里的两条命令续役或降为基线（**不自动执行**） |
 | `.YAKU_NEXT_PENDING` | `_next_yaku_notice.py` | — | **0b** | §V.186 判断题：定"开不开役 5、开哪个" |
 | `.mech_warn` | `_mech_watch.py` | **`_adopt_pair.mech_state()`** | **0c** | 该臂按 B3 不采用；先看数字再定性（家族预期 ≠ 该役 §2 阈值） |
-| `.v_mech_unknown` | `_mech_watch.py` | — | **0c** | 等样本（~40 房/臂自动判、**自动清**） |
+| `.v_mech_unknown` | `_mech_watch.py` | **`_adopt_pair.v_mech_verdict()`**（经 `_v_mech_readings.jsonl` 判 V 采用闸）+ `_next_yaku_notice.py`（提醒） | **0c** | 样本不足 ⇒ 等样本（~40 房/臂自动判、**自动清**）；**但若 V 的读数在四格上真的决定走向（raw row＝b）而标记仍在 ⇒ `_adopt_pair` 原地不动（R1534 fail-closed）**，等人补读数 |
+| `.ADOPT_V_MECH_STALL` | `_adopt_pair.py`（**R1534**） | 心跳 **0c2** | **0c2** | 四格被逼到 B 行（BC 未判正、V 判正）而 V 的机制读数**读不出** ⇒ `_adopt_pair` 按 B1「机制必须上升」**原地不动（fail-closed）**、**不会自愈** ⇒ 立刻报人；读数到了/换了行即**自动清**（dry-run 不写） |
 | `.B2_CANDIDATES` | `_adopt_pair.py` | — | **0d** | 机制成立/主端点未证实 ⇒ 供人并行比较（不进自动池） |
 | `.VERDICT_RULE_CONFLICT` | `_adopt_pair.py` | — | **0e** | 按 `yaku3-verdict-readcard.md` §0 定性（V 的 B1 是否成立） |
 | `.EVENT_SWITCH_BLOCKED` | `_final_event_switch.py`**与** `_final_event_ready.py` | — | **0f** | 10/10 上线没成功：照抄文件里的命令（含 `-AllowNotReady` 逃生阀、ycbk 孪生） |

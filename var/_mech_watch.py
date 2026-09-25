@@ -13,7 +13,7 @@
    * \u542b `meld` \u21d2 `--phase window`\uff08\u671f\u671b\u7d22\u53d6\u7387\u4e0a\u5347\uff09\uff1b
    * \u542b `bc` / `baotou` \u21d2 `--phase draw`\uff08\u671f\u671b tile \u6539\u52a8\u7387 \u2208 [10,20]%\u3001action \u5dee\u5f02 = 0\uff09\uff1b
    * 含 `baotou` **另外**跑一次 `_seat_h2h --by-arm`（R1481）：预登记 campaign7 §2 把 V 的机制定义为
-     **爆头/胡 上升 且 番/胡 上升**（“本轴的全部理由就是赢得大”）。足迹只是必要条件，**直接量机制**才对得上 §2。
+     **爆头/胡 上升 且 赢分/胡 上升**（“本轴的全部理由就是赢得大”）。足迹只是必要条件，**直接量机制**才对得上 §2。
      不满足 ⇒ 归入 warns（⇒ `var/.mech_warn` ⇒ `_adopt_pair` 按 B3 不采用）；读数另行落 `var/_v_mech_readings.jsonl`。
    * \u5176\u4ed6 \u21d2 \u53ea\u8bb0\u5f55\uff08\u4e0d\u5224\uff09\u3002
 3. \u7ed3\u679c\u8ffd\u52a0\u5230 `var/_mech_watch.log`\uff1b\u4e0d\u5728\u9884\u671f\u5e26\u5185 \u21d2 \u5199 `var/.mech_warn`\uff08\u5e26\u539f\u56e0\uff09\uff0c\u6b63\u5e38 \u21d2 \u5220\u5b83\u3002
@@ -166,15 +166,18 @@ def _hu_rate_se(pct, n):
 
 
 def judge_v_mech(base, cand, min_rounds=None):
-    """campaign7 §2 的 V 机制判据：**爆头/胡 上升 且 番/胡 上升**。
+    """campaign7 §2 的 V 机制判据：**爆头/胡 上升 且 赢分/胡 上升**。
 
     返回 (ok, why)；ok ∈ {True, False, None}（None = 读数缺失，调用方不得据此翻转）。
-    为什么两项都要：该轴的全部理由就是“赢得大”——只升爆头不升番/胡，说明只是把命中换成了爆头标签，并没把牌打大。
+    为什么两项都要：该轴的全部理由就是“赢得大”——只升爆头不升赢分/胡，说明只是把命中换成了爆头标签，并没把牌打大。
     """
     if not base or not cand:
         return None, "读数缺失（base=%s cand=%s）" % (bool(base), bool(cand))
-    if None in (base.get("baotou"), base.get("fan"), cand.get("baotou"), cand.get("fan")):
-        return None, "读数缺夹"
+    # ★ R1534：这里的守卫只查**判据第一项**（baotou）—— 旧清单把 `fan` 当必填，
+    #   而 `fan` 只是读数（§2 的第二项是**赢分/胡**）⇒ 一旦 h2h 表少了番/胡 列就会
+    #   **永远判不出**（静默停摆）。`win` / `hu` 各自在下面有带说明的检查，不重复拦。
+    if None in (base.get("baotou"), cand.get("baotou")):
+        return None, u"爆头/胡 读数缺失（机制的第一项）⇒ 不判"
     _mr = V_MECH_MIN_ROUNDS if min_rounds is None else int(min_rounds)
     if (base.get("rounds") or 0) < _mr or (cand.get("rounds") or 0) < _mr:
         return None, "样本不足（局 %s vs %s < %d）⇒ 不判" % (
@@ -196,11 +199,15 @@ def judge_v_mech(base, cand, min_rounds=None):
     if wph_b is None or wph_c is None:
         return None, "赢分/胡 读数缺失（预登记机制的第二项）⇒ 不判"
     up_w = wph_c > wph_b
-    why = "爆头/胡 %.1f%%→%.1f%%、**赢分/胡 %.1f→%.1f**（番/胡 %.2f→%.2f，仅读数）" % (
-        base["baotou"], cand["baotou"], wph_b, wph_c, base["fan"], cand["fan"])
+    def _fmt(v):
+        # ★ R1534：番/胡 只是读数 ⇒ 缺了也必须能把 why 打出来（否则 KeyError = 判不出）
+        return u"%.2f" % v if v is not None else u"—"
+    why = "爆头/胡 %.1f%%→%.1f%%、**赢分/胡 %.1f→%.1f**（番/胡 %s→%s，仅读数）" % (
+        base["baotou"], cand["baotou"], wph_b, wph_c,
+        _fmt(base.get("fan")), _fmt(cand.get("fan")))
     # ★ R1517：**预登记护栏必须有人执行** —— `yaku3-verdict-readcard.md` 写着
     #   V 臂“胡率不得低于基线 1σ”，而 R1517 全仓搜证发现**任何代码都没执行它**
-    #   ⇒ 不补的话，V 可以“爆头/番都上升、但胡率明显塌”而被采用。这里按字面执行：
+    #   ⇒ 不补的话，V 可以“爆头/赢分都上升、但胡率明显塌”而被采用。这里按字面执行：
     #   Δhu ≥ −1×SE_合并（二项 SE 合并）。读数缺失 ⇒ 不判（None），不猜。
     se_b = _hu_rate_se(base.get("hu"), base.get("rounds"))
     se_c = _hu_rate_se(cand.get("hu"), cand.get("rounds"))
@@ -226,6 +233,20 @@ def unk_action(v_cands, states):
     if any(x is None for x in states):
         return "write"
     return "clear"
+
+
+def marker_action(dry_run, v_cands, states):
+    """★ R1534：`--dry-run` **绝不**改真实标记 ⇒ 返回 "noop" / "write" / "clear"。
+
+    为什么必须单独有这一层：`unk_action()` 只看 `(v_cands, states)`，而 **dry-run 下 V 分支被
+    整块跳过** ⇒ `states` 恒为空 ⇒ `unk_action` 返回 "clear" ⇒ 原实现会把**真实的**
+    `var/.v_mech_unknown` **删掉**。2026-09-26 实测：跑一次
+    `python -X utf8 var/_mech_watch.py --files 60 --dry-run` 就删掉了当时在场的那个标记
+    （本意只是“演练”，却改了现场）。dry-run 必须零副作用。
+    """
+    if dry_run:
+        return "noop"
+    return unk_action(v_cands, states)
 
 
 def append_v_record(rec, path=None):
@@ -316,7 +337,7 @@ def main():
                 warns.append("%s window \u7d22\u53d6\u7387 %.1f%%\u2192%.1f%%\uff08\u4ec5\u57fa\u7ebf\u6536 %d\uff09" % (cand, b, c, base_only))
 
     # ★ R1481：V 轴的**机制读数** —— campaign7 §2 把机制定义为
-    #   「爆头/胡 上升 **且** 番/胡 上升」（足迹只是必要条件），
+    #   「爆头/胡 上升 **且** 赢分/胡 上升」（足迹只是必要条件），
     #   而它只能用 `_seat_h2h --by-arm` 量。不满足 ⇒ 归入 warns（⇒ `.mech_warn`
     #   ⇒ `_adopt_pair` 按 B3 不采用）；读数缺失 ⇒ 另写 `.v_mech_unknown`（**响亮但不阻塞**）。
     v_cands = [c for c in cands if has_v_layer(c)]   # ★ R1515：按 W_TILES 判（抽中 bcvmeld）
@@ -345,7 +366,7 @@ def main():
         for cand in v_cands:
             ok, why = judge_v_mech(base_row, rows.get((cand, "我方")))
             tag = {True: "PASS", False: "WARN", None: "UNKNOWN"}[ok]
-            log("  %s 机制（爆头/胡、番/胡）：%s ⇒ %s" % (cand, why, tag))
+            log("  %s 机制（爆头/胡、赢分/胡）：%s ⇒ %s" % (cand, why, tag))
             append_v_record({"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "arm": cand,
                              "baseline": baseline, "ok": ok, "why": why,
                              "base": base_row, "cand": rows.get((cand, "我方"))})
@@ -360,9 +381,11 @@ def main():
                 except Exception:
                     pass
     # ★ R1484：标记的写/删**统一按 unk_action()** —— 读数齐了就必须清掉陈旧标记。
-    _act = unk_action(v_cands, _states)
+    _act = marker_action(a.dry_run, v_cands, _states)   # ★ R1534：dry-run 零副作用
     try:
-        if _act == "write":
+        if _act == "noop":
+            pass
+        elif _act == "write":
             _miss = [c for c, st in zip(v_cands, _states) if st is None]
             with io.open(UNK, "w", encoding="utf-8") as f:
                 f.write("%s V 轴机制读数缺失（候选 %s）\n"
