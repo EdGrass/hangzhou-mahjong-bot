@@ -1,0 +1,198 @@
+# -*- coding: utf-8 -*-
+"""`var/_next_yaku_notice.py` —— **役 4 判词落地后的“下一步”提醒**（只读 + 产出可照拄命令，**不自己执行**）。
+
+## 为什么
+
+链上现在只有两个自动推进器：`AdoptWatch`（役 2）与 `AdoptPairWatch`（役 3→役 4）。
+**役 4 的判词落地后没有任何计划任务去消费它** ⇒ 如果没人在场，`_ab_driver`
+会**继续跑役 4 超过役盒**（白烧房位），且役 5 （**三层组合臂**）**永远不会起**。
+而 §V.186 把“役 4→役 5”定性为**判断题**（不自动开），因为候选臂的剂量口径有一个**未定的选择**（`speedvaluebcvmeld`
+还是**剂量对齐 p40**）—— 写死一个就是猜。所以本脚本**不做决定**，它只把“该决定了 + 每个分支的可照拄命令”摆出来。
+
+## 判据（逐字对 §V.186）
+
+- 役 4（副露）**未判正** ⇒ **不起役 5**，直接进 §V.66 选臂；
+- 役 4 判正 **且 BC 与 V 都判正** ⇒ 起役 5：基线 = 役 4 的 2 层赢家，候选 = `speedvaluebcvmeld`
+  （**或** 剂量对齐 `speedvaluebcvmeldp40`）；
+- 役 4 判正但**只有单层** ⇒ 无 3 层组合可用 ⇒ 不起役 5，直接选臂；
+- 额外提醒（§V.161 规则 4 的组合臂）：若役 4 判负但 **BC 与 V 都判正**，则 `speedvaluebcv`（不带副露）
+  是一个**合法的组合臂选项**（已注册）——只列出供人判，不当默认。
+
+## 红线
+
+只读：不杀进程、不改 `bot/`、不改 `.ab_mode`、**不自己起役**。全部输入缺一不可 ⇒ 静默等待。
+
+用法：
+    python -X utf8 var/_next_yaku_notice.py --label 役4            # 真写提醒文件
+    python -X utf8 var/_next_yaku_notice.py --label 役4 --dry-run  # 只打印
+"""
+from __future__ import annotations
+import argparse
+import io
+import os
+import re
+import sys
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PAIR_MARKER = os.path.join(ROOT, "var", ".adopted_pair_役3")
+OUT = os.path.join(ROOT, "var", ".YAKU_NEXT_PENDING")
+LOG = os.path.join(ROOT, "var", "_next_yaku_notice.log")
+LAST = "★ 判定："   # ★ 判定：
+
+
+def _read(path):
+    try:
+        return io.open(path, encoding="utf-8-sig", errors="replace").read()
+    except Exception:
+        return ""
+
+
+def last_verdict_line(text):
+    """判词里最后一条 `★ 判定：` 行（没有就返回 ""）。"""
+    hit = ""
+    for ln in (text or "").splitlines():
+        if LAST in ln:
+            hit = ln.split(LAST, 1)[1].strip()
+    return hit
+
+
+def is_adopt(line):
+    return bool(line) and line.upper().startswith("ADOPT")
+
+
+def verdict_label(yaku, cand):
+    """与 `_register_campaign_watches.ps1` 的命名规则一致：非字母数字 → `_`。"""
+    return str(yaku) + re.sub(r"[^A-Za-z0-9_]", "_", str(cand))
+
+
+def parse_pair_marker(text):
+    """`.adopted_pair_役3` 内容 ⇒ (row, base, cands)。"""
+    row = base = cands = ""
+    m = re.search(r"row=(\S+)", text or "")
+    if m:
+        row = m.group(1)
+    m = re.search(r"base=(\S+)", text or "")
+    if m:
+        base = m.group(1)
+    m = re.search(r"cands=(\S+)", text or "")
+    if m:
+        cands = m.group(1)
+    return row, base, cands
+
+
+def decide(meld_ok, bc_ok, v_ok, base4, cand4):
+    """纯函数（便于单测）。返回 (kind, why, cmds)。
+
+    kind ∈ {"start", "combo_option", "no_yaku5", "wait"}
+    """
+    if not meld_ok:
+        if bc_ok and v_ok:
+            return ("combo_option",
+                    "役 4（副露）未判正 ⇒ §V.186 不起役 5；但 BC 与 V 都判正 "
+                    "⇒ §V.161 规则 4 的组合臂选项（不带副露）",
+                    [("speedvalue", "speedvaluebcv")])
+        return ("no_yaku5",
+                "役 4（副露）未判正 ⇒ 按 §V.186 不起役 5，直接进 §V.66 选臂",
+                [])
+    if bc_ok and v_ok:
+        return ("start",
+                "役 4 判正 且 BC 与 V 都判正 ⇒ 按 §V.186 起役 5（三层组合）；"
+                "基线 = 役 4 的 2 层赢家（%s）" % (cand4 or base4),
+                [(cand4 or base4, "speedvaluebcvmeld"),
+                 (cand4 or base4, "speedvaluebcvmeldp40")])
+    return ("no_yaku5",
+            "役 4 判正但 BC/V 只有单层 ⇒ 无 3 层组合可用 ⇒ 不起役 5",
+            [])
+
+
+def _say(logpath, msg):
+    print(msg)
+    try:
+        with io.open(logpath, "a", encoding="utf-8") as f:
+            f.write("%s %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
+    except Exception:
+        pass
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--label", default="役4")
+    ap.add_argument("--marker", default="")
+    ap.add_argument("--var-dir", default=os.path.join(ROOT, "var"),
+                    help="变量目录（单测用；默认仓库的 var/）")
+    ap.add_argument("--dry-run", action="store_true")
+    a = ap.parse_args(argv)
+
+    vd = a.var_dir
+    pair_marker = os.path.join(vd, ".adopted_pair_役3")
+    out = os.path.join(vd, ".YAKU_NEXT_PENDING")
+    log = os.path.join(vd, "_next_yaku_notice.log")
+    marker = a.marker or os.path.join(vd, ".next_yaku_notice_%s" % a.label)
+    if os.path.exists(marker):
+        return 0                                   # 已提醒过 ⇒ 幂等 no-op
+
+    ptxt = _read(pair_marker)
+    if not ptxt:
+        return 0                                   # 役 4 还没起 ⇒ 不该提醒
+    row, base4, cands4 = parse_pair_marker(ptxt)
+    cand4 = (cands4.split(",") or [""])[0].strip()
+    if not cand4:
+        return 0
+
+    vl = verdict_label(a.label, cand4)
+    sent = os.path.join(vd, ".verdict_done_%s" % vl)
+    if not os.path.exists(sent):
+        return 0                                   # 役 4 判词还未决定性
+
+    line4 = last_verdict_line(_read(os.path.join(vd, "_verdict_%s.txt" % vl)))
+    meld_ok = is_adopt(line4)
+    bc_ok = is_adopt(last_verdict_line(_read(os.path.join(vd, "_verdict_役3bc.txt"))))
+    v_ok = is_adopt(last_verdict_line(_read(os.path.join(vd, "_verdict_役3v.txt"))))
+
+    kind, why, cmds = decide(meld_ok, bc_ok, v_ok, base4, cand4)
+
+    lines = [
+        "== 役 4 判词已落地 —— “下一步”需要一个判断 ==",
+        "时间：%s" % time.strftime("%Y-%m-%d %H:%M:%S"),
+        "役 4 判词（%s）：%s" % (vl, (line4 or "（空）")[:90]),
+        "役 3 四格：row=%s  BC=%s  V=%s  （役 4 配置：base=%s cands=%s）"
+        % (row or "?", bc_ok, v_ok, base4, cands4),
+        "",
+        "判据：%s" % why,
+        "",
+    ]
+    if kind == "start":
+        lines.append("== 可照拄命令（二选一：§V.186 对剂量口径留了“或”）==")
+        for b, c in cmds:
+            lines.append('  python -X utf8 var/_bsegment.py --go --label 役5 --baseline %s --candidates %s --watch-mechanism melds' % (b, c))
+        lines.append("  （一个是无剂量的 3 层组合，一个是剂量对齐 p40；两者都已注册）")
+    elif kind == "combo_option":
+        lines.append("== 可选合法组合臂（不起役 5；供人判）==")
+        for b, c in cmds:
+            lines.append('  python -X utf8 var/_bsegment.py --go --label 役6 --baseline %s --candidates %s --watch-mechanism none' % (b, c))
+        lines.append("  注：§V.186 说“不起役 5”，§V.161 规则 4 又说看不出差别时选组合臂 —— 两条口径冲突，**由人定**。")
+    else:
+        lines.append("⇒ 不需要起新役；等 **10/5 09:00 的 `HangzhouMajFinalPickProposal`** 出选臂提案即可。")
+    lines += ["", "（本文件由 `HangzhouMajNextYakuNotice` 每 10 分钟检查一次；只提醒，不自己起役。）"]
+
+    body = "\n".join(lines) + "\n"
+    if a.dry_run:
+        print(body)
+        print("（dry-run：未写文件、未写 marker）")
+        return 0
+    try:
+        with io.open(out, "w", encoding="utf-8", newline="") as f:
+            f.write(body)
+        with io.open(marker, "w", encoding="utf-8") as f:
+            f.write("%s kind=%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), kind))
+    except Exception as e:
+        _say(log, "!! 写提醒失败：%s" % str(e)[:80])
+        return 1
+    _say(log, "役 4 判词已落地 ⇒ kind=%s ⇒ 已写 %s"
+         % (kind, os.path.basename(out)))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
