@@ -26734,3 +26734,24 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     ⇒ 主端点距 1.50 只差 **0.26**（若效应量维持，110~120 房**可能直接判 ADOPT**，而不只是走破平）。
   - ⇒ **两种落点的结论一致**：ADOPT ⇒ 采用 `speedvalue`；到盒破平 ⇒ 第1率三档也都偏 `speedvalue`（R1466）
     ⇒ **役 3 基线 = speedvalue** 稳（与役 3 预登记一致）。
+
+- [R1468 | 2026-09-25 20:40-20:53 ★★★★★**役 2 收口：ADOPT speedvalue（第 4 次判词）→ 役 3 已自动起（全链无人干预）**]
+  - 20:40:32 第 4 次判词（110/110 房，复盘覆盖 100%）：**决定性**。
+    主端点 和牌率/房 24.43 → **25.91（+1.48，z=+1.83）PASS**；副 番/房 31.97 → **33.99（+2.02，z=+1.77）PASS**；
+    护栏 第1率 **c151 17.3% vs value 26.4% PASS**；净分/房 **+44.7（z=+1.69）**；
+    机制 pairs **+14.95（z=+11.27）PASS**；其余机制：副露 +3.00(z=+1.59)、杠 +0.22(z=+0.62)、爆头 +0.34(z=+0.96)、
+    平均对数 +0.16(z=+5.19)。
+  - **z 走势**：80 +0.35/+0.56 → 90 +0.53/+0.67 → 100 +1.24/+1.41 → **110 +1.83/+1.77**
+    ⇒ 主副端点同时越过 1.50，**在役盒 120 之前就判 ADOPT**（省下 ~10 房/臂 ≈ 5 小时役位）。
+  - ⇒ `HangzhouMajAdoptWatch`（20:48:01）按读卡 B 段自动执行
+    `_bsegment.py --go --baseline speedvalue --candidates speedvaluebc,speedvaluebaotouv5`：
+    20:48:09 优雅停 A/B → **等当前对局自然结束**（未杀任何进程）→ 20:52:39 切役成功。
+  - **役 3 现场**：`.ab_mode.arms = [speedvalue, speedvaluebc, speedvaluebaotouv5]`、`bundles=[speedvalue]`、
+    `started=2026-09-25 20:52:39`；两台判词看护已注册（`HangzhouMajVerdictWatch3bc`/`3v`，每 10 分钟、
+    `--mechanism none`）；驱动已重排首批（20:52:53 arm=speedvalue）。
+  - **P0 补丁落盘并推送**：`bot/__init__.py` GUIDE_VERSION_KNOWN 34→35、`bot/protocol.py` 404 按 body `code` 分流
+    （`TOURNAMENT_NOT_FOUND` ⇒ 退出；`TOURNAMENT_GONE`/未知 ⇒ **必须重试**，不得按持续时间判死——旧实现把 29 次
+    瞬态 GONE 误判成“房已删”而退出 run_bot）。测试 **116 项全绿**（含 `test_protocol_404_transient`）。
+    提交 `bbfb582`，`origin/main == HEAD`。
+  - ⇒ 10/7 换臂链的输入已经推进一层：`.final_arm.txt` 的候选从 `speedvalue` 换成**役 3 的赢家**；
+    `_final_arm_confirm.py --dry-run` 实测口径正确（无已判正层时保持基线，绝不赌未验证组合臂）。
