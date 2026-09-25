@@ -19,7 +19,7 @@ Guarantees (verified by `validate()`, see tests/test_replay_model.py):
 from __future__ import annotations
 import collections, glob, io, json, os
 
-ROOT = r'D:\hangzhouMaj'
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # ★ R1522：从 __file__ 推（原硬编码 D:\hangzhouMaj ⇒ clone 里必崩）
 ME = 'u_7a3fba48d70b'
 GOD = '白'
 RECENT = os.path.join(ROOT, 'var', 'replays', 'recent')

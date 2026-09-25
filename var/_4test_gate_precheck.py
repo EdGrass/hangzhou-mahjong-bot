@@ -4,7 +4,7 @@
 # \u672c\u811a\u672c\u628a\u201c\u81c2\u7684\u9009\u62e9\u201d\u53d8\u6210 config \u7684\u786e\u5b9a\u6027\u51fd\u6570\uff08\u975e\u4eba\u5de5\u5224\u65ad\uff09\u3002\u9ed8\u8ba4\u771f\u8dd1\uff0815:05 \u8ba1\u5212\u4efb\u52a1\u5373\u65e0\u53c2\u8c03\u7528\uff09\uff1b\u53ea\u60f3\u770b\u5224\u5b9a\u3001\u4e0d\u60f3\u6539\u4efb\u52a1\u8bf7\u663e\u5f0f\u52a0 --dry-run\u3002
 import _ps  # noqa: E402  （★ R1379：解析 PowerShell，避免任务上跑不到 pwsh）
 import argparse, io, json, os, ssl, subprocess, sys, urllib.request, urllib.error
-ROOT = r"D:\hangzhouMaj"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # ★ R1522：从 __file__ 推（原硬编码 D:\hangzhouMaj ⇒ clone 里必崩）
 BASE = "https://10.240.169.190:18080"
 TID = "t_6266386bfd56"
 TOK = os.path.join(ROOT, "var", ".token_4test_20260924")

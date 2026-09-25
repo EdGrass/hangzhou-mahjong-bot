@@ -13,9 +13,9 @@ usage:
       --baseline speedc151 --candidate speedvalue --mechanism melds
 """
 from __future__ import annotations
-import argparse, collections, glob, importlib.util, io, json, math, os, statistics, sys
+import argparse, collections, glob, importlib.util, io, json, math, os, statistics, subprocess, sys
 
-ROOT = r'D:\hangzhouMaj'
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # ★ R1522：从 __file__ 推（原硬编码 D:\hangzhouMaj ⇒ clone 里必崩）
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, 'tools'))
 sys.path.insert(0, os.path.join(ROOT, 'var'))
@@ -221,6 +221,20 @@ def main():
             a.mechanism, d, z, 'PASS' if ok else 'FAIL（机制未同向或和牌率下降）'))
         if not ok:
             verdict.append('机制核对未过')
+    # ★ R1522：把预登记的**熔断护栏**（campaign7 熔断行：`_breaker_watch` 两档不触发）放进判词取数里
+    #   —— 此前只有人工跑 `_gate_report.py` 才能看到，而判词那一刻没有任何自动出口。
+    try:
+        _bp = subprocess.run([sys.executable, "-X", "utf8",
+                              os.path.join(ROOT, "var", "_breaker_watch.py"),
+                              "--since", a.since],
+                             cwd=ROOT, capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=600)
+        _bl = [x for x in (_bp.stdout or "").strip().splitlines() if x.strip()][-6:]
+        print('熔断护栏（_breaker_watch，rc=%s）：' % _bp.returncode)
+        for _l in _bl:
+            print('      ' + _l)
+    except Exception as _e:
+        print('熔断护栏（_breaker_watch）：不可得（%s）' % str(_e)[:60])
     print()
     if verdict:
         print('★ 判定：REFUSE / CONTINUE —— ' + '；'.join(verdict))
