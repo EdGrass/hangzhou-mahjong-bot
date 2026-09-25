@@ -29,6 +29,8 @@ OFFICIAL = os.path.join(ROOT, "var", ".official_mode")
 STATE = os.path.join(ROOT, "var", "_ab_state_v2.json")   # 与旧 _keeper_ab.py 的 _ab_state.json 分开，保留其历史
 LOG = os.path.join(ROOT, "var", "_ab_log.jsonl")
 KEEPER_STRAT = os.path.join(ROOT, "var", "_keeper_strategy.txt")
+# ★ R1472：熔断标记（熔断会删 `.ab_mode`，之后没有任何自愈）
+ABORTED = os.path.join(ROOT, "var", ".CAMPAIGN_ABORTED")
 try:
     import psutil
 except Exception:
@@ -160,6 +162,33 @@ def arm_recent_net(strategy, since):
 def arm_recent(strategy, since, k):
     """候选/基线臂**最近 k 房**的 net 列表（末尾 k 条）。"""
     return arm_recent_net(strategy, since)[-k:]
+
+
+def abort_note(arms, started, bundles, bad_arm, gn, gmean, gbase):
+    """熔断标记的内容（纯函数，便于单测）。
+
+    ★ R1472：熔断会**删掉 `.ab_mode`**，此后 watchdog / `_ensure_all.py` / `ab_ctl` 都不会再拉驱动
+    （它们均只在 `.ab_mode` 在位时自愈）⇒ 本役房数**永远停在当前值**、判词永远到不了
+    80/120 房 ⇒ **整条役次链静默停摆**。历史上熔断触发过 2 次（09-16 `speedc073w4`、
+    09-20 `speedc151`），当时都靠人发现才续上。这里把「静默」变成「响亮 + 可照抄」。
+    """
+    arms_s = ",".join(arms)
+    bundles_s = ",".join(bundles or [arms[0]])
+    return "\n".join([
+        "熔断时间：%s" % time.strftime("%Y-%m-%d %H:%M:%S"),
+        "原因：候选臂 %s 近 %d 房「净值 − 基线净值」%+.1f/房（基线同期 %+.1f）低于阈值"
+        % (bad_arm, gn, gmean, gbase),
+        "本役已被终止：`.ab_mode` 已删除 ⇒ 驱动**不会自愈**（watchdog/_ensure_all 只在 `.ab_mode` 在位时拉驱动）",
+        "本役窗口：started=%s  arms=%s  bundles=%s" % (started or "(未知)", arms_s, bundles_s),
+        "",
+        "== 恢复命令（先判断候选是不是真崩了）==",
+        "① 熔断误伤 / 只是窗口噪声 ⇒ 原样续役（窗口与已有房数不变）：",
+        '   python -X utf8 tools/ab_ctl.py start %s 1 --bundles=%s --started="%s"' % (arms_s, bundles_s, started),
+        "② 候选真的崩了 ⇒ 只留基线（把该候选判负，往下走）：",
+        '   python -X utf8 tools/ab_ctl.py start %s 1 --bundles=%s --started="%s"' % (arms[0], arms[0], started),
+        "",
+        "下一轮驱动启动时**会自动清除本文件**。",
+    ]) + "\n"
 
 
 def guard_candidate(strategy, baseline, since):
@@ -329,6 +358,12 @@ def main():
     rooms = str(int(cfg.get("rooms", 1)))
     st = read_state()
     log("A/B 启动：arms=%s rooms=%s（基线 %s）" % ("/".join(arms), rooms, a))
+    if os.path.exists(ABORTED):
+        try:
+            os.remove(ABORTED)
+            log("清除上一轮熔断标记 %s（战役已重新起来）" % os.path.basename(ABORTED))
+        except Exception:
+            pass
     idle = 0
     while os.path.exists(AB):
         if _fm.pause_requested():
@@ -380,6 +415,15 @@ def main():
             if abort:
                 log("!! 候选臂 %s 近 %d 房「净值 − 基线净值」%+.1f/房（基线同期 %+.1f）触发熔断 → 终止 A/B，回退基线 %s"
                     % (strat, gn, gmean, gbase, a))
+                # ★ R1472：熔断 = 战役被**静默**杀掉 ⇒ 留响亮标记 + 可照抄恢复命令
+                try:
+                    io.open(ABORTED, "w", encoding="utf-8").write(
+                        abort_note(arms, cfg.get("started"), cfg.get("bundles"),
+                                   strat, gn, gmean, gbase))
+                    log("   ⇒ 已写 %s（含恢复命令；驱动下次启动时自动清除）"
+                        % os.path.basename(ABORTED))
+                except Exception as _e:
+                    log("   写熔断标记失败：%s" % _e)
                 try:
                     io.open(KEEPER_STRAT, "w", encoding="utf-8").write(a)
                 except Exception:
