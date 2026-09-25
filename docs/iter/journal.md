@@ -26917,3 +26917,21 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **顺带教训（行尾）**：本轮两次把文件行尾改错（`_prepare_submission.ps1` CRLF→LF、两个 test 文件各自
     原本是 CRLF/LF）。修法不是“全部统一”，而是**用 `git cat-file -p <rev>:<path>` 读原始 blob 字节**判行尾，
     再写回去；最终 `git diff` 净变化只剩 **+34/-7**。
+
+- [R1479 | 2026-09-25 21:4x ★★★**判官视角第二轮（文案 + 仓库卫生）：核实逐条声明、删四个误入仓的 .bak**]
+  - **逐条核实 `docs/申报正文-最终.md` 的可验证声明（全部成立）**：
+    `requirements.txt` 存在且内容与文案一致（numpy/torch/psutil + 可选 fastapi/uvicorn）；模型权重路径 `var/*.pt`
+    **4/4**（合计 812,310 字节 ≈ 文案的“~0.8MB”）；`run_bot.py --help` 确实列出 `speedvalue` / `speedvaluebc` /
+    `speedvaluebaotouv5` / `speedvaluebcvmeld`；`tools/keep_alive.py <token> --strategy --server` 参数形状与文案一致；
+    `tools/preflight.py --server <URL>` **实测 rc=0 / READY**。（我原以为 preflight 没有 `--server`，**实测证明我错了**。）
+  - **真问题 1（口径不实）**：文案两处 + README 一处写 **p99 47ms / <50ms**，但实测随负载在 **28–72ms** 波动
+    （本轮 preflight 就读到 72ms）⇒ 改成 “p99 ≈ **30–80ms**（随负载波动，远低于窗口）”。
+    理由：判官跑 `preflight` 就能看到这个数，**不能让文案比实测好看**。
+  - **真问题 2（仓库卫生）**：仓里有 **4 个误入仓的 `.bak`**（`run_bot.py.bak_20260924_102019`、
+    `tools/fetch_tournament_replays.py.bak_*`、`tools/hu_gap_split.py.bak_*`、`tools/verify_four_way.py.bak_*`）——都是 09-24 本地备份被一并提交了，
+    违反项目自己的备份约定（runbook 要求备份放 `var/`）。
+    **先验证再删**：用 `git hash-object` 算文件的 blob 哈希，再遍历对应真文件的**全部历史 blob**逐个比对 ⇒
+    **四个都与历史版本字节完全相同**（blob `6134583`）⇒ **零信息损失**，已删。
+  - **删后重验（全新公网 clone）**：`.bak` **0 个**；裸 `python -m unittest discover` ⇒ **Ran 984, OK (skipped=55)**；
+    `run_bot.py --smoke` ⇒ **rc=0 全部通过**；仓库计数 **bot 192 / var 50 / tools 94 / 模型 4/4**。
+  - 行尾再次确认：改的三个文档（两个 md + README）原本都是 **LF**，改完仍是 LF（无行尾噪声）。

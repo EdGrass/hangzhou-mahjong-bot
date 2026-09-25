@@ -5216,3 +5216,28 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 
 **行尾教训（已写进 journal R1478）**：改现有文件前先用 `git cat-file -p <rev>:<path>` 读**原始 blob 字节**判行尾，
 写回时保持一致；不要统一成哪一种（本仓库文件间本来就 CRLF/LF 混杂）。
+
+### §V.204 判官视角第二轮：文案声明逐条核实 + 仓库卫生（R1479）
+
+**逐条核实 `docs/申报正文-最终.md`（可验证的那些声明全部成立）**
+
+| 声明 | 核实方式 | 结果 |
+|---|---|---|
+| 依赖 `requirements.txt` | 查文件 + 内容 | ✅ numpy/torch/psutil（+ 可选 fastapi/uvicorn） |
+| 模型权重路径 `var/*.pt` | `git ls-files` | ✅ **4/4**，合计 812,310 B ≈ “~0.8MB” |
+| “全部可用策略见 `--help`” | 实跑 `run_bot.py --help` | ✅ 列出 `speedvalue`/`speedvaluebc`/`speedvaluebaotouv5`/`speedvaluebcvmeld` |
+| `tools/keep_alive.py <token> --strategy --server` | 看 argparse | ✅ 参数形状一致 |
+| `tools/preflight.py --server <URL>` | 实跑 | ✅ **rc=0 / READY**（原以为它没这个参数 —— 实测证明我错） |
+
+**修了两处**
+
+1. **口径不实**：文案两处 + README 一处写 **p99 47ms / <50ms**，实测随负载在 **28–72ms** 波动
+   （本轮 `preflight` 读到 72ms）⇒ 改为 “p99 ≈ **30–80ms**（随负载波动，远低于窗口）”。
+   **判官自己跑一次就能看到这个数 —— 文案不能比实测好看。**
+2. **仓库卫生**：删掉 **4 个误入仓的 `.bak`**（`run_bot.py.bak_20260924_102019` + tools 三个）。
+   **先验证再删**：`git hash-object` 算出各 `.bak` 的 blob 哈希，再遍历对应真文件的全部历史 blob 逐个比对
+   ⇒ **四个都与历史版本字节完全相同**（blob `6134583`）⇒ **零信息损失**。
+   （它们还违反项目自己的备份约定：runbook 要求备份放 `var/`。）
+
+**删后全新 clone 重验**：`.bak` **0**；裸 `unittest discover` **Ran 984, OK (skipped=55)**；`--smoke` **rc=0**；
+`bot 192 / var 50 / tools 94 / 模型 4/4`。
