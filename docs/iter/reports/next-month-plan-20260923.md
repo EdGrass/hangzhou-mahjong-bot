@@ -5606,3 +5606,27 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 ⇒ 10/5 的裁决**实际落在 §V.66 ②（两半 Pareto）**上。**两张表都要能读对**：
 `hu_gap_split --by-arm`（半边 A：听牌率/兑现率）与 `_seat_h2h --by-arm --top 32`（半边 B：番·爆头·赢分）。
 （役2 窗口复核：半边 A 同向、半边 B 同向，都指向 `speedvalue` —— 与役 2 判词采用的臂一致。）
+
+### §V.225 链上 YCBK 孪生补齐（R1502）—— **保证“赢家臂一定能上场”**
+
+**问题**：`tools/rules_guard.py` 在**上线那一刻**动态实例化 `STRATEGY_FACTORIES[<arm>]()` 并读 `YOU_CAI_BI_KAO`；
+若正式赛 `YouCaiBiKao=true` 而我们上的是**无闸门臂**，`_switch_to_official.ps1` 直接 throw ⇒ **上不了线**。
+R1502 之前链上**一根孪生都没有** ⇒ 唯一逃生阀是退回 `speedvalueycbk`（等于弃掉 10 天优化）。
+
+**现在**（`bot/ycbk_chain.py`，新文件；`run_bot.py` 只加注册项，171→184 臂）：
+
+| 覆盖 | 孪生 |
+|---|---|
+| 基线 | `speedc151ycbk` |
+| 役 3 A/B 行 | `speedvaluebcycbk`、`speedvaluebaotouv5ycbk` |
+| 役 4 各形状 | `speedvaluebcvycbk`、`speedvaluebcmeld(ycbk/p45ycbk)`、`speedvaluebaotouvmeldycbk`、`speedvaluemeld(ycbk/p45ycbk/p40ycbk)` |
+| 役 5 组合臂 | `speedvaluebcvmeld(ycbk/p40ycbk/p35ycbk)` |
+
+**三条断言（`tests/test_ycbk_twins.py`）**：① **已注册**（否则 rules_guard 实例化失败 ⇒ 仍被 throw）；
+② **与母臂同剂量**（`claim_p`/`margin`/`shanten_*` 逐项相等 —— 否则“换孪生”= 换成了另一根策略）；
+③ **真拦得住**：同一手“有白 + 非爆头平胡”上 12 根母臂**全部宣 hu**，13 根孪生**全部改成 discard**。
+
+**10/10 操作规则（写进 `.EVENT_SWITCH_BLOCKED` 的逃生文字）**：若失败原因是 rules_guard，
+**首选** `-Strategy <最终臂>ycbk`；万一该孪生不在册（`python -X utf8 -c "from run_bot import STRATEGY_FACTORIES as F;print('<arm>ycbk' in F)"`），
+再退回 `speedvalueycbk`。
+**红线**：孪生**不上阶梯**（阶梯 `YouCaiBiKao=false` ⇒ 会误拦合法平胡），只在 `rules_guard` 返回 2 时使用；且不影响役 3 A/B。

@@ -86,10 +86,15 @@ def main(argv=None):
         #   链上的臂（speedvaluebc/baotouv5/meldp45/bcmeldp45/bcvmeld/c151）**都没有 ycbk 孪生**，
         #   只有 speedvalueycbk 有 ⇒ 至少用它进场，好过不参赛。
         twin = (
-            "# 若失败原因是 rules_guard（YouCaiBiKao ↔ 策略）：链上臂无 ycbk 孪生，唯一已注册的合规孪生是 speedvalueycbk：\n"
+            "# 若失败原因是 rules_guard（YouCaiBiKao ↔ 策略）：**链上每根臂都有 ycbk 孪生**（R1502），\n"
+            "#   把最终臂名后面加 ycbk 再上一次线，例：speedvaluebcmeldp45 ⇒ speedvaluebcmeldp45ycbk；\n"
+            "#   在册检查：python -X utf8 -c \"from run_bot import STRATEGY_FACTORIES as F;print('<arm>ycbk' in F)\"\n"
+            "powershell -NoProfile -File var/_switch_to_official.ps1 -Strategy <最终臂>ycbk "
+            "-TokenFile %s -TournamentId <TID>\n"
+            "# 兜底（万一该孪生不在册）：已验证的合规孪生 speedvalueycbk\n"
             "powershell -NoProfile -File var/_switch_to_official.ps1 -Strategy speedvalueycbk "
             "-TokenFile %s -TournamentId <TID>"
-        ) % TOKEN
+        ) % (TOKEN, TOKEN)
         try:
             with io.open(BLOCKED, "w", encoding="utf-8", newline="\n") as f:
                 f.write("%s 仍未进入官方模式（19:25 重试后）\n" % time.strftime("%Y-%m-%d %H:%M:%S"))

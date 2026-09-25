@@ -121,6 +121,26 @@ STRATEGY_FACTORIES = {
     "speedgangtakefixedycbk": lambda: __import__("bot.ycbk_twins", fromlist=["SpeedGangTakeFixedYCBK"]).SpeedGangTakeFixedYCBK(),
     "speedmeldmore0chiycbk": lambda: __import__("bot.ycbk_twins", fromlist=["SpeedMeldMore0ChiYCBK"]).SpeedMeldMore0ChiYCBK(),
     "speedmeldtol2chiycbk": lambda: __import__("bot.ycbk_twins", fromlist=["SpeedMeldTol2ChiYCBK"]).SpeedMeldTol2ChiYCBK(),
+    # ★ R1502：**役 3→役 5 候选链的 YCBK 孪生**（`bot/ycbk_chain.py`）。
+    #   为什么必须注册：`tools/rules_guard.py` 是在**上线那一刻**动态实例化
+    #   `STRATEGY_FACTORIES[<arm>]()` 并读 `YOU_CAI_BI_KAO` 来决定放不放行
+    #   ⇒【类写了但没注册】= 上线仍会被 throw。旧版只有 4 个孪生、
+    #   **役 3→役 5 链上一根都没有** ⇒ 若正式赛是 YouCaiBiKao=true，我们选出的赢家根本不能上场。
+    #   覆盖：役 3 两根候选 + 役 4/5 各剂量档 + 基线 c151（每根**与母臂同剂量**，只多一个合法胡闸门）。
+    #   纪律不变：只在 `rules_guard` 返回 2（需换闸门臂）时才换；且**不上阶梯**（阶梯 YouCaiBiKao=false，闸门会误拦合法平胡）。
+    "speedc151ycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedC151YCBK"]).SpeedC151YCBK(),
+    "speedvaluebcycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueBCYCBK"]).SpeedValueBCYCBK(),
+    "speedvaluebcvycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueBCVYCBK"]).SpeedValueBCVYCBK(),
+    "speedvaluebcmeldycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueBCMeldYCBK"]).SpeedValueBCMeldYCBK(),
+    "speedvaluebcmeldp45ycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueBCMeldP45YCBK"]).SpeedValueBCMeldP45YCBK(),
+    "speedvaluebcvmeldycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueBCVMeldYCBK"]).SpeedValueBCVMeldYCBK(),
+    "speedvaluebcvmeldp40ycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueBCVMeldP40YCBK"]).SpeedValueBCVMeldP40YCBK(),
+    "speedvaluebcvmeldp35ycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueBCVMeldP35YCBK"]).SpeedValueBCVMeldP35YCBK(),
+    "speedvaluemeldycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueMeldYCBK"]).SpeedValueMeldYCBK(),
+    "speedvaluemeldp45ycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueMeldP45YCBK"]).SpeedValueMeldP45YCBK(),
+    "speedvaluemeldp40ycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueMeldP40YCBK"]).SpeedValueMeldP40YCBK(),
+    "speedvaluebaotouv5ycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueBaotouV5YCBK"]).SpeedValueBaotouV5YCBK(),
+    "speedvaluebaotouvmeldycbk": lambda: __import__("bot.ycbk_chain", fromlist=["SpeedValueBaotouVMeldYCBK"]).SpeedValueBaotouVMeldYCBK(),
     # C2xx 弃胡 EV 修正（2026-09-23）：p_conv 随河长衰减 / 再叠失败负项。
     # 两个臂是**阶梯式单变量**：p 轴（vs speedvalue）→ loss 轴（vs ...riverp）。
     "speedgiveupriverp": lambda: __import__(

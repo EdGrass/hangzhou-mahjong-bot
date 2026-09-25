@@ -27289,3 +27289,30 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     ⇒ **10/7 装哪根臂，实际由破平链（两半 Pareto）决定，不由主序列决定**；所以 R1501 修的这张半边 B 表**就是真正的决策表**。
     （这不改任何预登记阈值：§V.66 本就规定不可区分就破平；本轮只是**第一次把“几乎必然不可区分”量化**出来。）
   - **为什么这个 bug 没污染机制闸**：`var/_mech_watch.py` 每 6 小时跑的正是**同一条命令**（`_seat_h2h --by-arm --top 32`），但它的解析器只认“臂名 + 我方/另三家”后缀，且判据只读 `rows.get((cand, "我方"))`（源码实读）⇒ **V 机制读数与这个 bug 无关**；修前/修后 `speedvalue 我方` 行数值完全一致（9120 局 / 胡轮 25.79%）。另：本轮新增的 `vs TOPn` / `vs 非TOP` 后缀不在它的白名单里 ⇒ 被丢弃，不会进判据。
+
+- [R1502 | 2026-09-25 23:26 ★★★★★**若正式赛是 `YouCaiBiKao=true`，我们十天选出的赢家臂根本不能上线** ——
+  已补 13 根链上保险孪生（`bot/ycbk_chain.py`）+ 注册 + 回归门 + 改掉过期的逃生提示**]
+  - **风险怎么暴露的**：`tools/rules_guard.py` 是在**上线那一刻**比对“赛事 config ↔ 将要上场的臂”；
+    不一致 ⇒ `_switch_to_official.ps1` 直接 throw ⇒ **上不了线**。而当时全仓只有 **4 根** ycbk 孪生
+    （`speedvalueycbk`/`speedgangtakefixedycbk`/`speedmeldmore0chiycbk`/`speedmeldtol2chiycbk`），
+    **役 3→役 5 判词链上的臂一根都没有**（`speedvaluebc`/`speedvaluebaotouv5`/`speedvaluebcmeldp45`/
+    `speedvaluebaotouvmeld`/`speedvaluebcvmeld`/`speedvaluemeld*`/`speedc151`）。
+    `var/_final_event_ready.py` 的 R1463 注释当时就写着这个窘境：“链上的臂都没有 ycbk 孪生，只有 speedvalueycbk 有
+    ⇒ 至少用它进场，好过不参赛”。**代价是：一旦 YCBK=true，10 天的优化成果全部作废，退回最弱的臂。**
+  - **做了什么**：
+    ① 新增 **`bot/ycbk_chain.py`**（**新文件**，守住“役中不改 `bot/` 既有文件”红线）：13 根孪生，
+      每根 = `FastYCBKMixin` + 对应母臂，**剂量与母臂完全一致**（`claim_p` 0.45/0.40/0.35 逐一对齐）；
+    ② `run_bot.py` **只加注册项**（171 → 184 臂）：因为 `rules_guard` 是**动态实例化** `STRATEGY_FACTORIES[<arm>]()`
+      再读 `YOU_CAI_BI_KAO` ⇒【类写了但没注册】= 上线仍被 throw（这正是 R1332 踩过的坑）；
+    ③ `tests/test_ycbk_twins.py` 加 3 条：**已注册** / **与母臂同剂量**（`claim_p`/`margin`/`shanten_*` 逐项比）/
+       **真拦得住**（同一手“有白且非爆头平胡”的牌：**12 根母臂全部宣 hu**，13 根孪生全部改为 `discard`）；
+    ④ 把 `_final_event_switch.py`（18:50）与 `_final_event_ready.py`（19:25）里那段**已过期**的逃生文字改成：
+       首选 **`<最终臂>ycbk`**，并保留 `speedvalueycbk` 作兜底 —— 并把“在册检查”一行命令写进标记里。
+  - **证据**：13 根孪生 `YOU_CAI_BI_KAO=True` / `GOD_MELD=False` 全部可就位；注册表 184 臂、13 根新孪生全部可实例化；
+    `tests/test_ycbk_twins.py` **7 项 OK**、`tests/test_final_day_wiring.py` 20 项 OK；
+    标记文字用**临时文件**真渲染过一遍（内容含 `<最终臂>ycbk` 主命令 + `speedvalueycbk` 兜底），
+    **真标记 `.EVENT_SWITCH_BLOCKED` 未落盘**。
+  - **纪律（没变）**：孪生**只在** `rules_guard` 返回 **2**（需换闸门臂）时才换；
+    **绝不上阶梯** —— 阶梯是 `YouCaiBiKao=false`，闸门会错误拦掉合法平胡（`speedc153` 的 docstring 早写明）。
+    孪生只在显式 `--strategy` 选中时才被用到 ⇒ **不影响正在跑的役 3 A/B**。
+  - **对 10/7–10/10 的意义**：无论正式赛 config 是 true 还是 false，**赢家臂都能上场**；不再是“要么上弱臂、要么不上线”。

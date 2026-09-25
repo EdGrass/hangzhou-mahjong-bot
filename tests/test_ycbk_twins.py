@@ -20,6 +20,14 @@ from bot.ycbk_fast import FastYCBKMixin                        # noqa: E402
 from bot.ycbk_twins import (SpeedGangTakeFixedYCBK,            # noqa: E402
                             SpeedMeldMore0ChiYCBK, SpeedMeldTol2ChiYCBK,
                             SpeedValueYCBK)
+from bot.ycbk_chain import (SpeedC151YCBK,                     # noqa: E402
+                            SpeedValueBaotouV5YCBK, SpeedValueBaotouVMeldYCBK,
+                            SpeedValueBCMeldP45YCBK,
+                            SpeedValueBCMeldYCBK, SpeedValueBCVYCBK,
+                            SpeedValueBCVMeldP35YCBK, SpeedValueBCVMeldP40YCBK,
+                            SpeedValueBCVMeldYCBK, SpeedValueBCYCBK,
+                            SpeedValueMeldP40YCBK, SpeedValueMeldP45YCBK,
+                            SpeedValueMeldYCBK)
 
 # 14 tiles: 234w 567w 89w 111w 2b2b 白 -- wins with 白 as the pair partner of 2b,
 # holds 白, and the pre-draw 13 tiles are NOT 爆头 (verified below).
@@ -108,6 +116,68 @@ class TestYCBKTwins(unittest.TestCase):
             if got >= 25:
                 break
         self.assertGreater(got, 0, "需要真实窗口样本")
+
+
+
+# ---- ★ R1502：役 3→役 5 候选链的孪生（此前一根都没有）----
+#
+# 为什么要钉这三件事：若正式赛 config 为 `YouCaiBiKao=true`，
+# `tools/rules_guard.py` 会在**上线那一刻**动态实例化 `STRATEGY_FACTORIES[<arm>]()`、
+# 读 `YOU_CAI_BI_KAO`；不一致 ⇒ `_switch_to_official.ps1` 直接 throw ⇒ **上不了线**。
+# 所以：① 必须已注册（否则实例化失败）；② 必须与母臂**同剂量**（否则换的是另一根策略）；
+# ③ 必须真的拦得住白-平胡（否则换了也是 409）。
+
+CHAIN_TWINS = (
+    (SpeedC151YCBK, "speedc151"),
+    (SpeedValueBCYCBK, "speedvaluebc"),
+    (SpeedValueBCVYCBK, "speedvaluebcv"),
+    (SpeedValueBCMeldYCBK, "speedvaluebcmeld"),
+    (SpeedValueBCMeldP45YCBK, "speedvaluebcmeldp45"),
+    (SpeedValueBCVMeldYCBK, "speedvaluebcvmeld"),
+    (SpeedValueBCVMeldP40YCBK, "speedvaluebcvmeldp40"),
+    (SpeedValueBCVMeldP35YCBK, "speedvaluebcvmeldp35"),
+    (SpeedValueMeldYCBK, "speedvaluemeld"),
+    (SpeedValueMeldP45YCBK, "speedvaluemeldp45"),
+    (SpeedValueMeldP40YCBK, "speedvaluemeldp40"),
+    (SpeedValueBaotouV5YCBK, "speedvaluebaotouv5"),
+    (SpeedValueBaotouVMeldYCBK, "speedvaluebaotouvmeld"),
+)
+
+
+class TestYCBKChainTwins(unittest.TestCase):
+    def _factories(self):
+        from run_bot import STRATEGY_FACTORIES as F
+        return F
+
+    def test_registered(self):
+        F = self._factories()
+        missing = [tw().name for tw, _b in CHAIN_TWINS if tw().name not in F]
+        self.assertEqual([], missing,
+                         "孪生**类写了但没注册** ⇒ rules_guard 实例化不了 ⇒ 上线仍 throw：%s" % missing)
+
+    def test_same_dose_as_mother_arm(self):
+        F = self._factories()
+        for tw, base_name in CHAIN_TWINS:
+            a, b = F[tw().name](), F[base_name]()
+            self.assertIsInstance(a, FastYCBKMixin)
+            self.assertTrue(a.YOU_CAI_BI_KAO)
+            self.assertFalse(a.GOD_MELD)
+            for knob in ("claim_p", "margin", "shanten_lo", "shanten_hi"):
+                if hasattr(b, knob):
+                    self.assertEqual(getattr(b, knob), getattr(a, knob),
+                                     "%s.%s 与母臂 %s 不一致" % (tw.__name__, knob, base_name))
+
+    def test_gate_blocks_the_illegal_win_for_every_chain_twin(self):
+        v = view()
+        F = self._factories()
+        for base_name in sorted({b for _t, b in CHAIN_TWINS}):
+            self.assertEqual("hu", (F[base_name]().decide(v) or {}).get("action"),
+                             "母臂 %s 在这手牌上不宣胡 ⇒ 本用例对它没有鉴别力" % base_name)
+        for tw, _b in CHAIN_TWINS:
+            act = tw().decide(v) or {}
+            self.assertNotEqual("hu", act.get("action"), "%s 没拦下白-平胡" % tw.__name__)
+            self.assertEqual("discard", act.get("action"))
+            self.assertIn(act.get("tile"), HAND)
 
 
 if __name__ == '__main__':
