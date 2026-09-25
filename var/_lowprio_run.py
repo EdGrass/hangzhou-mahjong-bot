@@ -80,7 +80,20 @@ def main(argv=None):
         return 0
 
     print("[lowprio] %s ⇒ %s" % (lower_self(), " ".join(cmd)), flush=True)
-    return subprocess.call(cmd)
+    # ★ R1536：**显式**把本进程的 stdout/stderr 交给子进程，不能只靠“句柄继承”。
+    #   为什么（生产实测，不是洁癖）：计划任务用 **pythonw.exe** 起 `_mech_watch.py`，
+    #   它再经本包装器跑 `_seat_h2h.py --by-arm`；只靠继承时**孙进程的输出会被丢掉** ——
+    #   `_mech_watch.log` 连出两次 `!! V 机制读数（_seat_h2h）解析为空：rc=0 stdout=191 字`
+    #   而那 191/176 字**正好只有本函数的 banner**（真表是 3600+ 字）⇒ V 轴的机制读数
+    #   永远拿不到 ⇒ V 既判不出 PASS 也判不出 FAIL（只能 UNKNOWN）⇒ 若四格由 V 决定就停摆。
+    #   本机 A/B 实证：pythonw 下“pythonw 孙进程”与“python 孙进程”**都会丢**（与 GUI 子系统无关），
+    #   修后同一条命令能拿到完整表。
+    kw = {}
+    if sys.stdout is not None:
+        kw["stdout"] = sys.stdout
+    if sys.stderr is not None:
+        kw["stderr"] = sys.stderr
+    return subprocess.call(cmd, **kw)
 
 
 if __name__ == "__main__":

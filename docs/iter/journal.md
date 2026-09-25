@@ -27869,3 +27869,20 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     `tests/test_adopt_pair_e2e.py` 补 1 条（B2 标记头必须含 `窗口 since=`）。
   - **烟测**：当前 `var/` 无 `.B2_CANDIDATES` ⇒ 真机 `--dry-run` 输出与改动前一致（不出现 B2 段）⇒ 主路径未破坏。
   - 证据：`tests.test_final_pick_proposal_b2` + `tests.test_adopt_pair_e2e` 共 **16 项 OK**；标记总账同步（`.B2_CANDIDATES` 的"谁读"不再是 `—`）。
+
+- [R1536 | 2026-09-26 06:55 ★★★★★**`_lowprio_run` 在 pythonw 下吞掉子进程输出 ⇒ V 轴的机制读数在生产里一直是坏的**]
+  - **怎么发现**：复核 R1534 的现场效果时读 `var/_mech_watch.log`，看到连续两次
+    `!! V 机制读数（_seat_h2h）解析为空：rc=0 stdout=191 字`。**191/176 字正好等于 `_lowprio_run` 的 banner 长度**
+    ⇒ 孙进程输出整段没进管道。手工 `python.exe` 跑同一条命令 ⇒ **3685 字完整表**；
+    改用计划任务的形状（**pythonw 当父进程 + capture_output**）⇒ **176 字、只有 banner**，稳定复现。
+    A/B（孙进程分别 pythonw / python）**两者都丢** ⇒ 与 GUI 子系统无关，是 `subprocess.call` 只靠句柄继承不成立。
+  - **后果（重大）**：V 的机制读数**永远为空** ⇒ V 既判不出 PASS 也判不出 FAIL（只能 UNKNOWN）⇒
+    ① `.mech_warn` 永不因 V 而写、B3 永不触发；② 若四格由 V 决定 ⇒ **R1534 的 fail-closed 直接停摆**。
+    即：**"赢得大小"这根轴在生产里根本没被测量过** —— 而它是役 3 两个候选之一（`speedvaluebaotouv5`）的**全部理由**。
+  - **修**：`var/_lowprio_run.py` 显式把本进程 stdout/stderr 交给子进程（均判 `is not None`），不再只靠继承。
+  - **实证（pythonw 父进程，同一条命令）**：修前旧副本 **129 字 = 纯 banner**、表头 ✗；修后 **3686 字**、表头 ✓。
+  - **测试**：新增 `tests/test_lowprio_run_pythonw.py` **2 项**（真·pythonw 父进程复现计划任务形状；断言有**一整行**
+    恰好是 `MARK-ZZZ` —— **不能判子串**，因为 banner 里就带 `print('MA'+'RK-ZZZ')`，子串会假阳性；+
+    源码必须显式转发句柄）。**非空洞性已证**：同探针指向**旧的临时副本** ⇒ `False`，指向修复后 ⇒ `True`。
+  - **教训（写给后人）**：`var/_mech_watch.log` 里那句 `解析为空` 从 **00:37** 就躺在那里，
+    看起来像"样本不足"，**实际是测量管线断了**。只有把"写了但没人读/没人验"那把尺子坚持到底才会暴露。
