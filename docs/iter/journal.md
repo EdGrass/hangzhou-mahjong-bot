@@ -27567,3 +27567,13 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
       ⇒ 那个判据会漏得更彻底。改用 `W_TILES` 后：`speedvaluebcvmeld` / `...p40` / `speedvaluebcv` / `baotou*` 全部 True，`speedvaluebc` / `bcmeldp45` / `meldp45` 全部 False。
   - 证据：`has_v_layer` 九臂逐一对；`mech_conflict` 五用例；新测试（`tests/test_mech_watch_arms.py` + `tests/test_adopt_pair.py`）；
     全量回归 **Ran 1190, OK（skipped=2, xfail=1）**。
+
+- [R1516 | 2026-09-26 02:28 ★★★**10/8 提交链重验（距上次检查已过 ~15 次提交）⇒ 仍是 GO**；并补一处申报正文的诚实性]
+  - **`_prepare_submission.ps1`（只检查；10/8 任务用的就是它）⇒ rc=0**：
+    三份交付物在位（`requirements.txt` / `README.md` / `docs/参赛说明.md`）；**已追踪模型 4/4**；**运行期脚本 83/83**（含我这轮补进清单的两个）；
+    **未追踪文件 0**；**文案 v35 == 代码 v35**；**泄密门 OK**（87 份待发布文件无 64 位令牌串）；remote = `origin` ✓。
+  - **`var/_submit_final.py --dry-run`（10/8 任务的自身路径）⇒ 「门禁判定：GO」、rc=0、未落 `.final_submitted`** ✓（fail-safe 保持：不加 `--go` 绝不提交）。
+  - **文案诚实性补一处**：`docs/申报正文-最终.md` §3 的示例命令写死 `--strategy speedvalue`，而这段正文是**直接粘进申报页**的；
+    10/7 定臂后生产策略名可能不是它 ⇒ 补一行：**`--strategy` 的取值以 `var/_keeper_strategy.txt` 为准**，`speedvalue` 只是示例。
+    - 改后：**版本门仍 OK（v35==v35）**、**闭包门 OK**（引用的是 `.txt`，不触发“文档里叫用户跑 var/ 脚本”的清单规则）。
+  - 意义：10/8 提交是**无人值守**的 —— 今天证明“此刻的仓就是 GO”，并且**文案不会因为 10/7 换臂而变成假话**。

@@ -5835,3 +5835,13 @@ R1502 之前链上**一根孪生都没有** ⇒ 唯一逃生阀是退回 `speedv
 | `has_v_layer` | `bcvmeld`/`bcvmeldp40`/`bcv`/`baotou*` = True；`speedvalue`/`bc`/`bcmeldp45`/`meldp45` = False |
 | `mech_conflict` | 役4 不拦；役5(melds) 拦；役5(none) 不拦；pairs 不拦 |
 | 全量回归 | **Ran 1190, OK（skipped=2, xfail=1）** |
+
+### §V.239 10/8 提交链重验 + 申报正文补“以 keeper 为准”（R1516）
+
+| 检查 | 结果 |
+|---|---|
+| `_prepare_submission.ps1`（只检查） | **rc=0**：交付物 3/3；模型 **4/4**；运行期脚本 **83/83**；未追踪 **0**；**文案 v35 == 代码 v35**；泄密门 OK（87 文件） |
+| `_submit_final.py --dry-run` | **门禁判定：GO**、rc=0、未落 `.final_submitted`（fail-safe） |
+
+**文案补正**：`docs/申报正文-最终.md` §3 的示例命令写死 `--strategy speedvalue`，而该正文会被**直接粘进申报页** ⇒
+补一行“**取值以 `var/_keeper_strategy.txt` 为准**（10/7 定臂后生产名以它为准）”。改后版本门/闭包门均 OK。
