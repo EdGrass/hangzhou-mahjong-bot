@@ -27236,3 +27236,24 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     C 保留仍有效的令牌链红线（绝不手跑 `_rotate_token.py`）与测量纪律。
   - ⇒ **人真正要做的只剩一件**：10/10 前把令牌存成 `var/.token_final_20261010`。
   - **门禁复核**：引用的 9 份文档全存在 ✓；文案版本门 OK（v35）· 泄密门 OK（85 文件）· 未追踪 0 · 模型 4/4 · 运行期脚本 81/81。
+
+- [R1500b | 2026-09-25 23:01 ★★★**行尾守卫落盘（`tests/test_line_endings.py`）：初版自己就是坏的；修好后红/绿两端都有实证；现场那份 822 行翻转已还原**]
+  - **背景**：本会话我三次把行尾整体改掉（`var/_prepare_submission.ps1` 414 行、两个 test 文件、`docs/正式赛执行清单` 822 行）
+    ⇒ 每次都是“改两行、diff 千行”。交付物要给人看 diff，噪音会把真实改动埋掉。
+  - **初版三处缺陷（都是我自己写的，逐条记档防复犯）**：
+    ① `subprocess(text=True)` 读 `git show` ⇒ universal newlines 把 CRLF 折成 LF ⇒ **HEAD 侧恒 0%** ⇒ 每个 CRLF 文件都会被误报；
+    ② 字节字面量里的转义写成真换行 ⇒ **文件自身语法错误**（`SyntaxError`）⇒ 守卫连跑都跑不起来；
+    ③ `git diff --name-only` 不带 `-z` / `core.quotePath=false` ⇒ 中文路径被打印成八进制转义、首尾带引号
+       ⇒ 按空白切分后后缀不是 `.md` ⇒ **`docs/正式赛执行清单-一个月后.md` 这类中文路径被静默跳过**（**第一次“绿”就是这么来的假绿**）。
+  - **修法**：HEAD 侧改走**字节**（`git cat-file blob`）；路径解析改 `-z` + `core.quotePath=false`；加非 ASCII 路径的回归用例（`TestChangedPaths`）。
+  - **红/绿两端实测**（不是“看着绿”）：
+    | 状态 | 命令 | 结果 |
+    |---|---|---|
+    | 现场那份翻转**仍在**时 | `python -X utf8 -m unittest tests.test_line_endings` | **RED**，逐字点名 `docs/正式赛执行清单-一个月后.md（HEAD CRLF 0% → 工作区 100%）` |
+    | `git checkout --` 还原后 | 同上 | **GREEN**（2 项 OK） |
+  - **全量回归**：`python -X utf8 -m unittest discover` ⇒ **Ran 1170, OK（skipped=2, expected failures=1）· 784.4s**（日志 `var/_fulltest_r1500b.log`）。
+  - **诚实边界**：这条守卫在**回归门**里生效，**没有**接进 `_prepare_submission.ps1` 的提交门 ——
+    10/8 10:00 是硬截止，**装饰性**的行尾问题不该把 fail-closed 的提交流程挡死（挡了就真的没源码可交）。
+    ⇒ 它防的是“提交前最后一刻的整文件 churn”，不是“提交物合规”。
+  - **现场还原**：那份 822 行的 CRLF 翻转**已 `git checkout --` 还原**（HEAD blob 为 LF-only：CRLF=0 / LF=822），
+    工作区现在只剩这个新增的测试文件待提交。
