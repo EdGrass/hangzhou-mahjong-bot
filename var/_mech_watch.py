@@ -146,6 +146,18 @@ def parse_h2h(text):
 V_MECH_MIN_ROUNDS = 320   # ★ R1481：约 40 房（实测 8 局/房）以下不判，免得把噪声当成 B3
 
 
+def _hu_rate_se(pct, n):
+    """胡率（%）的二项 SE（%）。★ R1517：供 V 的预登记护栏“胡率不得低于基线 1σ”用。"""
+    try:
+        n = int(n or 0)
+        p = max(0.0, min(100.0, float(pct))) / 100.0
+    except Exception:
+        return None
+    if n <= 0:
+        return None
+    return 100.0 * (p * (1.0 - p) / float(n)) ** 0.5
+
+
 def judge_v_mech(base, cand, min_rounds=None):
     """campaign7 §2 的 V 机制判据：**爆头/胡 上升 且 番/胡 上升**。
 
@@ -164,7 +176,20 @@ def judge_v_mech(base, cand, min_rounds=None):
     up_f = cand["fan"] > base["fan"]
     why = "爆头/胡 %.1f%%→%.1f%%、番/胡 %.2f→%.2f" % (
         base["baotou"], cand["baotou"], base["fan"], cand["fan"])
-    return (bool(up_b and up_f)), why
+    # ★ R1517：**预登记护栏必须有人执行** —— `yaku3-verdict-readcard.md` 写着
+    #   V 臂“胡率不得低于基线 1σ”，而 R1517 全仓搜证发现**任何代码都没执行它**
+    #   ⇒ 不补的话，V 可以“爆头/番都上升、但胡率明显塌”而被采用。这里按字面执行：
+    #   Δhu ≥ −1×SE_合并（二项 SE 合并）。读数缺失 ⇒ 不判（None），不猜。
+    se_b = _hu_rate_se(base.get("hu"), base.get("rounds"))
+    se_c = _hu_rate_se(cand.get("hu"), cand.get("rounds"))
+    if se_b is None or se_c is None:
+        return None, why + "；**护栏读数缺失**（胡率/局数）⇒ 不判"
+    d_hu = float(cand["hu"]) - float(base["hu"])
+    se_d = (se_b ** 2 + se_c ** 2) ** 0.5
+    guard_ok = d_hu >= -1.0 * se_d
+    why += "；胡率 %+.1fpp（1σ=%.1fpp）%s" % (
+        d_hu, se_d, "" if guard_ok else " ⇐ 护栏未过")
+    return (bool(up_b and up_f and guard_ok)), why
 
 
 def unk_action(v_cands, states):

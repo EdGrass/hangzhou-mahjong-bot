@@ -127,6 +127,21 @@ class TestJudgeVMech(unittest.TestCase):
         ok, _ = M.judge_v_mech(self.BASE, {"baotou": 21.0, "fan": 1.40, "hu": 25.0, "rounds": 960})
         self.assertFalse(ok)
 
+    def test_hu_guardrail_beyond_1sigma_is_fail(self):
+        """★ R1517：预登记护栏“胡率不得低于基线 1σ”**必须有人执行**（此前只写在读卡里）。"""
+        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": 22.0, "rounds": 960})
+        self.assertFalse(ok, why)
+        self.assertIn("护栏未过", why)
+
+    def test_hu_guardrail_within_1sigma_is_pass(self):
+        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": 24.1, "rounds": 960})
+        self.assertTrue(ok, why)
+
+    def test_hu_guardrail_missing_reading_is_unknown(self):
+        ok, why = M.judge_v_mech(self.BASE, {"baotou": 26.9, "fan": 1.35, "hu": None, "rounds": 960})
+        self.assertIsNone(ok, why)
+        self.assertIn("护栏读数缺失", why)
+
     def test_small_sample_is_not_judged(self):
         # ★ R1481：局数不够就**不判**（否则 2 房的噪声会被当成 B3，把好臂挂掉）
         ok, why = M.judge_v_mech({"baotou": 22.4, "fan": 1.29, "rounds": 40},
