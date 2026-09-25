@@ -12,6 +12,9 @@
 2. \u5bf9\u6bcf\u4e2a\u5019\u9009\u81c2\u9009\u76f8\u4f4d\u5e76\u8dd1\u79bb\u7ebf\u91cd\u62bd\uff08\u5168\u7a0b `--lowprio`\uff0c\u9075\u5b88 \u00a79.30/\u00a79.47 \u7eaa\u5f8b\uff09\uff1a
    * \u542b `meld` \u21d2 `--phase window`\uff08\u671f\u671b\u7d22\u53d6\u7387\u4e0a\u5347\uff09\uff1b
    * \u542b `bc` / `baotou` \u21d2 `--phase draw`\uff08\u671f\u671b tile \u6539\u52a8\u7387 \u2208 [10,20]%\u3001action \u5dee\u5f02 = 0\uff09\uff1b
+   * 含 `baotou` **另外**跑一次 `_seat_h2h --by-arm`（R1481）：预登记 campaign7 §2 把 V 的机制定义为
+     **爆头/胡 上升 且 番/胡 上升**（“本轴的全部理由就是赢得大”）。足迹只是必要条件，**直接量机制**才对得上 §2。
+     不满足 ⇒ 归入 warns（⇒ `var/.mech_warn` ⇒ `_adopt_pair` 按 B3 不采用）；读数另行落 `var/_v_mech_readings.jsonl`。
    * \u5176\u4ed6 \u21d2 \u53ea\u8bb0\u5f55\uff08\u4e0d\u5224\uff09\u3002
 3. \u7ed3\u679c\u8ffd\u52a0\u5230 `var/_mech_watch.log`\uff1b\u4e0d\u5728\u9884\u671f\u5e26\u5185 \u21d2 \u5199 `var/.mech_warn`\uff08\u5e26\u539f\u56e0\uff09\uff0c\u6b63\u5e38 \u21d2 \u5220\u5b83\u3002
 
@@ -35,6 +38,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AB = os.path.join(ROOT, "var", ".ab_mode")
 LOG = os.path.join(ROOT, "var", "_mech_watch.log")
 WARN = os.path.join(ROOT, "var", ".mech_warn")
+SEAT_H2H = os.path.join(ROOT, "var", "_seat_h2h.py")
+LOWPRIO = os.path.join(ROOT, "var", "_lowprio_run.py")
+VREC = os.path.join(ROOT, "var", "_v_mech_readings.jsonl")
+UNK = os.path.join(ROOT, "var", ".v_mech_unknown")
 
 
 def log(msg):
@@ -62,6 +69,92 @@ def phases_for(arm):
     return ph
 
 
+def arms_of(cfg):
+    """★ R1481：**N 臂支持**（与 `_ab_driver.arms_of` 同口径）。
+
+    旧实现只读 `cfg["a"]/cfg["b"]`（两臂时代的格式）。而役 3 是**三臂**，`.ab_mode` 是
+    `{"arms": [...]}` ⇒ `arms=[None, None]` ⇒ `cands=[]` ⇒ **本脚本静默 no-op**（实测：`_mech_watch --dry-run`
+    汇报“役内无候选臂（arms=[None, None]）”）。后果：**机制端点守护根本没在跑** ⇒
+    `var/.mech_warn` 永远不写 ⇒ 上一轮接上的 B3 守卫（R1480）在实践里**永远不会触发**。
+    """
+    if isinstance(cfg.get("arms"), list) and len(cfg["arms"]) >= 2:
+        return [str(x) for x in cfg["arms"]]
+    return [x for x in (cfg.get("a"), cfg.get("b")) if x]
+
+
+def parse_h2h(text):
+    """`_seat_h2h.py --by-arm` 的表 ⇒ {(arm, side): {"hu":..,"fan":..,"baotou":..}}。
+
+    行样（实测）：
+        speedvalue 我方               局    111 | 胡/轮 25.11% | 番/胡 1.29 | 分/轮   +0.03 | ... | 爆头/胡  24.4% ...
+    只认“臂名 + 我方/另三家”后缀；对不上的行直接丢掉（宁可缺读数，不拼一个假的）。
+    """
+    out = {}
+    for ln in (text or "").splitlines():
+        if "|" not in ln or "爆头/胡" not in ln or "胡/轮" not in ln:
+            continue
+        head = ln.split("|", 1)[0].strip()
+        m = re.match(r"^(.*?)\s*局\s+\d+\s*$", head)
+        if not m:
+            continue
+        label = m.group(1).strip()
+        if label.endswith("我方"):
+            arm, side = label[:-2].strip(), "我方"
+        elif label.endswith("另三家"):
+            arm, side = label[:-3].strip(), "另三家"
+        else:
+            continue
+        if not arm:
+            continue
+
+        def num(pat):
+            mm = re.search(pat, ln)
+            return float(mm.group(1)) if mm else None
+
+        _mr = re.search(r"局\s+(\d+)", ln)
+        out[(arm, side)] = {
+            "rounds": int(_mr.group(1)) if _mr else None,
+            "hu": num(r"胡/轮\s+([\d.]+)%"),
+            "fan": num(r"番/胡\s+([\d.]+)"),
+            "baotou": num(r"爆头/胡\s+([\d.]+)%"),
+        }
+    return out
+
+
+V_MECH_MIN_ROUNDS = 320   # ★ R1481：约 40 房（实测 8 局/房）以下不判，免得把噪声当成 B3
+
+
+def judge_v_mech(base, cand, min_rounds=None):
+    """campaign7 §2 的 V 机制判据：**爆头/胡 上升 且 番/胡 上升**。
+
+    返回 (ok, why)；ok ∈ {True, False, None}（None = 读数缺失，调用方不得据此翻转）。
+    为什么两项都要：该轴的全部理由就是“赢得大”——只升爆头不升番/胡，说明只是把命中换成了爆头标签，并没把牌打大。
+    """
+    if not base or not cand:
+        return None, "读数缺失（base=%s cand=%s）" % (bool(base), bool(cand))
+    if None in (base.get("baotou"), base.get("fan"), cand.get("baotou"), cand.get("fan")):
+        return None, "读数缺夹"
+    _mr = V_MECH_MIN_ROUNDS if min_rounds is None else int(min_rounds)
+    if (base.get("rounds") or 0) < _mr or (cand.get("rounds") or 0) < _mr:
+        return None, "样本不足（局 %s vs %s < %d）⇒ 不判" % (
+            base.get("rounds"), cand.get("rounds"), _mr)
+    up_b = cand["baotou"] > base["baotou"]
+    up_f = cand["fan"] > base["fan"]
+    why = "爆头/胡 %.1f%%→%.1f%%、番/胡 %.2f→%.2f" % (
+        base["baotou"], cand["baotou"], base["fan"], cand["fan"])
+    return (bool(up_b and up_f)), why
+
+
+def append_v_record(rec, path=None):
+    """V 机制读数落盘（JSONL）—— B1/B2 都需要它作为“机制是否成立”的可查记录。"""
+    try:
+        with io.open(path or VREC, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        return True
+    except Exception:
+        return False
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--files", type=int, default=200)
@@ -78,8 +171,9 @@ def main():
     except Exception as e:
         log("!! \u8bfb .ab_mode \u5931\u8d25\uff1a%s" % str(e)[:60])
         return 1
-    baseline = (cfg.get("bundles") or [cfg.get("a")])[0]
-    arms = [cfg.get("a"), cfg.get("b")]
+    _arms0 = arms_of(cfg)
+    baseline = (cfg.get("bundles") or _arms0 or [cfg.get("a")])[0]
+    arms = _arms0
     cands = [x for x in arms if x and x != baseline]
     if not cands:
         log("\u5f79\u5185\u65e0\u5019\u9009\u81c2\uff08arms=%s, baseline=%s\uff09\u21d2 no-op" % (arms, baseline))
@@ -136,6 +230,46 @@ def main():
                 % (cand, b, c, base_only, "PASS" if ok else "WARN", time.time() - t0))
             if not ok:
                 warns.append("%s window \u7d22\u53d6\u7387 %.1f%%\u2192%.1f%%\uff08\u4ec5\u57fa\u7ebf\u6536 %d\uff09" % (cand, b, c, base_only))
+
+    # ★ R1481：V 轴的**机制读数** —— campaign7 §2 把机制定义为
+    #   「爆头/胡 上升 **且** 番/胡 上升」（足迹只是必要条件），
+    #   而它只能用 `_seat_h2h --by-arm` 量。不满足 ⇒ 归入 warns（⇒ `.mech_warn`
+    #   ⇒ `_adopt_pair` 按 B3 不采用）；读数缺失 ⇒ 另写 `.v_mech_unknown`（**响亮但不阻塞**）。
+    v_cands = [c for c in cands if "baotou" in c.lower()]
+    if v_cands and not a.dry_run:
+        _since = cfg.get("started") or ""
+        cmd = [sys.executable, "-X", "utf8", LOWPRIO, "--",
+               sys.executable, "-X", "utf8", SEAT_H2H,
+               "--since", _since, "--by-arm", "--top", "32"]
+        rows = {}
+        try:
+            p3 = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=1800)
+            rows = parse_h2h(p3.stdout or "")
+        except subprocess.TimeoutExpired:
+            log("!! V 机制读数（_seat_h2h）超时")
+        base_row = rows.get((baseline, "我方"))
+        for cand in v_cands:
+            ok, why = judge_v_mech(base_row, rows.get((cand, "我方")))
+            tag = {True: "PASS", False: "WARN", None: "UNKNOWN"}[ok]
+            log("  %s 机制（爆头/胡、番/胡）：%s ⇒ %s" % (cand, why, tag))
+            append_v_record({"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "arm": cand,
+                             "baseline": baseline, "ok": ok, "why": why,
+                             "base": base_row, "cand": rows.get((cand, "我方"))})
+            if ok is False:
+                warns.append("%s 机制不达标（%s）" % (cand, why))
+            elif ok is None:
+                try:
+                    with io.open(UNK, "w", encoding="utf-8") as f:
+                        f.write("%s %s 机制读数缺失：%s\n"
+                                % (time.strftime("%Y-%m-%d %H:%M:%S"), cand, why))
+                except Exception:
+                    pass
+    if not any("baotou" in c.lower() for c in cands) and os.path.exists(UNK):
+        try:
+            os.remove(UNK)
+        except Exception:
+            pass
 
     # ★ R1431：顺带跑一次「提交延迟 + 失效动作」审计（预登记的 "超窗 = 0" 护栏），只记不判（避免历史尾部造噪）
     if not a.dry_run:

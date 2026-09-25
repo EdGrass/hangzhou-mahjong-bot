@@ -5271,3 +5271,30 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 
 > **遗留纪律**：`_adopt_when_ready.py`（役 2→役 3）未接该检查（它已跑完且幂等）；
 > 若将来复用它起新役，**必须一并接上 `mech_state`**。
+
+### §V.206 机制守护**对三臂役根本没跑** + V 轴机制终于有人算（R1481）
+
+**发现 1（最严重）**：`var/_mech_watch.py` 只读 `.ab_mode` 的 **`a`/`b`**。役 3 是三臂（`{"arms":[...]}`）
+⇒ `arms=[None, None]` ⇒ `cands=[]` ⇒ **整个脚本静默 no-op**。实测输出：
+`役内无候选臂（arms=[None, None], baseline=speedvalue）⇒ no-op`。
+
+⇒ `var/.mech_warn` 永远不写 ⇒ **§V.205（R1480）刚接上的 B3 守卫在实践里永远不会触发**。（同类静默失效的第 5 个。）
+
+**修 1**：新增 `arms_of(cfg)`（与 `_ab_driver.arms_of` 同口径）⇒ 修后 dry-run 正确列出两个候选。
+
+**发现 2**：V 轴的**真实机制从未被算过**。campaign7 §2 把它定义为「**爆头/胡 上升 且 番/胡 上升**」，
+而 `_mech_watch` 对 `baotou` 只查 **draw 足迹**（必要条件，不是机制）；唯一能算它的 `var/_seat_h2h.py --by-arm`
+**没被接入任何自动判读**。
+
+**修 2**：`parse_h2h()` + `judge_v_mech()`，在时延审计前插入 V 读数（`_seat_h2h --by-arm --top 32`，经
+`_lowprio_run.py` 降级）：
+
+| 结果 | 处置 |
+|---|---|
+| 爆头/胡 **且** 番/胡 都升 | PASS，读数落 `var/_v_mech_readings.jsonl`（B1/B2 可查） |
+| 不满足 | 进 `warns` ⇒ `var/.mech_warn` ⇒ `_adopt_pair` 按 **B3 不采用** |
+| **局数 < 320**（≈ 40 房） | **不判** —— 只写 `var/.v_mech_unknown`（响亮不阻塞） |
+
+最后一行是刻意的：开局 2 房的噪声若被当成 B3，**会把好臂挂掉**。
+
+**验证**：`tests/test_mech_watch_arms.py` **11 项**；相关 **70 项全绿**。

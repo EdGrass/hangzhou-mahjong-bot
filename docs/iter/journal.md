@@ -26953,3 +26953,26 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     真实环境 dry-run 仍正确报“判词未决定性（缺 `.verdict_done_役3bc`）⇒ 不动”；相关测试 **80 项全绿**。
   - **未接的一处写进规程**：`_adopt_when_ready.py`（役 2→役 3）**没接**这个检查 —— 它已于 09-25 20:52 跑完且幂等（`.adopted_役2`），
     而役 3→役 4 的唯一执行者是 `_adopt_pair`。若将来复用 `_adopt_when_ready` 起役，**必须一并接上 `mech_state`**。
+
+- [R1481 | 2026-09-25 21:5x ★★★★★**机制守护对三臂役“永远不跑”（只读 a/b 字段），且 V 轴的真实机制从未被算过**]
+  - **发现 1（最严重）**：`var/_mech_watch.py` 只读 `.ab_mode` 的 **`a`/`b`（两臂时代）** 字段。而役 3 是**三臂**，
+    `.ab_mode` 是 `{"arms": [...]}` ⇒ `arms=[None, None]` ⇒ `cands=[]` ⇒ **整个脚本静默 no-op**。实测（本轮）：
+    `python -X utf8 var/_mech_watch.py --dry-run` 输出“**役内无候选臂（arms=[None, None], baseline=speedvalue）⇒ no-op**”。
+    后果：役 3 的两个候选都有预登记机制端点，但**机制守护根本没在跑** ⇒ `var/.mech_warn` 永远不写
+    ⇒ **上一轮（R1480）刚接上的 B3 守卫在实践里永远不会触发**。这是同一类静默失效的第 5 个。
+  - **修 1**：新增 `arms_of(cfg)`（与 `_ab_driver.arms_of` 同口径：优先 `arms` 列表，兼容 `a`/`b`）。
+    修后 dry-run 正确列出 **两个候选**：`speedvaluebc`、`speedvaluebaotouv5`。
+  - **发现 2**：V 轴的**真实机制从未被算过**。campaign7 §2 把 V 机制定义为
+    「**爆头/胡 上升 且 番/胡 上升**」（它自己说“本轴的全部理由就是赢得大”），而 `_mech_watch` 对 `baotou`
+    只查 **draw 足迹**（必要条件，**不是机制本身**）；能算它的只有 `var/_seat_h2h.py --by-arm`，而它**没被接入任何自动判读**。
+  - **修 2**：新增 `parse_h2h()` + `judge_v_mech()`，并在时延审计前插入 V 轴读数：
+    跑 `_seat_h2h.py --by-arm --top 32`（经 `var/_lowprio_run.py` 降级，保持“不与对局抢 CPU”），解析每臂的
+    **爆头/胡、番/胡、局数**。
+    ① 两项都升 ⇒ PASS，读数落 `var/_v_mech_readings.jsonl`（B1/B2 的可查记录）；
+    ② 不满足 ⇒ 进 `warns` ⇒ `var/.mech_warn` ⇒ `_adopt_pair` 按 **B3 不采用**；
+    ③ **局数 < 320（≈ 40 房）⇒ 不判**，只写 `var/.v_mech_unknown`（**响亮但不阻塞**）——
+    否则开局 2 房的噪声会被当成 B3，**把好臂挂掉**。
+  - **自己踩的坑（被测试当场抓住）**：我补丁时把 `def parse_h2h(text):` 那一行**盖掉**了，
+    导致函数体被吞进 `arms_of` 里（`AttributeError: no attribute 'parse_h2h'`）⇒ 已恢复并重跑。
+  - **验证**：新增 `tests/test_mech_watch_arms.py` **11 项**（`arms_of` N 臂/旧格式、表格解析、
+    两项都升/只升一项/样本不足）；相关测试 **70 项全绿**。
