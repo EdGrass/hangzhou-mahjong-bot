@@ -51,6 +51,7 @@ $opsScripts = @(
   "var/_campaign_ready.py",
   "var/_prereg_lint.py",        # ★ R1506：`_campaign_ready` 的格式门调它（不入清单 ⇒ clone 里起役体检必失败）
   "var/_arm_path_audit.py",       # ★ R1514：预登记“起役命令”第 1 条要跑它（臂路径审计）；不入清单 ⇒ clone 里「文件不存在」
+  "var/_campaign_status.py",     # ★ R1527：HANDOFF「一屏总览」命令；不入清单 ⇒ clone 里「文件不存在」
   "var/_ps.py",                  # ★ R1379：PowerShell 解析器（_4test_gate_precheck / _bsegment / _enter_event 都用）
   "var/_m10_latency_gate.py",  # ★ R1377：闭包依赖 —— M=10 延迟门禁（役前必跑）
   "var/_gang_now.py",  # ★ R1377：闭包依赖 —— 杠频读数（选臂包⑥）
