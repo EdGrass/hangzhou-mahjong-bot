@@ -68,6 +68,34 @@ class TestFourCell(unittest.TestCase):
         self.assertEqual("none", AP.pick_row(False, False))
 
 
+class TestVRuleConflict(unittest.TestCase):
+    """R1487\uff1aV \u8f74\u526f\u7aef\u70b9\u7684**\u53e3\u5f84\u51b2\u7a81**\uff08campaign7 \u00a72 \u53ea\u8981\u65b9\u5411 vs _gate2 \u901a\u7528 z\u22651.50\uff09\u3002
+
+    \u8fd9\u4e00\u683c\u4e0d\u80fd\u8ba9\u673a\u5668\u60c4\u60c4\u5f53\u201c\u4e0d\u91c7\u7528\u201d\uff1a\u9884\u767b\u8bb0\u7684 B1 \u5176\u5b9e\u5df2\u7ecf\u6ee1\u8db3 \u21d2 \u5e94\u201c\u539f\u5730\u4e0d\u52a8 + \u843d\u6807\u8bb0\u7b49\u4eba\u5224\u201d\u3002"""
+
+    def test_parse_gate2_zs(self):
+        self.assertEqual((1.83, 1.77), AP.parse_gate2_zs(
+            u"ADOPT speedvalue\uff08\u548c\u724c\u7387 z=+1.83\u3001\u756a z=+1.77\u3001\u62a4\u680f\u901a\u8fc7\uff09"))
+        self.assertEqual((1.24, 1.41), AP.parse_gate2_zs(
+            u"UNDECIDED\uff08\u548c\u724c\u7387 z=+1.24\u3001\u756a z=+1.41\uff09\u21d2 \u7ee7\u7eed\u6512\u623f"))
+        self.assertEqual((None, None), AP.parse_gate2_zs(u"REFUSE / CONTINUE \u2014\u2014 \u590d\u76d8\u8986\u76d6 < 70%"))
+        self.assertEqual((None, None), AP.parse_gate2_zs(""))
+        self.assertEqual((-2.0, 0.5), AP.parse_gate2_zs(u"REJECT speedvalue\uff08\u548c\u724c\u7387 z=-2.0\u3001\u756a z=+0.5\uff09"))
+
+    def test_conflict_only_in_the_gap_cell(self):
+        arm = "speedvaluebaotouv5"
+        self.assertTrue(AP.v_rule_conflict(False, arm, 1.7, 0.9))    # \u4e3b\u8fc7\u3001\u526f\u65b9\u5411\u6b63\u4f46 z<1.5 \u21d2 \u51b2\u7a81
+        self.assertFalse(AP.v_rule_conflict(False, arm, 1.7, 1.6))   # \u526f\u4e5f\u8fc7 \u21d2 \u672c\u6765\u5c31\u4f1a\u88ab\u5224 ADOPT
+        self.assertFalse(AP.v_rule_conflict(False, arm, 1.2, 0.9))   # \u4e3b\u4e0d\u8fc7 \u21d2 \u6b63\u5e38\u672a\u51b3
+        self.assertFalse(AP.v_rule_conflict(False, arm, 1.7, -0.3))  # \u526f\u65b9\u5411\u4e3a\u8d1f \u21d2 \u9884\u767b\u8bb0\u4e5f\u4e0d\u6ee1\u8db3
+        self.assertFalse(AP.v_rule_conflict(True, arm, 1.7, 0.9))    # \u5df2 ADOPT
+        self.assertFalse(AP.v_rule_conflict(False, "speedvaluebc", 1.7, 0.9))  # BC \u7528\u901a\u7528\u53e3\u5f84
+        self.assertFalse(AP.v_rule_conflict(False, arm, None, None))  # \u8bfb\u4e0d\u51fa \u21d2 \u4e0d\u731c
+
+    def test_conflict_marker_in_var(self):
+        self.assertTrue(AP.CONFLICT_OUT.replace("\\", "/").endswith("var/.VERDICT_RULE_CONFLICT"))
+
+
 class TestB2AndVMech(unittest.TestCase):
     """R1486\uff1a\u9884\u767b\u8bb0\u7684 **B2**\uff08\u673a\u5236\u6210\u7acb\u3001\u4e3b\u7aef\u70b9\u672a\u8bc1\u5b9e\uff09\u5fc5\u987b\u843d\u76d8\u3002
 

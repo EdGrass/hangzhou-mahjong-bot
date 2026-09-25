@@ -51,6 +51,9 @@ LAST = "★ 判定："  # ★ 判定：
 MECH_WARN = os.path.join(ROOT, "var", ".mech_warn")
 VREC = os.path.join(ROOT, "var", "_v_mech_readings.jsonl")
 B2_OUT = os.path.join(ROOT, "var", ".B2_CANDIDATES")
+CONFLICT_OUT = os.path.join(ROOT, "var", ".VERDICT_RULE_CONFLICT")
+Z_MAIN_MIN = 1.50      # 主端点（所有役）
+Z_SEC_GENERIC = 1.50   # `_gate2` 对副端点的**通用**阈值
 
 
 def log(msg):
@@ -97,6 +100,38 @@ def v_mech_last(arm, path=None):
     if not last:
         return None, "无记录"
     return last.get("ok"), (last.get("why") or "")
+
+
+def parse_gate2_zs(line):
+    """从 `_gate2` 的 `★ 判定：` 行里取 **( 主 z, 副 z )**；取不到返回 (None, None)。
+
+    行样（实测）：
+      `ADOPT speedvalue（和牌率 z=+1.83、番 z=+1.77、护栏通过）`
+      `UNDECIDED（和牌率 z=+1.24、番 z=+1.41）⇒ 继续攒房`
+    """
+    zm = re.search(r"和牌率\s*z=([+-]?[\d.]+)", line or "")
+    zs = re.search(r"番\s*z=([+-]?[\d.]+)", line or "")
+    return (float(zm.group(1)) if zm else None,
+            float(zs.group(1)) if zs else None)
+
+
+def v_rule_conflict(adopted, arm, z_main, z_sec):
+    """★ R1487：**V 轴副端点的口径冲突**。
+
+    campaign7 §2 对 V 的副端点写的是“副（**本役特有：必须为副**）、阈值 = **候选 > 基线**”
+    —— **只看方向**；而 `_gate2` 对副端点用的是**通用** z ≥ 1.50。
+    ⇒ 一旦落在“主 z ≥ 1.50、副方向为正但 **0 < 副 z < 1.50**”这一格，
+    自动判词会说 UNDECIDED（到盒则 BOXED），而**预登记的 B1 其实已经满足** ⇒
+    不能让机器惄惄把它当“不采用”。本函数只负责**识别冲突**，不自己改判——
+    调用方应“**原地不动 + 落标记等人判**”。
+    """
+    if adopted:
+        return False
+    if "baotou" not in (arm or "").lower():
+        return False
+    if z_main is None or z_sec is None:
+        return False
+    return (z_main >= Z_MAIN_MIN) and (0.0 < z_sec < Z_SEC_GENERIC)
 
 
 def is_b2(adopted, mstate, v_ok):
@@ -251,6 +286,26 @@ def main(argv=None):
             return 2
         if mstate == "fail" and adopted is True:
             adopted, why = False, "机制端点不达标 ⇒ 预登记 B3 本役作废（%s）" % mwhy
+        _zm, _zs = parse_gate2_zs(line)
+        if v_rule_conflict(adopted is True, arm, _zm, _zs):
+            _msg = (u"\u5f79 3 \u526f\u7aef\u70b9\u53e3\u5f84\u51b2\u7a81\uff1a%s \u4e3b z=%s \u2265 1.50\u3001\u526f z=%s \u5728 (0,1.50) \u21d2 "
+                    u"_gate2 \u901a\u7528\u53e3\u5f84\u5224\u201c\u672a\u51b3\u201d\uff0c"
+                    u"\u4f46 campaign7 \u00a72 \u5bf9 V \u7684\u526f\u7aef\u70b9\u53ea\u8981\u2018\u5019\u9009 > \u57fa\u7ebf\u2019 \u21d2 **\u9884\u767b\u8bb0 B1 \u5df2\u6ee1\u8db3**") % (arm, _zm, _zs)
+            try:
+                with io.open(CONFLICT_OUT, "w", encoding="utf-8", newline="") as f:
+                    f.write("%s %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), _msg))
+                    f.write("  \u5224\u8bcd\u884c\uff1a%s\n" % (line or "(\u7a7a)"))
+                    f.write("  \u8bf7\u4eba\u6309 campaign7 \u00a72/\u00a74 \u4e0e yaku3-verdict-readcard.md \u5b9a\u6027\uff08\u4e0d\u81ea\u52a8\u91c7\u7528\uff09\u3002\n")
+            except Exception as _e:
+                log("!! \u5199\u53e3\u5f84\u51b2\u7a81\u6807\u8bb0\u5931\u8d25\uff1a%s" % str(_e)[:40])
+            log("!! " + _msg + " \u21d2 \u539f\u5730\u4e0d\u52a8\uff08\u5df2\u843d %s\uff09" % os.path.basename(CONFLICT_OUT))
+            return 2
+        if os.path.exists(CONFLICT_OUT):
+            try:
+                os.remove(CONFLICT_OUT)
+            except Exception:
+                pass
+
         log("%s：判词=「%s」｜%s｜机制=%s（%s）｜%s"
             % (arm, line[:40], why, mstate, mwhy, info))
         if adopted is None:
