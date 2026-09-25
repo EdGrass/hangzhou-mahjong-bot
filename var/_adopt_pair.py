@@ -427,7 +427,10 @@ def main(argv=None):
     if b2:
         try:
             with io.open(B2_OUT, "w", encoding="utf-8", newline="") as f:
-                f.write("%s 役三层 B2 备选臂（预登记：机制成立、主端点未证实）\n" % time.strftime("%Y-%m-%d %H:%M:%S"))
+                # ★ R1535：把**本役窗口**写进标记头 —— 10/5 提案要按这个窗口跑并行比较，
+                #   否则拿到臂名却不知道用哪个 `--since`，等于没法比较。
+                f.write("%s 役三层 B2 备选臂（窗口 since=%s；预登记：机制成立、主端点未证实）\n"
+                        % (time.strftime("%Y-%m-%d %H:%M:%S"), since or u"（未知）"))
                 for _a, _w in b2:
                     f.write("  %s —— %s\n" % (_a, _w))
                 f.write("注：他们**没有**通过预登记判词 ⇒ 按 §V.161 规则 1 **不进自动候选池**；\n"

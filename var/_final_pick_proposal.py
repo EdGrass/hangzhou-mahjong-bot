@@ -16,6 +16,7 @@ import argparse
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -25,6 +26,72 @@ AB = os.path.join(ROOT, "var", ".ab_mode")
 OUT = os.path.join(ROOT, "var", "_final_pick_proposal.txt")
 LOG = os.path.join(ROOT, "var", "_final_pick_proposal.log")
 LEDGER = os.path.join(ROOT, "var", "auto_ranking.jsonl")
+B2 = os.path.join(ROOT, "var", ".B2_CANDIDATES")
+
+
+def read_text(path):
+    """读一个小文本文件（不存在/读失败 ⇒ ""），句柄必关。"""
+    try:
+        with io.open(path, encoding="utf-8-sig") as f:
+            return f.read().strip()
+    except Exception:
+        return ""
+
+
+def parse_b2(text):
+    """★ R1535：解析 `var/.B2_CANDIDATES` ⇒ (窗口, [臂…])。
+
+    文件样（`_adopt_pair` 写）：
+        2026-09-26 05:50 役三层 B2 备选臂（窗口 since=2026-09-25 20:52:39；预登记：…）
+          speedvaluebc —— 机制成立、主端点未证实（判词：…）
+        注：他们**没有**通过预登记判词 ⇒ …
+    """
+    win, arms = "", []
+    for ln in (text or "").splitlines():
+        raw = (ln or "").rstrip()
+        s = raw.strip()
+        if not win:
+            m = re.search(r"since=([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2})", s)
+            if m:
+                win = m.group(1)
+        # 只认“**保留缩进**的两空格 + ——”的臂行（标题/注/说明都不算）——
+        # 判缩进必须看 raw，不能看 strip 后的 s（否则恒为假：测试当场抓到过）。
+        if not raw.startswith("  ") or u"——" not in s:
+            continue
+        arm = s.split(u"——", 1)[0].strip()
+        if arm and (" " not in arm) and arm not in arms:
+            arms.append(arm)
+    return win, arms
+
+
+def b2_section(b2txt, min_rooms=30, strong_top=32):
+    """★ R1535：B2 备选臂的**并行比较材料**（只追加读数，不改 §V.66 判据）。
+
+    为什么要有：campaign3 §4 B2 / campaign7 §4 B2 都要求把「机制成立、主端点未证实」的臂
+    **保留为正式赛备选**、与 §V.66 口径**并行比较**；而 `_adopt_pair` 把它们落进
+    `.B2_CANDIDATES` 之后，**除了心跳 0d 念一遍，没有任何脚本生成"比较材料"** ⇒
+    10/5 提案（唯一的人工决策材料）里看不到这些臂的读数 ⇒ 预登记要求的"并行比较"落空。
+    **纪律不变**：B2 臂按 §V.161 规则 4 **不进自动池**；只有人显式改选才可能上。
+    """
+    win, arms = parse_b2(b2txt)
+    out = ("\n" + "=" * 78 + "\n"
+           + "★ B2 备选臂（R1535）—— 预登记要求「保留为备赛备选、与 §V.66 口径并行比较」\n"
+           + "★ 纪律：B2 = **机制成立、主端点未证实** ⇒ 按 §V.161 规则 4 **不进自动池**；\n"
+           + "  只有人按 §V.247 在本提案里显式改选才可能上，且必须先看**它自己那一役**的读数。\n"
+           + "=" * 78 + "\n" + (b2txt or "").strip() + "\n")
+    if win and arms:
+        try:
+            q = subprocess.run([sys.executable, "-X", "utf8", os.path.join(ROOT, "var", "_pick_arm.py"),
+                                "--since", win, "--min-rooms", str(min_rooms), "--strong-top", str(strong_top)],
+                               cwd=ROOT, capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=900)
+            out += ("\n（下面是它们**自己那一役**的窗口 since=%s 的读数；"
+                    "与上面当前窗口的读数**不可混读**）\n" % win) + (q.stdout or "").strip() + "\n"
+        except Exception as e:
+            out += "\n（B2 窗口读数不可得：%s）\n" % str(e)[:60]
+    else:
+        out += "\n（标记里没记窗口 ⇒ 请按该臂所在役的窗口手工跑 `var/_pick_arm.py --since <役窗口>`）\n"
+    return out
 
 
 def main():
@@ -107,6 +174,9 @@ def main():
                  + "★ 为何要看：正式赛是强场（16 人）⇒ 至少并读「强手房 ≥1」与「强手房 ≥2」两层；\n"
                  + "  两层优劣**可能方向相反**（役 2 实测：≥1 层 c151 好、≥2 层 value 好）。\n"
                  + "=" * 78 + "\n" + strat + "\n")
+    _b2 = read_text(B2)
+    if _b2:
+        text += b2_section(_b2, a.min_rooms, a.strong_top)
     if a.dry_run:
         print(text)
         return 0

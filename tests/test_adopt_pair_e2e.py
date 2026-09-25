@@ -116,6 +116,10 @@ class TestAdoptPairEndToEnd(unittest.TestCase):
         t = self._run(REJECT_A, REJECT_B)
         self.assertIn("--baseline speedvalue ", t + " ")
         self.assertIn("--candidates speedvaluemeldp45", t)
+        # ★ R1535：B2 标记必须**记下本役窗口** —— 否则 10/5 提案拿到臂名也不知道用哪个 --since，
+        #   预登记要求的“与 §V.66 口径并行比较”就没法做。
+        b2 = io.open(AP.B2_OUT, encoding="utf-8").read()
+        self.assertIn(u"窗口 since=2026-09-25 20:52:39", b2)
 
     def test_v_mech_fail_downgrades_row_to_none(self):
         """★ R1534：V 被 gate2 判正、但机制读数**明确不达标** ⇒ 按 B3 作废 ⇒ 回 NONE 行。"""
