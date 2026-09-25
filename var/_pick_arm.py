@@ -109,10 +109,15 @@ def main(argv=None):
         a0, a1 = table[0], table[1]
         d = a1["mean_strong"] - a0["mean_strong"]
         pooled = math.sqrt(a0["se"] ** 2 + a1["se"] ** 2) if not (math.isnan(a0["se"]) or math.isnan(a1["se"])) else float("nan")
-        print("前两名：%s(%.1f) vs %s(%.1f)  Δ=%+.1f  2×SE=%.1f  ⇒ %s"
+        print("前两名：%s(%.1f) vs %s(%.1f)  Δ=%+.1f  2×SE=%.1f  |z|=%.2f  ⇒ %s"
               % (a0["arm"], a0["mean_strong"], a1["arm"], a1["mean_strong"], d, 2 * pooled,
+                 (abs(d) / pooled) if pooled else float("nan"),
                  "**可区分**（按主序列取 %s）" % a0["arm"] if abs(d) >= 2 * pooled
                  else "**不可区分**（进入两半 Pareto 破平）"))
+        # ★ R1505：把“不可区分”的读法写进输出（**不改任何阈值**）
+        print("   〈R1505 读数〉|z|≥2.0 = 主序列可区分；1.5≤|z|<2.0 = 与【役门禁】同档但未过选臂口径；|z|<1.5 = 连门禁口径也不显著。")
+        print("   〈R1505 读数〉**不可区分 ≠ 没差别**：强手房分/房池化 SD≈129 分/房 ⇒ 80 房/臂时 MDE≈41 分（R1501/R1505 实测），"
+              "而实测臂间差只有 22~38 分 ⇒ 这根尺子本来就量不出。必须按下面的 ② 两半 Pareto 读。")
     print()
     print("下一步（§V.66 规则）：")
     print("  ① 主序列：房数 ≥%d 且 **强手房分/房**，但 |Δ| < 2×SE 视为不可区分（上面已算）" % a.min_rooms)
