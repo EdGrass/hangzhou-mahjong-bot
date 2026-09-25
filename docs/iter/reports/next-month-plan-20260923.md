@@ -3910,7 +3910,7 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 ⇒ 它们会在役次窗口被判 **❌ 无单测**。已补：共享工厂 `tests/_baotouv_dose.py` + `test_speedvaluebaotouv10.py` / `...20.py`（**12 项 OK**，
 含方向不变式）；就绪门复核 ⇒ **[1] 两臂 ✅ ok**。
 
-**预案（待用户/计划裁决，本轮不自行采用）**：V 轴 = **“赢分大小”54% 缺口**的唯一候选，而役 3 只给它一次机会；
+**预案（已作废 —— 见 §V.202：换剂量是 no-op）**：V 轴 = **“赢分大小”54% 缺口**的唯一候选，而役 3 只给它一次机会；
 按役 2 同类功率估，**它很可能到役盒仍不可判定**。⇒ 若判词为“不可判定”（非明确判负），
 建议 10/5–10/6 腾一役做 **V 第二枪**（换剂量档 10/20）；若明确判负则不重测（按 §V.44 选臂）。
 前提：需先为该剂量档写一份**有效预登记**（campaign7 只被了 `baotouv5`）。
@@ -4106,6 +4106,7 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 - **频率端不是瓶颈**（胡率 ≥ 对手）；瓶颈在**「爆头/翻倍」这一侧的净差**。
 - ① 役 3 的 V 臂（`speedvaluebaotouv5`）**保持在三臂里**（不要为了腾位砍掉它）；
 - ② 若役 3/4 的 V 轴判词仍为“不可判定”，10/5–10/6 的 V 剂量档第二枪（`baotouv10/20`，预登记已就绪 `docs/iter/reports/prereg-campaign7-speedvaluebaotouv-20260924.md`）**优先级高于其他单轴**；
+  - ⚠ **作废（§V.202/R1477）**：这一条有**两个错**——① “预登记已就绪”是**错的**：`prereg-campaign7` 只登记了 **dose 5**（`SpeedValueBaotouV5`），10/20 没有预登记；② **换剂量本身是 no-op**：4200+ 决策上 `baotouv5/10/20` 改动 **580/580/584（13.8%/13.8%/13.9%）**⇒ 剂量在 5 已饱和，第二枪必须是**加功率/叠层**，不是换剂量。
 - ③ 防守侧（被爆头 25 轮 vs 得手 10 轮）**目前没有对应臂**；若要开轴需新预登记，且属“减少失分”而非“增加得分”，**暂不动**。
 
 **5. 口径提醒**：本场 `Rounds=16`（训练 8）⇒ 分/房与役内阈值**不可直接比**；率类（胡率/听牌率/爆头态率）与分/轮可直接比。
@@ -4252,7 +4253,7 @@ python -X utf8 var/_campaign_ready.py --arms speedvaluebc,speedvaluebaotouv5 `
 | 役 2（进行中） | 9/23 ⇒ 9/25 晨 | speedc151 | speedvalue | 已有 59/58 房，80/臂 后出判词 |
 | **役 3** | 9/25 ⇒ 9/27 | `speedvalue` | `speedvaluebc`、`speedvaluebaotouv5` | **三臂**：同时量 BC 与 V（两条单轴） |
 | **役 4** | 9/27 ⇒ 9/29 | 9/25 役胜出者 | `speedvaluemeld`、`speedvaluemeldp45`、`speedvaluebcmeld`（按役 3 四格取舍） | **副露/索取轴**（§V.159 一号优先） |
-| **役 5** | 9/29 ⇒ 10/1 | 役 4 很胜者 | `speedvaluebaotouv10`、`speedvaluebaotouv20`（剂量档） | **V 剂量第二枪**（用户：都做） |
+| **役 5** | 9/29 ⇒ 10/1 | 役 4 赢家 | ~~`speedvaluebaotouv10/20`（剂量档）~~ | ~~V 剂量第二枪~~ ⚠ **已作废（§V.202）**：剂量在 5 已饱和⇒ 役 5 = **叠层验证**（见 §V.186 + `prereg-campaign8-combo`） |
 | **役 6** | 10/1 ⇒ 10/3 | 役 5 赢家 | 三条轴的**最优组合**（如 `speedvaluebcmeld` / `speedvaluebaotouvmeld`） | 组合验证 |
 | 役 7（buffer） | 10/3 ⇒ 10/5 | 役 6 赢家 | 重复/确认或最后一个未测方向 | 只在前面有“不可判定”时使用 |
 | 选臂与提交 | 10/5 ⇒ 10/8 12:00 | — | `var/_pick_arm.py` + 提交闭包 | 10/10 正式赛 |
@@ -5161,3 +5162,31 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 **已运行**：计划任务 `HangzhouMajNextYakuNotice`（每 10 分钟、pythonw、只读）；实跑首次 **rc=0 且静默 no-op**（役 4 还没起）。
 两个新文件已加入 `_prepare_submission.ps1` 的 `$opsScripts`（闭包门 rc=0）。
 单测 `tests/test_next_yaku_notice.py` **11 项**（含隔离 `--var-dir` 的端到端与幂等）。
+
+### §V.202 役 5 的身份定案：**叠层验证**（R1477，已用实测排除剂量第二枪）
+
+**修正前的状态**：役 5 在计划里有**四处不一致**的说法 —— §V.143、§V.160（役 5 行）、line 4108 都说
+“`speedvaluebaotouv10/20` 剂量第二枪”，§V.186 草案又说“三层组合”。而 line 4108 还声称那已有预登记。
+
+**本轮实测（决定性）**
+
+| 臂（同一批 4216 个出牌决策） | 改动数 | 改动率 |
+|---|---|---|
+| `speedvaluebaotouv5` | 580 | **13.8%** |
+| `speedvaluebaotouv10` | 580 | **13.8%** |
+| `speedvaluebaotouv20` | 584 | **13.9%** |
+
+⇒ **剂量在 5 已饱和**：加到 10/20 几乎不改任何决策 ⇒ “换剂量”是 **no-op 实验**。
+而排期只剩**一个役位的余量**（§V.195）⇒ 把它烧在一个 no-op 上会**直接牺牲叠层验证**。
+
+**另一个确凿**：`prereg-campaign7-speedvaluebaotouv-20260924.md` §1 只登记了 **`SpeedValueBaotouV5`（dose 5）**，
+10/20 **没有预登记** ⇒ line 4108 的“预登记已就绪”是错的。
+
+**定案**
+
+1. **役 5 = 叠层验证**（§V.186 的四分支 + 已有合法预登记 `prereg-campaign8-combo-20260925.md`）；
+2. §V.143 的预案、§V.160 的役 5 行、line 4108 那一条 —— **全部已作废**（原文处已内联标注，防止将来被误读）；
+3. “V 第二枪”若还想要，它的**正确形式 = 在已采用层上叠 V**（§V.165），不是换剂量 ——
+   而那正好就是本节的役 5。
+
+⇒ 上一轮 `var/_next_yaku_notice.py` 只列组合臂选项是**对的**，本节给它补上了硬证据。
