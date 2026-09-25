@@ -27748,3 +27748,15 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     验证 = ① 解析到**同一个 `.pt` 文件**；② 决策足迹与现状**逐条一致**（同样语料）。
   - **门扩展**：可移植性门 → 也扫 **`tools/*.py`**（当场就会抓到那四个）；测试 2 项 OK。
   - **验证**：4 个 tools 脚本均 `import os` ✓、`meld_gate_check.py` 烟测输出正常 ✓；门 2 项 OK。
+
+- [R1530 | 2026-09-26 05:00 ★★★**撤回 R1529 的 ③**：`bot/` 里的网路径**从来就是可移植的**（我把“本机求值后的绝对路径”当成了源码写死）]
+  - **错在哪**：R1529 我报“`bot/` 4 个臂的 `DEFAULT_BC`/`DEFAULT_MELD` 是本机绝对路径”。
+    那是我用 `inspect.signature()` / `getattr()` 看到的**运行时求值**（在本机当然是 `D:\hangzhouMaj\...`），**不是源码文本**。
+  - **源码实体（逐行查过）**：
+    `bot/speedvaluemeld.py:37` `ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))`；`:38` `DEFAULT_MELD = os.path.join(ROOT, "var", "c121_meld_net.pt")`；
+    `bot/speedvaluebc.py:45-46` 同样从 `__file__` 推 + `os.path.join(ROOT, "var", "c073_orig_w2_net.pt")`；其余三个臂均是**导入这两个常量**。
+    ⇒ **clone 到任意路径都能找到 `.pt`**，**不存在静默退化问题**，无需任何提交前补丁。
+  - **处置**：删掉本轮为此写的 `var/_p0_model_paths_patch.py`（针对不存在的问题，留着只会误导）；计划 §V.251 的 ③ 行同步标为**已撤回**。
+  - **R1529 其余部分仍成立**：`tools/meld_*.py` 四个确实写着 `ROOT = r'D:\hangzhouMaj'`（**源码就是绝对路径**）⇒ 修正成立；`var/_ps_syntax_check.ps1` 也修了；
+    可移植性门扩到 `tools/` 也保留。（另：该轮给 ps1 加中文注释后缺 BOM，已补）。
+  - **教训（写进日志供后人）**：判“硬编码路径”必须**看源码文本**，不能看运行时求值；本轮已用脚本→源码逐行核对的方式冻结结论。

@@ -5987,7 +5987,7 @@ R1502 之前链上**一根孪生都没有** ⇒ 唯一逃生阀是退回 `speedv
 |---|---|---|
 | ① 可修 | `tools/meld_gate_check.py`、`meld_ukeire_cohort.py`、`meld_ukeire_cohort2.py`、`meld_window_split.py`（`ROOT = r'D:\hangzhouMaj'`）；`var/_ps_syntax_check.ps1`（待检路径写死） | **已改**为从 `__file__`/`$MyInvocation` 推 |
 | ② 故意 | `var/_register_*.ps1`（16）的绝对路径（它们生成的就是**本机任务定义**） | **不改**；已写进门注释 |
-| ③ **待补丁** | `bot/`：`speedvaluemeld.py`、`speedvaluebcmeld.py`、`speedvaluebcvmeld.py`、`speedvaluebaotouvmeld.py` 的 `DEFAULT_BC`/`DEFAULT_MELD` 是**本机绝对路径** | 役中冻结 ⇒ **役5 收口后、10/8 提交前**改相对路径；验证 = 解析到同一 `.pt` + 足迹一致 |
+| ③ ~~待补丁~~ **已撤回（R1530）** | ~~`bot/` 四个臂的 `DEFAULT_BC`/`DEFAULT_MELD` 是本机绝对路径~~：**看错了** —— 源码是 `ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))` + `os.path.join(ROOT, "var", ...)`，**本来就可移植**（我当时看的是运行时求值） | **无需任何补丁**；`var/_p0_model_paths_patch.py` 已删 |
 
 **为什么 ③ 重要**：clone 到其他路径时网加载失败 ⇒ **静默退化成 no-op**（“看着完整其实断链”）。
 **门**：可移植性门→也扫 `tools/*.py`（2 项 OK）。
