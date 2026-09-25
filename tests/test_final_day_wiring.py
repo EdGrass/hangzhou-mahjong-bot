@@ -224,6 +224,23 @@ class TestBoxedSentinel(unittest.TestCase):
         self.assertIn("-TokenFile %s -TournamentId <TID>", src)
 
 
+    def test_campaign_ready_runs_prereg_format_gate(self):
+        """★ R1506：起役前体检必须跑**预登记格式门**（只查“存在/未作废”会放行缺项的判据）。"""
+        import tempfile
+        sys.path.insert(0, os.path.join(ROOT, "var"))
+        import _campaign_ready as C
+        real = os.path.join(ROOT, "docs", "iter", "reports",
+                            "prereg-campaign8-combo-20260925.md")
+        self.assertTrue(os.path.exists(real), real)
+        ok, msg = C.check_prereg_format(real)
+        self.assertTrue(ok, "campaign8（决定最终臂的那份）必须格式合格：%s" % msg)
+        fd, bad = tempfile.mkstemp(prefix="prereg-selftest-", suffix=".md")
+        os.close(fd)
+        with io.open(bad, "w", encoding="utf-8") as f:
+            f.write("# 只有标题，没有任何必需项\n")
+        ok2, _ = C.check_prereg_format(bad)
+        self.assertFalse(ok2, "缺项预登记必须判不合格（否则格式门是空跑）")
+
     def test_m_high_marker_written_and_cleared(self):
         """★ R1504：M>10 必须落**可见标记** .EVENT_M_HIGH（不能只埋日志）；M≤10 自动清除。"""
         import tempfile

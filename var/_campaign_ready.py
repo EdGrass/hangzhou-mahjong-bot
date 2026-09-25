@@ -117,6 +117,24 @@ def check_guide_smoke():
     return False, (bad[0][:160] if bad else "冒烟存在失败项（详见 run_bot.py --smoke）")
 
 
+def check_prereg_format(path):
+    """★ R1506：预登记**格式体检** —— 缺必需项（臂/主端点/…/事前预测/风险）时，**起役就应该失败**。
+
+    为什么要加：R1506 实测发现决定最终臂的 `prereg-campaign8-combo-20260925.md` **缺「事前预测/风险」**，
+    而本工具的 `[2] 预登记文件` 当时只查 `os.path.exists` + `SUPERSEDED` ⇒ **照样 ✅ 放行**。
+    等于“起役前体检”给一份**不完整的判据**开了绿灯。现在改成直接调 `_prereg_lint.py`（单文件）。
+    """
+    d = os.path.dirname(path) or "."
+    try:
+        r = subprocess.run([sys.executable, "-X", "utf8", os.path.join(ROOT, "var", "_prereg_lint.py"),
+                            "--dir", d, "--pattern", os.path.basename(path)],
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=180)
+        return r.returncode == 0, ((r.stdout or "") + (r.stderr or ""))[-400:]
+    except Exception as e:
+        return False, "跑不了预登记体检：%s" % str(e)[:120]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--arms", required=True, help="逗号分隔的候选臂（要检查的）")
@@ -157,13 +175,18 @@ def main():
                 dead = ("SUPERSEDED" in head) or ("已作废" in head)
             except Exception:
                 dead = False
+        fmt_ok, fmt_msg = (True, "")
+        if ok and not dead:
+            fmt_ok, fmt_msg = check_prereg_format(p)      # ★ R1506：格式门（缺项即失败）
         tag = ("❌ 已作废（SUPERSEDED）" if dead
-               else ("✅" if ok else "❌ 不存在"))
+               else ("✅" if (ok and fmt_ok) else ("❌ 格式缺项" if ok else "❌ 不存在")))
         print("    %-70s %s" % (os.path.basename(p), tag))
         if not ok:
             bad.append("缺预登记：%s" % f)
         elif dead:
             bad.append("预登记**已作废**（SUPERSEDED），不能据它上臂：%s" % f)
+        elif not fmt_ok:
+            bad.append("预登记**格式缺项**（不能据它上臂）：%s\n      %s" % (f, fmt_msg.replace("\n", " ")[-300:]))
 
     if a.since:
         print("[3] 本役复盘覆盖（1 房 = 10 gid）")
