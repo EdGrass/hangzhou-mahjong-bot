@@ -1,30 +1,37 @@
-> ⚠ **入口指引（2026-09-24 09:20 更新 · 在此之前的内容均为历史记录）**
->
-> **本文件下半部分写于 2026-09-09~09-16，已过期**；它自己指向的 `docs/STATUS-20260916.md` 也已过时。
-> 请以以下**当前权威文档**为准：
+> ⚠ **入口指引（2026-09-25 22:45 更新 · 在此之前的内容均为历史记录）**
 >
 > | 用途 | 看哪个 |
 > |---|---|
-> | **作战计划（唯一权威，§A–§V.77）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1294**） |
-> | 当前役次进度 | `python -X utf8 var/_verdict_watch.py --label 役2 --since "2026-09-23 03:13:44" --baseline speedc151 --candidate speedvalue --mechanism pairs --check-only` |
-> | 一屏总览 | `python -X utf8 var/_campaign_status.py`（见 §V.29/§V.44） |
-> | 正式赛选臂 | `python -X utf8 var/_pick_arm.py --since "<近 14 天>"`（§V.66/§V.67） |
-> | 注册表健康 | `python -X utf8 var/_registry_sweep.py`（§V.74） |
+> | **作战计划（唯一权威，§A–§V.222）** | `docs/iter/reports/next-month-plan-20260923.md` |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1498**） |
+> | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
+> | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
+> | 当前役进度 | `python -X utf8 var/_verdict_watch.py --label 役3bc --since "2026-09-25 20:52:39" --baseline speedvalue --candidate speedvaluebc --mechanism none --check-only`（另一条把 `役3bc/speedvaluebc` 换成 `役3v/speedvaluebaotouv5`） |
+> | 一屏总览 | `python -X utf8 var/_campaign_status.py` |
+> | 排期 | `python -X utf8 var/_schedule_guard.py` |
+> | 环境体检 | `python -X utf8 tools/preflight.py`（READY / NOT READY） |
 >
-> **当前状态（2026-09-24 09:20）**
-> - 役 2（`speedc151` vs `speedvalue`）**47/80 + 47/80**，复盘覆盖 98%/100% ⇒ **判决 ETA ≈ 9/25 02:39**；
-> - 役 3 已定为**三臂役**：`speedvalue` 共享基线 + `speedvaluebc` + `speedvaluebaotouv5`（§V.48）；
->   起役窗口按**三段式**（A 只读门禁已提前跑完 → B ≈25 秒 → C 注册两对看护）（§V.51）；
->   起役清单**每条命令都已逐字实跑验收**（§V.75）；
-> - 候选/部署矩阵：5 条单轴候选 + 3 个分支组合臂 + 1 个三层部署臂（`speedvaluebcvmeld`），
->   全部具备注册/剂量/单测/预登记/足迹/方向/路径/**M=10 延迟**证据（§V.41/§V.61/§V.62/§V.73）；
-> - 选臂规则（10/7）：**强手房分/房 + 2×SE 不可区分判定 + 两半头号量 Pareto**（§V.66/§V.67）；
-> - 赛制/收尾：`_format_fidelity`（§V.46）、`_register_tminus_ready.ps1`（§V.53）、`_switch_to_official.ps1`（默认值已改显式必填，§V.54）、赛后 `_exit_official.py`（§V.65）。
+> **当前状态（2026-09-25 22:45）**
+> - **役 3 在跑**：`speedvalue`（共享基线）+ `speedvaluebc` + `speedvaluebaotouv5`；窗口 `started = 2026-09-25 20:52:39`。
+>   判词 ETA：**80 房/臂 ≈ 9/28 早**；役盒 120/臂 ≈ 9/29 下午。当前 **6 房、三臂 2/2/2**、局数全 80、复盘覆盖 100%。
+> - **机制端点首次真跑**（`_mech_watch`）：`speedvaluebc` 足迹 **15.6%**、`speedvaluebaotouv5` **14.2%**（都在预登记的 10–20% 带内 ⇒ **都不是 no-op**）；
+>   V 的**真实机制**（爆头/胡 与 番/胡）需 ≥320 局（≈ 40 房/臂），现为 `.v_mech_unknown`（**会自愈**）。
+> - **排期**：吞吐 **3.96 房/小时**（已独立复校）；全到盒收口约 **10/04 17:0x**；截止 10/7 08:30 ⇒ **余量 ~2.6 天**。
+> - **链路**：今晚修了 **12 处**“写了但没人执行/没人读”（熔断标记、到盒 sentinel、`.mech_warn` 无读者、
+>   `_mech_watch` 三臂 no-op、V 机制从未算过、三个读数工具只认两臂、证据链未入仓、标记无出口、B2 无落盘、
+>   副端点口径冲突、上线被挡无标记…），并立了 **总账 + 回归门**。
+> - **末端五步已彩排**：10/7 定臂 · 10/7 换臂（六步）· **10/8 提交（门禁现为 GO）** · 10/10 上线（fail-closed）· 10/10 T-5 保险。
+> - **交付物**：公网 clone ⇒ **1028 项测试全绿** + 文案↔代码版本门 + 泄密门 + 闭包门 全过（**今天即可提交**）。
+> - **唯一人工输入**：10/10 前把当天令牌存成 **`var/.token_final_20261010`**（缺它 ⇒ 不上线）。
+>
+> **自动化（34 台计划任务，体检全绿）**：判词看护（役2/役3bc/役3v）· 采用看护（役2/役3→役4）· 机制看护（6h）· 复盘看护（15min）·
+> 排期护栏（12h）· 自动愈合（5min）· 门户/官方守护 · 10/5 提案、10/7 定臂与换臂、10/8 提交、10/10 上线与保险。
+> **心跳看护 `10-7`**（每 2 小时、10 步）会报 7 类标记：熔断 / 下一步（役4→役5）/ 机制 / B2 备选 / 副端点冲突 / 上线被挡 / 其余总扫。
 >
 > **红线（不变）**：绝不强停 `_watchdog`/`_ab_driver`/`match_super`/`run_bot`；一账号一房；
-> **役中不改 `bot/` 既有文件**（只允许新增）；预登记阈值役中不改；测试与比赛物理隔离。
-
+> **役中不改 `bot/` 既有文件**（只允许新增）；预登记阈值役中不改；测试与比赛物理隔离；
+> **新增纪律**：任何新标记必须同时给出“谁读（代码）”或“看护第几步报”（总账 + 回归门）。
+>
 > ⚠ **本文件写于 2026-09-11，已过期。请先读 `docs/STATUS-20260916.md`（2026-09-16，含否定清单与正式赛就绪状态）。**
 > 本文件保留作为历史记录（策略谱系、协议事实、早期排除项仍有参考价值）。
 
