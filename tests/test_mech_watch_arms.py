@@ -39,6 +39,22 @@ class TestArmsOf(unittest.TestCase):
         self.assertEqual([], M.arms_of({}))
 
 
+class TestUnkAction(unittest.TestCase):
+    """R1484\uff1a`.v_mech_unknown` \u7684\u5199/\u5220\u7b56\u7565\u2014\u2014 **\u8bfb\u6570\u9f50\u4e86\u5fc5\u987b\u6e05\u6807\u8bb0**\u3002"""
+
+    def test_no_v_candidates_clears(self):
+        self.assertEqual("clear", M.unk_action([], []))
+
+    def test_all_judged_clears_even_if_failed(self):
+        # \u5224\u4e0d\u8fbe\u6807\u8d70 .mech_warn\uff1b\u201c\u65e0\u6cd5\u5224\u201d\u90a3\u4e2a\u6807\u8bb0\u5c31\u4e0d\u80fd\u7559\u7740
+        self.assertEqual("clear", M.unk_action(["v"], [True]))
+        self.assertEqual("clear", M.unk_action(["v"], [False]))
+
+    def test_any_unknown_writes(self):
+        self.assertEqual("write", M.unk_action(["v"], [None]))
+        self.assertEqual("write", M.unk_action(["v1", "v2"], [True, None]))
+
+
 class TestParseH2H(unittest.TestCase):
     def test_extracts_both_arms_and_sides(self):
         rows = M.parse_h2h(H2H)

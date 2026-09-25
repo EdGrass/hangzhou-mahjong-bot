@@ -145,6 +145,20 @@ def judge_v_mech(base, cand, min_rounds=None):
     return (bool(up_b and up_f)), why
 
 
+def unk_action(v_cands, states):
+    """`var/.v_mech_unknown` 的处置：`"write"` / `"clear"`。
+
+    ★ R1484：旧实现只在“V 读数为 None”时**写**、只在“当前役没有 V 候选”时**删**
+    ⇒ 早期因样本不足写下的标记，**读数齐了也不会消** ⇒ 看护会一直报“V 机制无法判”（陈旧标记误导）。
+    现在：有任一 V 候选判不出 ⇒ write；全部判出了（含判不达标）或没有 V 候选 ⇒ clear。
+    """
+    if not v_cands:
+        return "clear"
+    if any(x is None for x in states):
+        return "write"
+    return "clear"
+
+
 def append_v_record(rec, path=None):
     """V 机制读数落盘（JSONL）—— B1/B2 都需要它作为“机制是否成立”的可查记录。"""
     try:
@@ -180,6 +194,7 @@ def main():
         return 0
 
     warns = []
+    _states = []       # ★ R1484：V 候选的判定列表（供 unk_action 用；必须在循环外初始化）
     pairs = [(c, p) for c in cands for p in (phases_for(c) or [""])]
     for cand, ph in pairs:
         if not ph:
@@ -256,6 +271,7 @@ def main():
             append_v_record({"ts": time.strftime("%Y-%m-%d %H:%M:%S"), "arm": cand,
                              "baseline": baseline, "ok": ok, "why": why,
                              "base": base_row, "cand": rows.get((cand, "我方"))})
+            _states.append(ok)
             if ok is False:
                 warns.append("%s 机制不达标（%s）" % (cand, why))
             elif ok is None:
@@ -265,11 +281,18 @@ def main():
                                 % (time.strftime("%Y-%m-%d %H:%M:%S"), cand, why))
                 except Exception:
                     pass
-    if not any("baotou" in c.lower() for c in cands) and os.path.exists(UNK):
-        try:
+    # ★ R1484：标记的写/删**统一按 unk_action()** —— 读数齐了就必须清掉陈旧标记。
+    _act = unk_action(v_cands, _states)
+    try:
+        if _act == "write":
+            _miss = [c for c, st in zip(v_cands, _states) if st is None]
+            with io.open(UNK, "w", encoding="utf-8") as f:
+                f.write("%s V 轴机制读数缺失（候选 %s）\n"
+                        % (time.strftime("%Y-%m-%d %H:%M:%S"), ",".join(_miss)))
+        elif os.path.exists(UNK):
             os.remove(UNK)
-        except Exception:
-            pass
+    except Exception as _e:
+        log("!! .v_mech_unknown 处置失败：%s" % str(_e)[:40])
 
     # ★ R1431：顺带跑一次「提交延迟 + 失效动作」审计（预登记的 "超窗 = 0" 护栏），只记不判（避免历史尾部造噪）
     if not a.dry_run:

@@ -5341,3 +5341,21 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 **修 2**：`var/_next_yaku_notice.py` 把两个标记的内容**附进 `var/.YAKU_NEXT_PENDING`** ⇒ 役 4→役 5 的决策包自带机制证据。
 
 验证：`tests/test_next_yaku_notice.py` 共 **13** 项（+2）。
+
+### §V.209 `.v_mech_unknown` 的两个自造 bug（R1484：陈旧标记不消 + 未初始化崩）
+
+**问题①：只写不删 ⇒ 永久告警。** R1481 的逻辑是“读数 None 才写、当前役没有 V 候选才删”。
+而 V 读数需 ≥320 局（约 40 房）才判 ⇒ **早期必然写一次**，而**读数齐了也不会消** ⇒ 心跳会一直报“V 机制无法判”。
+
+**问题②：`_states` 未初始化就用 ⇒ 崩。** `_states = []` 被放在 `if v_cands and not a.dry_run:` 块内，
+而策略块在 `main()` 末尾无条件执行 ⇒ **`v_cands` 为空时 `UnboundLocalError`**。
+实测：`--dry-run` 直接抛异常。**而役 4（副露臂，没有 baotou 候选）正是这个情形**
+⇒ 若没跑 dry-run 就提交，**役 4 的机制检查每次都会崩**。
+
+**修法**：抽纯函数 `unk_action(v_cands, states)`：**有任一 V 候选判不出 ⇒ write**；
+**全部判出（含判不达标）或没有 V 候选 ⇒ clear**；`_states` 提到循环外初始化。
+
+验证：`--dry-run` **rc=0**；`tests/test_mech_watch_arms.py` 共 **14** 项（+3）。
+
+> **教训**：新写的清理逻辑必须验证“恢复正常后标记会被清掉” ——
+> **只写不删的标记 = 永久告警 = 又一个静默失效**。
