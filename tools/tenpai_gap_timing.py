@@ -15,7 +15,11 @@ print("lower ->", lower(idle=True), flush=True)
 from mahjong.shanten_exact import shanten as SH
 from meld_acceptance import ME, board_top
 
-MAXF = int(sys.argv[1]) if len(sys.argv) > 1 else 1200
+_args = [x for x in sys.argv[1:] if not x.startswith("--")]
+MAXF = int(_args[0]) if _args else 1200
+# --by-meld（R1470）：把 k4~k8 的逐手差距**按"门清 / 已副露"再切一刀**
+# （§V.20 的"下一步廉价方向"）⇒ 决定役 5 往哪边加力。默认行为**逐字不变**。
+BY_MELD = "--by-meld" in sys.argv
 files = sorted(glob.glob(os.path.join(ROOT, "var", "replays", "*", "*.json")))
 files = [f for f in files if ".dec." not in f][-MAXF:]
 TOP = {u for _, u, _ in board_top(16)}
@@ -49,6 +53,8 @@ def apply_meld(hands, melds, e):
 
 # (组, 起手档) -> k -> [累计已达听牌数, 局数]
 C = collections.defaultdict(lambda: collections.defaultdict(lambda: [0, 0]))
+# R1470：副露倾向（到第 8 手时已有副露的局数 / 可计局数）——用于判断"同状态对比"是否公平
+MELD = collections.defaultdict(lambda: [0, 0])
 rounds = 0
 for f in files:
     try: j = json.load(io.open(f, encoding="utf-8"))
@@ -73,6 +79,7 @@ for f in files:
             except Exception: st.append(None)
         disc = [0]*4
         done = [False]*4           # 已经达到听牌（一旦达到就保持）
+        meld8 = [False]*4          # 到第 8 手时是否已有副露
         for e in evs:
             t = e.get("type"); s = e.get("seat")
             if t == "round_ended": break
@@ -92,12 +99,20 @@ for f in files:
                                 done[s] = True
                         except Exception:
                             pass
+                    if disc[s] == 8:
+                        meld8[s] = bool(melds[s])
                     if disc[s] <= 8:
-                        cell = C[(grp[s], st[s])][disc[s]]
+                        _st = ("副露" if melds[s] else "门清") if BY_MELD else ""
+                        cell = C[(grp[s], st[s], _st)][disc[s]]
                         cell[0] += 1 if done[s] else 0
                         cell[1] += 1
             elif t in ("chi", "peng", "gang"):
                 apply_meld(hands, melds, e)
+        for i in range(4):
+            if disc[i] >= 8 and st[i] in (3, 4) and grp[i] in ("我方", "top16"):
+                MELD[grp[i]][1] += 1
+                if meld8[i]:
+                    MELD[grp[i]][0] += 1
         rounds += 1
 
 print("局数 %d" % rounds)
@@ -107,9 +122,9 @@ for grp in ("我方", "top16"):
     for bucket in (3, 4):
         row = []
         for k in range(1, 9):
-            a, n = C[(grp, bucket)][k]
+            a, n = C[(grp, bucket, "")][k]
             row.append((100.0*a/n) if n else float("nan"))
-        n_any = C[(grp, bucket)][8][1]
+        n_any = C[(grp, bucket, "")][8][1]
         if n_any >= 60:
             print("%-6s 起手向听%d (n=%4d): %s" % (grp, bucket, n_any,
                   "  ".join("k%d %.1f%%" % (k+1, v) for k, v in enumerate(row))))
@@ -118,8 +133,44 @@ print("=== 逐手差距（top16 − 我方，pp）===")
 for bucket in (3, 4):
     line = []
     for k in range(1, 9):
-        a1, n1 = C[("我方", bucket)][k]; a2, n2 = C[("top16", bucket)][k]
+        a1, n1 = C[("我方", bucket, "")][k]; a2, n2 = C[("top16", bucket, "")][k]
         if n1 >= 60 and n2 >= 60:
             line.append("k%d %+.1f" % (k, 100.0*a2/n2 - 100.0*a1/n1))
     if line:
         print("起手向听%d : %s" % (bucket, "  ".join(line)))
+
+if BY_MELD:
+    print()
+    print("=== ★ 按门清 / 已副露切一刀（同状态内对比 top16，含已副露手牌）===")
+    for bucket in (3, 4):
+        for state in ("门清", "副露"):
+            rows = {}
+            for grp in ("我方", "top16"):
+                rows[grp] = [(C[(grp, bucket, state)][k][0], C[(grp, bucket, state)][k][1])
+                             for k in range(1, 9)]
+            n_any = rows["我方"][7][1]
+            if n_any < 60:
+                continue
+            cur = "  ".join("k%d %.1f%%" % (k + 1, 100.0 * a / n) if n else "k%d --" % (k + 1)
+                            for k, (a, n) in enumerate(rows["我方"]))
+            cur2 = "  ".join("k%d %.1f%%" % (k + 1, 100.0 * a / n) if n else "k%d --" % (k + 1)
+                             for k, (a, n) in enumerate(rows["top16"]))
+            print("起手向听%d / %s" % (bucket, state))
+            print("  我方 (n=%4d): %s" % (n_any, cur))
+            print("  top16 (n=%4d): %s" % (rows["top16"][7][1], cur2))
+            gap = []
+            for k in range(4, 9):
+                a1, n1 = rows["我方"][k - 1]
+                a2, n2 = rows["top16"][k - 1]
+                if n1 >= 60 and n2 >= 60:
+                    gap.append("k%d %+.1f" % (k, 100.0 * a2 / n2 - 100.0 * a1 / n1))
+            if gap:
+                print("  差距 top16-我方: %s" % "  ".join(gap))
+
+if BY_MELD:
+    print()
+    print("★ 副露倾向（到第 8 手时已有副露的局占比；含起手向听 3/4）：")
+    for grp in ("我方", "top16"):
+        a, n = MELD[grp]
+        if n:
+            print("  %-6s %5d / %5d = %.1f%%" % (grp, a, n, 100.0 * a / n))
