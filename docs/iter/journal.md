@@ -26817,3 +26817,16 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     必须带对 `--started`/`--bundles`，弄错会污染窗口。⇒ 采用项目已有的“**响亮标记 + 只给命令**”模式。
   - 验证：测试 **115 项全绿**（含新增 `tests/test_ab_driver_abort_note.py` 6 项）；`_ab_driver.py` 已在
     `_prepare_submission.ps1` 的 `$opsScripts` 里（第 43 行）⇒ 无需补闭包。
+
+- [R1473 | 2026-09-25 21:1x ★★★**给 `.ab_mode` 留了 5 分钟级快照（恢复不再靠猜）** + **看护已改成盯当前役**]
+  - **为什么还需要快照**：R1472 的标记只在**新进程**里生效，而当前 `_ab_driver`（含“while True”内循环）**跑的是旧代码**，
+    要到下一次换役（役3→役4，约 3.8 天后）才会换上。而熔断最可能发生的时刻正是**每个役刚凑齐 6/12 房的前几小时** ⇒ 役 3 的风险窗口就在**现在**。
+  - 一旦 `.ab_mode` 被删，`--started` / `--bundles` 就再也找不回来（watchdog / `_ensure_all` / `ab_ctl` 都只在 `.ab_mode` 在位时自愈）。
+  - **修法**：`var/_ensure_all.py`（由 `HangzhouMajAutoHeal` **每 5 分钟**调用）新增纯读的 `snapshot_ab_mode()`，
+    把在位的 `.ab_mode` 镜像到 **`var/.ab_mode.last`**（相同则不写、不记日志 ⇒ 保持静默；不碰任何进程）。
+  - 实跑验证：`python -X utf8 var/_ensure_all.py` ⇒ rc=0、写出
+    `var/.ab_mode.last = {"arms":["speedvalue","speedvaluebc","speedvaluebaotouv5"],"rooms":1,"started":"2026-09-25 20:52:39","bundles":["speedvalue"]}`，
+    且**进程零变动**（驱动/match_super/run_bot 均原样）。
+  - **看护同步升级**：`HangzhouMaj` 心跳自动化 `10-7` 的提示词已考虑当前役（不再是役 2 专用），并新增两条硬要求：
+    ① 第一优先检查 `var/.CAMPAIGN_ABORTED`（存在 ⇒ 立刻报告并原样贴出恢复命令，不自己执行）；
+    ② `.ab_mode` 缺失且无相关进程、且本役未收口 ⇒ 报“战役疑似停摆”并**按 `.ab_mode.last` 拼恢复命令**。

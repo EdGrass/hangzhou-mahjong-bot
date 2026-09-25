@@ -68,7 +68,41 @@ def ab_mode():
     return os.path.exists(AB_FLAG)
 
 
+def snapshot_ab_mode():
+    """★ R1473：给 `.ab_mode` 留一份**可恢复的快照**（`var/.ab_mode.last`）。
+
+    为什么：`_ab_driver.py` 的熔断分支会**删掉 `.ab_mode`**，而 watchdog / 本脚本 / `ab_ctl`
+    **只在 `.ab_mode` 在位时**才自愈 ⇒ 一旦被删，`--started` / `--bundles` 就再也找不回来，
+    恢复只能靠猜。本函数每 5 分钟（随 `HangzhouMajAutoHeal`）把在位配置镜像一份；
+    只读 + 覆盖一个小文件，**不碰任何进程**。与 `.ab_mode` 相同则不写、不记日志（保持静默）。
+    """
+    try:
+        with io.open(AB_FLAG, encoding="utf-8-sig") as fh:
+            cur = fh.read()
+    except Exception:
+        return
+    dst = os.path.join(ROOT, "var", ".ab_mode.last")
+    try:
+        with io.open(dst, encoding="utf-8-sig") as fh:
+            if fh.read() == cur:
+                return
+    except Exception:
+        pass
+    try:
+        with io.open(dst, "w", encoding="utf-8") as fh:
+            fh.write(cur)
+    except Exception:
+        return
+    try:
+        with io.open(LOG_PATH, "a", encoding="utf-8") as f:
+            f.write("%s 役配置快照 -> .ab_mode.last：%s\n"
+                    % (time.strftime("%Y-%m-%d %H:%M:%S"), cur.strip()))
+    except Exception:
+        pass
+
+
 def main():
+    snapshot_ab_mode()
     if _fm.handle_pause_on_startup():
         return
     # 官方赛期间不拉起测试房 keeper（否则与正式赛同账号并发 → E002）。
