@@ -26896,3 +26896,24 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **结论（写死）**：役 5 = **叠层验证**（§V.186 + `prereg-campaign8-combo`），已有合法预登记；
     §V.143 的预案、§V.160 的役 5 行、以及 line 4108 那一条**全部标作废**（已在原文处内联注明，防以后被误读）。
   - ⇒ 上一轮 R1476 的 `_next_yaku_notice.py`（只列组合臂选项）**现在有了硬证据支持**：它没把剂量第二枪写进去是对的。
+
+- [R1478 | 2026-09-25 21:4x ★★★★**判官视角验收（公网 clone）抓出真问题：裸 `unittest discover` 得到 **Ran 0 tests**，而 `-s tests` 下**两个过期断言是红的**）]
+  - **怎么发现的**：按计划自己的验收条（§V.66 清单：“判官视角验收：公网 clone → run_bot.py --smoke + unittest discover + tools/stability.py”）
+    真的把仓库 clone 到临时目录跑了一遍。三个发现：
+  - **发现 1（体验级）**：`python -m unittest discover`（仓库根、无参数）⇒ **Ran 0 tests**。原因：unittest discovery
+    **不追进命名空间包**（`tests/` 没有 `__init__.py`）。而提交说明里写的正是这条命令 ⇒ 判官看到的是“根本没测”。
+  - **发现 2（真的红）**：`discover -s tests` ⇒ **983 项里 2 个 FAIL**：
+    ① `test_verdict_watch_rules.test_box_marks_verdict`（断言到盒**不**写 sentinel）—— 这是 **R1460 之前**的语义，
+    而 R1460 刻意改成“到盒也写 sentinel（内容含 BOXED）”（否则采用看护永远不动 ⇒ 链在役盒处静默停摆）⇒ **测试过期**；
+    ② `test_tournament_replay_fetch.test_game_ids_flat_and_batched`（期望合并 `my_games` + `my_games_by_batch`）—— 而 **R1396** 已根据四测真数据
+    改为“只要 `my_games` 能拿到 gid 就**不看 batch**”（batch 里是别人的对局，拉它们全 403 + 429 风险）⇒ **测试过期**。
+  - **修法**：两个测试按**现行刻意语义**重写（并把 R1460/R1396 的理由写进注释，防有人“把代码改回去”），
+    另补 `tests/__init__.py`（一行说明）让裸 `discover` 能找到用例；顺手修掉 `test_verdict_watch_rules` 里的 ResourceWarning（未关句柄）。
+  - **重验（全部在公网 clone 里做，做完已删除临时目录）**：
+    ① `python -X utf8 run_bot.py --smoke` ⇒ **rc=0 全部通过**（含对活服务器的指南版本自检：服务器 v35 = 本 bot 已知 v35）；
+    ② `python -X utf8 -m unittest discover`（**裸命令**）⇒ **Ran 984 tests, OK (skipped=55)**（改前：裸命令 0 项、`-s tests` 2 红）；
+    ③ `python -X utf8 tools/stability.py` ⇒ **稳定性矩阵 ALL PASS**（rc=0）。
+  - **库存核对**：clone 里 `bot/*.py` **192**、`var/*.py` **50**（含本轮新增的 `_next_yaku_notice.py`）、`tools/*.py` 94、**模型 4/4**。
+  - **顺带教训（行尾）**：本轮两次把文件行尾改错（`_prepare_submission.ps1` CRLF→LF、两个 test 文件各自
+    原本是 CRLF/LF）。修法不是“全部统一”，而是**用 `git cat-file -p <rev>:<path>` 读原始 blob 字节**判行尾，
+    再写回去；最终 `git diff` 净变化只剩 **+34/-7**。
