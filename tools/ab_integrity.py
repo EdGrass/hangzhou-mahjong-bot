@@ -21,6 +21,7 @@ import io
 import json
 import os
 import sys
+import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AB = os.path.join(ROOT, "var", ".ab_mode")
@@ -28,6 +29,28 @@ RANKING = os.path.join(ROOT, "var", "auto_ranking.jsonl")
 
 
 REPLAYS = os.path.join(ROOT, "var", "replays")
+
+
+def replay_file_counts(root=ROOT):
+    """房 -> 已抓到的**复盘文件数**（每房应 = 10 份：b0–b9，各 8 局 ⇒ 80 局）。
+
+    为什么需要（R1526）：`ab_integrity` 原来**只数“有没有复盘”**，不数“齐不齐”。
+    而判词的和牌率/番都是**每房级**累加 —— 一房只抓到 3/10 份却被当作“已覆盖”，
+    会把那根臂的和牌数**系统性地拉低**（看着正常的偏差）。这里只读文件名去重计数。
+    """
+    out = collections.Counter()
+    seen = set()
+    for pat in (os.path.join(root, "var", "replays", "recent", "*.json"),
+                os.path.join(root, "var", "replays", "auto_*", "*.json")):
+        for f in glob.glob(pat):
+            gid = os.path.basename(f)[:-5]
+            if gid in seen:
+                continue
+            seen.add(gid)
+            room = gid.split("_r")[0]
+            if room:
+                out[room] += 1
+    return out
 
 
 def room_start_times(root=ROOT):
@@ -75,7 +98,8 @@ def load_rows(path=RANKING):
     return out
 
 
-def check_integrity(rows, since, arms, starts=None):
+def check_integrity(rows, since, arms, starts=None, replay_counts=None,
+                    now=None, stale_min=30, expect_replays=10):
     """纯函数：返回 (ok, report)。rows 为 auto_ranking 记录列表。
 
     `starts`（可选）= `room_start_times()` 的结果。给了它，就会把**开房早于 `since`**
@@ -104,6 +128,27 @@ def check_integrity(rows, since, arms, starts=None):
     not_finished = [r.get("room") for r in cur if r.get("status") != "finished"]
     bad_exit = [(r.get("room"), r.get("exit_code")) for r in cur
                 if r.get("exit_code") not in (0, None)]
+    # ★ R1526：**每房复盘齐不齐**（只在传了 replay_counts 时检）。
+    #   刚结束 <stale_min 分钟的房复盘未齐是**抓取延迟（预期）**，不计异常；
+    #   超过时限仍不齐 ⇒ **永久缺失/部分** ⇒ 异常（会系统性偏低该臂的房级指标）。
+    short_replays, late_replays = [], []
+    if replay_counts is not None:
+        _now = now or time.strftime("%Y-%m-%d %H:%M:%S")
+        for r in cur:
+            got = int(replay_counts.get(r.get("room"), 0))
+            if got >= int(expect_replays):
+                continue
+            ts = r.get("ts") or ""
+            age = None
+            try:
+                age = (time.mktime(time.strptime(_now, "%Y-%m-%d %H:%M:%S"))
+                       - time.mktime(time.strptime(ts, "%Y-%m-%d %H:%M:%S"))) / 60.0
+            except Exception:
+                age = None
+            if age is not None and age >= float(stale_min):
+                short_replays.append((r.get("room"), r.get("strategy"), got))
+            else:
+                late_replays.append((r.get("room"), got))
     per_arm = collections.Counter(r.get("strategy") for r in cur)
     rep = {
         "rows": len(cur), "rooms": len(per_room), "per_arm": dict(per_arm),
@@ -111,8 +156,10 @@ def check_integrity(rows, since, arms, starts=None):
         "unknown_strategies": collections.Counter(unknown),
         "not_finished": not_finished, "bad_exit": bad_exit,
         "residue": residue,
+        "short_replays": short_replays, "late_replays": late_replays,
     }
-    ok = not (dup_rows or multi_strat or unknown or not_finished or bad_exit)
+    ok = not (dup_rows or multi_strat or unknown or not_finished or bad_exit
+              or short_replays)
     return ok, rep
 
 
@@ -130,7 +177,8 @@ def main():
             since = since or cfg.get("started") or ""
         except Exception:
             pass
-    ok, rep = check_integrity(load_rows(), since, arms, room_start_times())
+    ok, rep = check_integrity(load_rows(), since, arms, room_start_times(),
+                              replay_counts=replay_file_counts())
     print("战役完整性自检：since=%s arms=%s" % (since or "-", ",".join(arms) or "-"))
     print("  行 %d / 房 %d ；按臂 %s" % (rep["rows"], rep["rooms"], rep["per_arm"]))
     print("  同一房多行 %d ；同一房多策略 %d ；未知策略 %d ；未完成 %d ；exit!=0 %d" % (
@@ -146,6 +194,12 @@ def main():
     if res:
         print("  ⓘ 跨役残留 %d 房（开房早于本役 started，旧役最后一房自然打完；**不计入异常**）：%s"
               % (len(res), res[:3]))
+    if rep.get("late_replays"):
+        print("  ⓘ 抓取延迟 %d 房（结束 <30min，复盘未齐 ⇒ **不计异常**）：%s"
+              % (len(rep["late_replays"]), rep["late_replays"][:3]))
+    if rep.get("short_replays"):
+        print("  ❌ 复盘不齐（每房应 10 份，超时仍缺 ⇒ 会偏低该臂房级指标）：%s"
+              % (rep["short_replays"][:3],))
     print("  => " + ("干净 ✓" if ok else "**有异常，先修数据再读数**"))
     return 0 if ok else 1
 

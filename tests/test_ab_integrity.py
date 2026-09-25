@@ -111,5 +111,34 @@ class TestAbIntegrity(unittest.TestCase):
                 self.assertIn(room, starts, "房 %s 定位不到开房时刻" % room)
 
 
+    def test_short_replays_older_than_stale_flagged(self):
+        """★ R1526：每房应 10 份复盘；超过时限仍不齐 ⇒ **异常**（会偏低该臂房级指标）。"""
+        rows = [row("a_1", "speedtugc", ts="2026-09-17 01:00:00")]
+        ok, rep = ai.check_integrity(rows, "", ARMS, replay_counts={"a_1": 3},
+                                     now="2026-09-17 02:00:00")
+        self.assertFalse(ok)
+        self.assertEqual([("a_1", "speedtugc", 3)], rep["short_replays"])
+        self.assertEqual([], rep["late_replays"])
+
+    def test_fresh_room_not_yet_fetched_is_not_flagged(self):
+        """刚结束 <30min 的房复盘未齐 = 抓取延迟（预期），**不计异常**。"""
+        rows = [row("a_1", "speedtugc", ts="2026-09-17 01:55:00")]
+        ok, rep = ai.check_integrity(rows, "", ARMS, replay_counts={"a_1": 0},
+                                     now="2026-09-17 02:00:00")
+        self.assertTrue(ok)
+        self.assertEqual([("a_1", 0)], rep["late_replays"])
+        self.assertEqual([], rep["short_replays"])
+
+    def test_full_replays_clean(self):
+        rows = [row("a_1", "speedtugc", ts="2026-09-17 01:00:00"),
+                row("a_2", "speedc152", ts="2026-09-17 01:10:00")]
+        ok, rep = ai.check_integrity(rows, "", ARMS,
+                                     replay_counts={"a_1": 10, "a_2": 10},
+                                     now="2026-09-17 02:00:00")
+        self.assertTrue(ok)
+        self.assertEqual([], rep["short_replays"])
+        self.assertEqual([], rep["late_replays"])
+
+
 if __name__ == "__main__":
     unittest.main()
