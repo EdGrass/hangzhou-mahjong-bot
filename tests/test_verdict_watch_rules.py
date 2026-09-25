@@ -5,9 +5,10 @@
 静默丢失（R1304：旧行为首判即写 sentinel）。本测试把四条语义钉住：
 
    ① 决定性（rc 0/1）⇒ **写 sentinel**（只出一次）；
-   ② 非决定性（rc 2 ⇒ UNDECIDED）⇒ **不写 sentinel**，写进度 marker；
+   ② 非决定性（rc 2 ⇒ UNDECIDED）**未到役盒** ⇒ **不写 sentinel**，写进度 marker；
    ③ 所谓“房数不足 / 复盘覆盖 < 70%”（rc 3 但命中这两句）⇒ **不写 sentinel**；
-   ④ 到役盒（各臂 ≥ --box-rooms 仍不决定）⇒ 判词文件里必须出现“已达役盒”。
+   ④ 到役盒（各臂 ≥ --box-rooms 仍不决定）⇒ 判词文件里必须出现“已达役盒”，
+      **并且也写 sentinel（内容含 BOXED）** —— R1460：到盒是本役终态，不写会让采用看护永远不动 ⇒ 链在役盒处**静默停摆**。
 
 注：`var/` 在 .gitignore 里 ⇒ 仓库克隆后该工具**不存在**，所以本测试 `skipUnless`；
 测试用专用 label 并在 tearDown 清理，**不碰** `役2` 的真实产物。
@@ -66,7 +67,11 @@ class TestVerdictWatchRules(unittest.TestCase):
         d = os.path.join(ROOT, "var", ".verdict_done_%s" % LABELS[0])
         mark = os.path.join(ROOT, "var", ".verdict_last_%s" % LABELS[0])
         out = os.path.join(ROOT, "var", "_verdict_%s.txt" % LABELS[0])
-        txt = io.open(out, encoding="utf-8").read() if os.path.exists(out) else ""
+        if os.path.exists(out):
+            with io.open(out, encoding="utf-8") as f:
+                txt = f.read()
+        else:
+            txt = ""
         return os.path.exists(d), os.path.exists(mark), txt
 
     def test_decisive_writes_sentinel(self):
@@ -91,8 +96,14 @@ class TestVerdictWatchRules(unittest.TestCase):
 
     def test_box_marks_verdict(self):
         sent, _, txt = self._run(2, u"★ 判定：UNDECIDED（和牌率 z=+1.20、番 z=+0.90）⇒ 继续攒房", box=10)
-        self.assertFalse(sent)
+        # ★ R1460：到役盒仍未决定是**终态**（按 §V.66 破平收口）⇒ **必须写 sentinel**，
+        #   否则 `_adopt_when_ready.classify()` 永远不会动 ⇒ 下一役静默不起。
+        #   （本测试旧版本断言 assertFalse，是 R1460 之前的语义 —— 已按现行语义修正）
+        self.assertTrue(sent, "到役盒应写 sentinel（否则采用看护永远不动）")
         self.assertIn(u"已达役盒", txt, "到役盒时判词文件必须标注")
+        sp = os.path.join(ROOT, "var", ".verdict_done_%s" % LABELS[0])
+        with io.open(sp, encoding="utf-8") as f:
+            self.assertIn("BOXED", f.read(), "sentinel 内容必须标 BOXED（区分于决定性判词）")
 
     def test_box_below_threshold_not_marked(self):
         _, _, txt = self._run(2, u"★ 判定：UNDECIDED（z=+1.20）⇒ 继续攒房", box=1000)
