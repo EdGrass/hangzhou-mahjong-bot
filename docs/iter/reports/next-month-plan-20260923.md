@@ -5135,3 +5135,29 @@ REFUSE（护栏/机制不许）、REJECT（默认仍以 speedvalue 为役 3 基�
 
 **结论**：捕获率这条轴 **10/7 前保持关闭**，22.2% 是已知并被接受的残余。
 §V.2（第 7 行）/​§V.6/​§V.7 把它列为“兜底役”是过期条目。
+
+### §V.201 役 4 判词落地后的“下一步”—— **链上最后一个无人受的环节**（R1476，已补提醒）
+
+**核出的事实**：逐条查 `Get-ScheduledTask` 的 Args 后确认——链上只有
+`HangzhouMajAdoptWatch`（役 2）与 `HangzhouMajAdoptPairWatch`（役 3→役 4）两个自动推进器，
+**没有任何任务参与役 4/5**。后果：
+① `_ab_driver` 会**继续跑役 4 超过役盒**（白烧房位）；
+② 役 5（**三层组合臂**，按 R1475 两条轴独立的结论这是最有希望的一注）**永远不会起**。
+
+**为什么不直接自动开**：§V.186 对候选膲剂量口径写的是
+“`speedvaluebcvmeld`（**或** 剂量对齐 p40）”。实查注册表：`speedvaluebcvmeld`、`speedvaluebcvmeldp35`、`speedvaluebcvmeldp40` **都已注册**
+⇒ **选哪个是一个未定选择**，写死一个就是猜。所以采用与 R1472 同一模式：**只读 + 响亮 + 可照拄命令，不自己执行**。
+
+**产出**：`var/_next_yaku_notice.py` ⇒ `var/.YAKU_NEXT_PENDING`，内容：役 4 判词结论 / 役 3 四格
+（row + BC + V）/ 判据一句话 / **可照拄的 `_bsegment.py --go` 命令**。判据逐字对 §V.186，四分支：
+
+| 役 4（副露） | BC / V | 结果 |
+|---|---|---|
+| 未判正 | 任意 | **不起役 5** ⇒ 直接进 §V.66 选臂（等 10/5 的 `HangzhouMajFinalPickProposal`） |
+| 判正 | 两层都判正 | **起役 5**：基线 = 役 4 的 2 层赢家，候选 = `speedvaluebcvmeld` **或** `...p40`（两条命令都列出） |
+| 判正 | 只有单层 | 无 3 层组合可用 ⇒ **不起役 5** |
+| 判负 | 两层都判正 | 额外列出 `speedvaluebcv`（不带副露）组合臂选项；并标注 §V.186（不起役 5）与 §V.161 规则 4（选组合膲）**冲突 ⇒ 由人定** |
+
+**已运行**：计划任务 `HangzhouMajNextYakuNotice`（每 10 分钟、pythonw、只读）；实跑首次 **rc=0 且静默 no-op**（役 4 还没起）。
+两个新文件已加入 `_prepare_submission.ps1` 的 `$opsScripts`（闭包门 rc=0）。
+单测 `tests/test_next_yaku_notice.py` **11 项**（含隔离 `--var-dir` 的端到端与幂等）。

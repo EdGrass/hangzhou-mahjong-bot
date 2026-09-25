@@ -1,0 +1,136 @@
+# -*- coding: utf-8 -*-
+"""`var/_next_yaku_notice.py` 的单测（R1476）。
+
+为什么要钉：链上只有 `AdoptWatch`（役 2）与 `AdoptPairWatch`（役 3→役 4）两个自动推进器，
+**役 4 判词落地后没有任何计划任务去消费它** ⇒ 默认会“继续跑役 4 超过役盒 + 役 5 永远不起”。
+本脚本不自动起役（因为 §V.186 对候选臂剂量口径留了一个未定选择），只把“该决定了 + 可照拄命令”摆出来。
+下面钉死：① 四格判据与 §V.186 逐字一致；② 命令里必须带对基线/候选/机制；
+③ 缺任一输入（例如役 4 还没起）⇒ **一字不写**；④ 幂等（已提醒过不重复写）。
+"""
+from __future__ import annotations
+import io
+import os
+import sys
+import tempfile
+import unittest
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "var"))
+import _next_yaku_notice as N  # noqa: E402
+
+
+def _write(d, name, text):
+    with io.open(os.path.join(d, name), "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+
+
+def _fixture(d, meld_line, bc_line="★ 室判：ADOPT speedvaluebc", v_line="★ 室判：ADOPT speedvaluebaotouv5"):
+    _write(d, ".adopted_pair_役3",
+           "2026-09-29 03:00:00 row=a base=speedvaluebc cands=speedvaluebcmeldp45\n")
+    _write(d, ".verdict_done_役4speedvaluebcmeldp45", "x")
+    _write(d, "_verdict_役4speedvaluebcmeldp45.txt", meld_line + "\n")
+    _write(d, ".verdict_done_役3bc", "x")
+    _write(d, "_verdict_役3bc.txt", bc_line + "\n")
+    _write(d, ".verdict_done_役3v", "x")
+    _write(d, "_verdict_役3v.txt", v_line + "\n")
+
+
+ADOPT4 = "★ 判定：ADOPT speedvaluebcmeldp45（和牌率 z=+2.1、机制通过）"
+ADOPT_BC = "★ 判定：ADOPT speedvaluebc"
+ADOPT_V = "★ 判定：ADOPT speedvaluebaotouv5"
+REJ_4 = "★ 判定：UNDECIDED（和牌率 z=+1.1）⇒ 继续攒房"
+
+
+class TestPure(unittest.TestCase):
+    def test_last_verdict_line_takes_last(self):
+        t = "★ 判定：ADOPT a\n★ 判定：REJECT b\n"
+        self.assertEqual("REJECT b", N.last_verdict_line(t))
+
+    def test_is_adopt(self):
+        self.assertTrue(N.is_adopt("ADOPT x"))
+        self.assertTrue(N.is_adopt("adopt x"))
+        self.assertFalse(N.is_adopt("UNDECIDED"))
+        self.assertFalse(N.is_adopt(""))
+
+    def test_verdict_label_matches_registrar(self):
+        self.assertEqual("役4speedvaluebcmeldp45", N.verdict_label("役4", "speedvaluebcmeldp45"))
+        self.assertEqual("役3bc", N.verdict_label("役3", "bc"))
+
+    def test_parse_pair_marker(self):
+        row, base, cands = N.parse_pair_marker("2026-09-29 03:00:00 row=a base=speedvaluebc cands=x,y\n")
+        self.assertEqual("a", row)
+        self.assertEqual("speedvaluebc", base)
+        self.assertEqual("x,y", cands)
+        self.assertEqual(("", "", ""), N.parse_pair_marker(""))
+
+    def test_decide_section_v186(self):
+        k, why, cmds = N.decide(True, True, True, "speedvaluebc", "speedvaluebcmeldp45")
+        self.assertEqual("start", k)
+        self.assertEqual(2, len(cmds))
+        self.assertEqual("speedvaluebcmeldp45", cmds[0][0])
+        self.assertEqual("speedvaluebcvmeld", cmds[0][1])
+        self.assertEqual("speedvaluebcvmeldp40", cmds[1][1])
+        # 单层 ⇒ 不起役 5
+        self.assertEqual("no_yaku5", N.decide(True, True, False, "b", "c")[0])
+        self.assertEqual("no_yaku5", N.decide(True, False, True, "b", "c")[0])
+        # 副露判负 + 两层都判正 ⇒ 列 BC+V 组合臂选项（不当默认）
+        k, why, cmds = N.decide(False, True, True, "b", "c")
+        self.assertEqual("combo_option", k)
+        self.assertEqual([("speedvalue", "speedvaluebcv")], cmds)
+        self.assertEqual("no_yaku5", N.decide(False, True, False, "b", "c")[0])
+
+
+class TestEndToEnd(unittest.TestCase):
+    def test_no_pair_marker_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(0, N.main(["--label", "役4", "--var-dir", d]))
+            self.assertFalse(os.path.exists(os.path.join(d, ".YAKU_NEXT_PENDING")))
+
+    def test_start_branch_writes_copyable_command(self):
+        with tempfile.TemporaryDirectory() as d:
+            _fixture(d, ADOPT4, ADOPT_BC, ADOPT_V)
+            self.assertEqual(0, N.main(["--label", "役4", "--var-dir", d]))
+            body = io.open(os.path.join(d, ".YAKU_NEXT_PENDING"), encoding="utf-8").read()
+            self.assertIn("--label 役5", body)
+            self.assertIn("--baseline speedvaluebcmeldp45", body)
+            self.assertIn("--candidates speedvaluebcvmeld ", body + " ")
+            self.assertIn("--candidates speedvaluebcvmeldp40", body)
+            self.assertIn("--watch-mechanism melds", body)
+
+    def test_idempotent(self):
+        with tempfile.TemporaryDirectory() as d:
+            _fixture(d, ADOPT4, ADOPT_BC, ADOPT_V)
+            N.main(["--label", "役4", "--var-dir", d])
+            first = io.open(os.path.join(d, ".YAKU_NEXT_PENDING"), encoding="utf-8").read()
+            N.main(["--label", "役4", "--var-dir", d])
+            second = io.open(os.path.join(d, ".YAKU_NEXT_PENDING"), encoding="utf-8").read()
+            self.assertEqual(first, second)
+            self.assertTrue(os.path.exists(os.path.join(d, ".next_yaku_notice_役4")))
+
+    def test_meld_rejected_says_no_new_yaku(self):
+        # \u53ea\u6709\u5355\u5c42\u5224\u6b63\uff08BC \u2713 / V \u2717\uff09+ \u526f\u9732\u672a\u5224\u6b63 \u21d2 \u771f\u7684\u6ca1\u6709\u53ef\u9009\u7ec4\u5408\u81c2\n
+        with tempfile.TemporaryDirectory() as d:
+            _fixture(d, REJ_4, ADOPT_BC, "\\u2605 \\u5224\\u5b9a\\uff1aUNDECIDED\uff08z=+0.9\uff09")
+            N.main(["--label", "役4", "--var-dir", d])
+            body = io.open(os.path.join(d, ".YAKU_NEXT_PENDING"), encoding="utf-8").read()
+            self.assertIn("FinalPickProposal", body)
+            self.assertNotIn("--label 役5", body)
+
+    def test_meld_not_decisive_waits(self):
+        with tempfile.TemporaryDirectory() as d:
+            _fixture(d, ADOPT4, ADOPT_BC, ADOPT_V)
+            os.remove(os.path.join(d, ".verdict_done_役4speedvaluebcmeldp45"))
+            N.main(["--label", "役4", "--var-dir", d])
+            self.assertFalse(os.path.exists(os.path.join(d, ".YAKU_NEXT_PENDING")))
+
+    def test_combo_option_when_meld_fails_but_both_layers_adopt(self):
+        with tempfile.TemporaryDirectory() as d:
+            _fixture(d, REJ_4, ADOPT_BC, ADOPT_V)
+            N.main(["--label", "役4", "--var-dir", d])
+            body = io.open(os.path.join(d, ".YAKU_NEXT_PENDING"), encoding="utf-8").read()
+            self.assertIn("speedvaluebcv", body)
+            self.assertIn("--watch-mechanism none", body)
+
+
+if __name__ == "__main__":
+    unittest.main()
