@@ -27607,3 +27607,19 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     - 实测（22 房）：`rc=2 / UNK2026-09-26 02:57N（哪一层都不足 15 房/臂，不阻塞）` ✓；样本够了就会给 VETO/OK。
     - 顺手修：`_pick_arm.py` 原本**没有 `import subprocess`**（我新段第一次跑就报 `name 'subprocess' is not defined`）⇒ 已补，并由“失败只提示”兜住。
   - 证据：新测试（源码断言 + 真跑输出含“否决预检”/“rc=”）；全量回归 **Ran 1194, OK（skipped=2, xfail=1）**。
+
+- [R1519 | 2026-09-26 02:58 ★★★**末端链在“改动之后”重彩排**（10/5 提案 · 10/7 换臂 · 就绪校验）⇒ 三条全对，新补丁都正确落进正文]
+  - **为什么还要再排一次**：这十几轮我改了 `_pick_arm` / `_mech_watch` / `_adopt_pair` / `_final_event_switch` / `_campaign_ready` /
+    `_switch_campaign` / `_arm_path_audit` 与提交清单 ⇒ **不能拿旧彩排当数**，必须在**当前代码 + 当前状态**下重跑。
+  - **① 10/5 提案**（`_final_pick_proposal.py --dry-run`）：
+    - 默认（`--min-rooms 30`）：窗口/参与臂正确，正确报“没有满足 --min-rooms 的臂”（今日 23 房）；
+    - `--min-rooms 3`（有臂形态）：**R1518 新加的否决段真的进了提案正文** ——
+      `否决预检（强手房两层，只作读数；VETO 则按预登记不采用该候选）：speedvaluebc → speedvaluebaotouv5（rc=2）… ⇒ UNK2026-09-26 02:58N（<15 房/臂，不阻塞）` ✓；
+      桌强表（R1512）与 |z| 读数（R1505）也都在 ✓。
+  - **② 10/7 换臂**（`_switch_final.py --dry-run --final-file <临时>`）六步齐全 ✓：
+    停 A/B → 写 `_keeper_strategy.txt` → **只杀 `_keeper.py`**（不碰 match_super/run_bot）→ 等对局自然结束（≤25min）→
+    切测试策略 → 写 `.rate_guard_off`（防熔断回退）+ `.final_installed`。
+  - **③ 就绪校验**（`_final_ready_check.py`，10/7 10:30 / 10/8 09:00 用的那个）：
+    **FAIL 1–5 全部是“10/7 才会产生的产物”**（无最终臂 / 未换 / keeper 未对齐 / 役未收口）⇒ 符合预期；
+    **PASS 6 = git 干净且 local==origin/main（889dfb67）**；**PASS 7 = 提交物检查 rc=0** ✓。
+  - 意义：末端链的正确性不是“历史彩排过”，而是**现在这一版代码 + 现场状态**下重跑仍正确。
