@@ -48,7 +48,7 @@ powershell -ExecutionPolicy Bypass -File var/_switch_to_official.ps1 -Strategy <
 ```
 
 - 启动后 bot 自行**报名 → 到位 → 确认 → 自动对局**，全部动作由策略层产生，**无需任何人工输入**；
-- 每局动作的提交延迟有硬性预算（实测 p50 ≈ 15ms、p99 < 50ms，远低于响应窗口）；
+- 每局动作的提交延迟有硬性预算（实测 p50 ≈ 15ms、p99 约 30–80ms，远低于响应窗口）；
 - 日志：`--log <file>` 双写；看门狗模式默认落 `logs/bot_live.log`（首次运行时自动创建）。
 
 ## 3. 策略（`--strategy <name>`）
