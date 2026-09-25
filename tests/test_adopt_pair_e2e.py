@@ -75,7 +75,7 @@ class TestAdoptPairEndToEnd(unittest.TestCase):
         try:
             with mock.patch.object(sys, "argv",
                                    ["x", "--label", LABEL, "--baseline", "speedvalue",
-                                    "--dry-run"]), mock.patch("sys.stdout", out):
+                                    "--since", "2026-09-25 20:52:39", "--dry-run"]), mock.patch("sys.stdout", out):
                 AP.main()
         finally:
             for p in patches:
