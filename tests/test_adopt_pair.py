@@ -68,6 +68,47 @@ class TestFourCell(unittest.TestCase):
         self.assertEqual("none", AP.pick_row(False, False))
 
 
+class TestB2AndVMech(unittest.TestCase):
+    """R1486\uff1a\u9884\u767b\u8bb0\u7684 **B2**\uff08\u673a\u5236\u6210\u7acb\u3001\u4e3b\u7aef\u70b9\u672a\u8bc1\u5b9e\uff09\u5fc5\u987b\u843d\u76d8\u3002
+
+    \u4e3a\u4ec0\u4e48\uff1acampaign7 \u00a74 \u660e\u5199 B2 \u8981\u201c\u4fdd\u7559\u4e3a\u6b63\u5f0f\u8d5b\u5907\u9009\u81c2\u201d\uff0c\u800c\u672c\u811a\u672c\u4ee5\u524d**\u6ca1\u6709\u4efb\u4f55\u843d\u76d8**\n
+    \u21d2 10/5 \u9009\u81c2\u65f6\u770b\u4e0d\u5230\u5b83\u3002\u53e6\u9489\u4f4f\uff1a\u201c\u8bfb\u4e0d\u51fa/None\u201d\u4e0d\u7b97 B2\uff08\u4e0d\u731c\uff09\u3002"""
+
+    def test_is_b2_truth_table(self):
+        self.assertTrue(AP.is_b2(False, "ok", True))
+        self.assertFalse(AP.is_b2(False, "ok", None))      # \u8bfb\u4e0d\u51fa \u21d2 \u4e0d\u731c
+        self.assertFalse(AP.is_b2(False, "ok", False))     # \u673a\u5236\u4e0d\u8fbe\u6807 \u21d2 \u4e0d\u662f B2
+        self.assertFalse(AP.is_b2(False, "fail", True))
+        self.assertFalse(AP.is_b2(False, "unknown", True))
+        self.assertFalse(AP.is_b2(True, "ok", True))       # \u5df2\u91c7\u7528 \u21d2 \u4e0d\u662f B2
+        self.assertFalse(AP.is_b2(None, "ok", True))       # \u672a\u51b3 \u21d2 \u4e0d\u52a8
+
+    def test_v_mech_last_takes_latest(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            f = os.path.join(d, "v.jsonl")
+            with io.open(f, "w", encoding="utf-8") as fh:
+                fh.write(u'{"arm": "speedvaluebaotouv5", "ok": null, "why": "\u6837\u672c\u4e0d\u8db3"}\n')
+                fh.write(u'{"arm": "speedvaluebc", "ok": true, "why": "x"}\n')
+                fh.write(u'{"arm": "speedvaluebaotouv5", "ok": true, "why": "\u4e24\u9879\u90fd\u5347"}\n')
+                fh.write(u'not-json\n')
+            ok, why = AP.v_mech_last("speedvaluebaotouv5", path=f)
+            self.assertTrue(ok)
+            self.assertIn(u"\u4e24\u9879", why)
+
+    def test_v_mech_last_missing_and_unreadable(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            f = os.path.join(d, "v.jsonl")
+            with io.open(f, "w", encoding="utf-8") as fh:
+                fh.write(u'{"arm": "speedvaluebc", "ok": true}\n')
+            self.assertEqual((None, u"\u65e0\u8bb0\u5f55"), AP.v_mech_last("speedvaluebaotouv5", path=f))
+            self.assertEqual(None, AP.v_mech_last("x", path=os.path.join(d, "nope.jsonl"))[0])
+
+    def test_b2_marker_path_in_var(self):
+        self.assertTrue(AP.B2_OUT.replace("\\", "/").endswith("var/.B2_CANDIDATES"), AP.B2_OUT)
+
+
 class TestMechState(unittest.TestCase):
     """R1480：预登记 B3 在采用路径上的读数（用临时文件，不碰真实 `var/.mech_warn`）。"""
 

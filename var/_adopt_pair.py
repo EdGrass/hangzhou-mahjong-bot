@@ -49,6 +49,8 @@ LOG = os.path.join(ROOT, "var", "_adopt_pair.log")
 AB = os.path.join(ROOT, "var", ".ab_mode")
 LAST = "★ 判定："  # ★ 判定：
 MECH_WARN = os.path.join(ROOT, "var", ".mech_warn")
+VREC = os.path.join(ROOT, "var", "_v_mech_readings.jsonl")
+B2_OUT = os.path.join(ROOT, "var", ".B2_CANDIDATES")
 
 
 def log(msg):
@@ -67,6 +69,48 @@ def last_verdict(text):
         if LAST in ln:
             hit = ln.split(LAST, 1)[1].strip()
     return hit or ""
+
+
+def v_mech_last(arm, path=None):
+    """最新一条该臂的 **V 机制读数** ⇒ (ok, why)。没记录 ⇒ (None, "无记录")。
+
+    为什么：V 的机制是「爆头/胡 与 番/胡 都升」（campaign7 §2），它由
+    `_mech_watch` 每 6h 写入 `var/_v_mech_readings.jsonl`。判 B2（机制成立、主端点未证实）
+    必须读这个读数，而不能拿“没有 `.mech_warn`”当成“机制成立”。
+    """
+    pp = path or VREC
+    last = None
+    try:
+        with io.open(pp, encoding="utf-8", errors="replace") as f:
+            for ln in f:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    d = json.loads(ln)
+                except Exception:
+                    continue
+                if str(d.get("arm") or "") == arm:
+                    last = d
+    except Exception:
+        return None, "读数文件读不到"
+    if not last:
+        return None, "无记录"
+    return last.get("ok"), (last.get("why") or "")
+
+
+def is_b2(adopted, mstate, v_ok):
+    """预登记的 **B2**：机制成立、主端点未证实 ⇒ **保留为正式赛备选臂**（不进自动候选池）。
+
+    三个条件全中才算：① 判词已终态且**非 ADOPT**（adopted is False）；
+    ② 足迹端点没报警（mstate == "ok"）；③ 若为 V 轴，它的真实机制读数必须是明确的 True。
+    “读不出”/None 不算——**不猜**。
+    """
+    if adopted is not False:
+        return False
+    if mstate != "ok":
+        return False
+    return v_ok is True
 
 
 def mech_state(arm, since, path=None):
@@ -187,6 +231,7 @@ def main(argv=None):
 
     since = a.since or since_of()
     rows, undecided = [], False
+    b2 = []            # ★ R1486：机制成立、主端点未证实 ⇒ 预登记的 B2（保留为备选臂）
     for suf, arm in ((a.suffix_a, a.arm_a), (a.suffix_b, a.arm_b)):
         sent = os.path.join(ROOT, "var", ".verdict_done_%s%s" % (a.label, suf))
         if not os.path.exists(sent):
@@ -211,6 +256,33 @@ def main(argv=None):
         if adopted is None:
             undecided = True
         rows.append((arm, adopted))
+        # ★ R1486：预登记的 B2 分支（例：campaign7 §4）要求把“机制成立、主端点未证实”的臂
+        #   **记录下来并保留为正式赛备选臂**（与 §V.66 选臂口径并行比较）。
+        #   之前这个分支**没有任何落盘** ⇒ 10/5 选臂时根本看不到它。
+        #   只对“已终态判负（adopted is False）”记；判不出（None）不猜。
+        if adopted is False:
+            _v_ok, _v_why = (True, "")
+            if "baotou" in arm.lower():
+                _v_ok, _v_why = v_mech_last(arm)
+            if is_b2(adopted, mstate, _v_ok):
+                b2.append((arm, "机制成立、主端点未证实（判词：%s）" % (line[:48] or "（空）")))
+    if b2:
+        try:
+            with io.open(B2_OUT, "w", encoding="utf-8", newline="") as f:
+                f.write("%s 役三层 B2 备选臂（预登记：机制成立、主端点未证实）\n" % time.strftime("%Y-%m-%d %H:%M:%S"))
+                for _a, _w in b2:
+                    f.write("  %s —— %s\n" % (_a, _w))
+                f.write("注：他们**没有**通过预登记判词 ⇒ 按 §V.161 规则 1 **不进自动候选池**；\n"
+                        "但预登记要求把它们保留为正式赛备选，与 §V.66/§V.29 口径**并行比较**（由人判）。\n")
+            log("★ B2 备选臂已落盘 %s：%s" % (os.path.basename(B2_OUT), "、".join(a for a, _ in b2)))
+        except Exception as _e:
+            log("!! 写 B2 备选臂失败：%s" % str(_e)[:60])
+    elif os.path.exists(B2_OUT):
+        try:
+            os.remove(B2_OUT)
+        except Exception:
+            pass
+
     if undecided:
         log("!! 有候选无法判定 ⇒ 原地不动（需人工看上面几行）")
         return 2
