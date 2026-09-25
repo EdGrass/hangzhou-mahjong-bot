@@ -37,5 +37,20 @@ class TestPickArmStrengthTable(unittest.TestCase):
         self.assertIn("\u03b2=", p.stdout)
 
 
+    def test_veto_precheck_is_inline(self):
+        """★ R1518：役 5 的两层否决必须**出现在选臂表的输出里**（不能只写在读卡/命令里）。"""
+        src = io.open(SRC, encoding="utf-8").read()
+        self.assertIn("否决预检", src)
+        self.assertIn("_strong_veto.py", src)
+        if not os.path.exists(os.path.join(ROOT, "var", "auto_ranking.jsonl")):
+            self.skipTest("缺 var/auto_ranking.jsonl（clone）")
+        p = subprocess.run([sys.executable, "-X", "utf8", SRC, "--since", "2026-09-25 20:52:39",
+                            "--min-rooms", "3"], cwd=ROOT, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=600)
+        self.assertEqual(0, p.returncode, p.stderr[-300:])
+        self.assertIn("否决预检", p.stdout)
+        self.assertIn("rc=", p.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -17,7 +17,7 @@
     python -X utf8 var/_pick_arm.py --since "2026-09-20" --strong-top 32
 """
 from __future__ import annotations
-import argparse, collections, glob, io, json, math, os, statistics, sys
+import argparse, collections, glob, io, json, math, os, statistics, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ME = "u_7a3fba48d70b"
@@ -170,6 +170,27 @@ def main(argv=None):
         print("   〈R1505 读数〉|z|≥2.0 = 主序列可区分；1.5≤|z|<2.0 = 与【役门禁】同档但未过选臂口径；|z|<1.5 = 连门禁口径也不显著。")
         print("   〈R1505 读数〉**不可区分 ≠ 没差别**：强手房分/房池化 SD≈129 分/房 ⇒ 80 房/臂时 MDE≈41 分（R1501/R1505 实测），"
               "而实测臂间差只有 22~38 分 ⇒ 这根尺子本来就量不出。必须按下面的 ② 两半 Pareto 读。")
+    # ★ R1518：**役 5 的两层否决必须出现在决策材料里**。
+    #   为什么：§★追加写着“任一层任一列 ≤ −2×SE ⇒ 不采用”，但它只在读卡/命令里（`_adopt_pair` 只对役 3→4 调用）⇒
+    #   10/5 读提案的人不跑那条命令就看不到。这里就地跑一次（**只作读数，不改任何排序/阈值**）。
+    if len(table) >= 2:
+        try:
+            _a0, _a1 = table[0], table[1]
+            _p = subprocess.run([sys.executable, "-X", "utf8",
+                                 os.path.join(ROOT, "var", "_strong_veto.py"),
+                                 "--since", a.since, "--baseline", _a0["arm"],
+                                 "--candidate", _a1["arm"]],
+                                cwd=ROOT, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=600)
+            _tail = [x for x in (_p.stdout or "").strip().splitlines() if x.strip()][-4:]
+            print()
+            print("否决预检（强手房两层，只作读数；VETO 则按预登记**不采用该候选**）：")
+            print("  %s → %s（rc=%s）" % (_a0["arm"], _a1["arm"], _p.returncode))
+            for _l in _tail:
+                print("    " + _l)
+        except Exception as _e:
+            print()
+            print("（否决预检不可得：%s）" % str(_e)[:70])
     print()
     print("下一步（§V.66 规则）：")
     print("  ① 主序列：房数 ≥%d 且 **强手房分/房**，但 |Δ| < 2×SE 视为不可区分（上面已算）" % a.min_rooms)
