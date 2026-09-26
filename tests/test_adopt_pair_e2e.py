@@ -122,6 +122,9 @@ class TestAdoptPairEndToEnd(unittest.TestCase):
         #   预登记要求的“与 §V.66 口径并行比较”就没法做。
         b2 = io.open(AP.B2_OUT, encoding="utf-8").read()
         self.assertIn(u"窗口 since=2026-09-25 20:52:39", b2)
+        # ★ R1557c：标记正文会**原样贴给人**（心跳 0d）⇒ 必须写明“只能比较、不得据此部署”。
+        self.assertIn(u"未判正的臂不入最终臂候选池", b2)
+        self.assertIn(u"不得据此写", b2)
 
     def test_v_mech_fail_downgrades_row_to_none(self):
         """★ R1534：V 被 gate2 判正、但机制读数**明确不达标** ⇒ 按 B3 作废 ⇒ 回 NONE 行。"""
