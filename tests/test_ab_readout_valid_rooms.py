@@ -71,6 +71,30 @@ class TestInvalidRoomsExcluded(unittest.TestCase):
         self.assertEqual(rd.INVALID[("2026-09-16 19:23:18", "a_mix")], "status=running")
         self.assertEqual(rd.INVALID[("2026-09-16 19:33:03", "a_mix")], "multi-strategy")
 
+    def test_since_with_iso_T_is_normalized_not_silently_dropped(self):
+        """★ R1551：`--since` 写成 ISO 形式（带 `T`）**不能静默丢掉当天全部房**。
+
+        为什么单独钉：台账的 ts 是 ``2026-09-20 14:54:07``（空格），而 ``" " < "T"``
+        ⇒ 拿 ISO 形式去比会判成“大于当天所有行”，静默得出一个**偏小的房集**。
+        2026-09-21 实测：带 `T` 报 30/29 房，空格形式报真实的 46/46。
+        此处只钉“两种写法房集相等”—— 它是静默的，不钉就会再犯。
+        """
+        self._with_ranking([
+            _row("2026-09-20 14:54:07", "a_t1", "finished", 0, 80, mine_score=10),
+            _row("2026-09-20 15:10:00", "a_t2", "finished", 0, 80, mine_score=20),
+            _row("2026-09-19 23:59:59", "a_before", "finished", 0, 80, mine_score=30),
+        ])
+        sp = [r["room"] for r in rd.rooms_for("t", since="2026-09-20 14:54:07")]
+        iso = [r["room"] for r in rd.rooms_for("t", since="2026-09-20T14:54:07")]
+        self.assertEqual(sp, iso, u"ISO 形式被静默丢数据了")
+        self.assertEqual(["a_t1", "a_t2"], sorted(iso))
+
+    def test_norm_since_edges(self):
+        self.assertIsNone(rd._norm_since(None))
+        self.assertIsNone(rd._norm_since(""))
+        self.assertEqual("2026-09-20 14:54:07", rd._norm_since(" 2026-09-20T14:54:07 "))
+
+
     def test_arm_rooms_from_log_also_excludes(self):
         """按排批归属的那条路径（arm_rooms_from_log）同样要排掉。**不碰真文件**。"""
         self._with_ranking([

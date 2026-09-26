@@ -90,17 +90,18 @@ def _conflict_rooms():
         return _CONFLICT_CACHE[key]
     seen = {}
     try:
-        for ln in io.open(RANKING, encoding="utf-8"):
-            ln = ln.strip()
-            if not ln:
-                continue
-            try:
-                d = json.loads(ln)
-            except Exception:
-                continue
-            r, st = d.get("room"), d.get("strategy")
-            if r and st:
-                seen.setdefault(r, set()).add(st)
+        with io.open(RANKING, encoding="utf-8") as _fh:
+            for ln in _fh:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    d = json.loads(ln)
+                except Exception:
+                    continue
+                r, st = d.get("room"), d.get("strategy")
+                if r and st:
+                    seen.setdefault(r, set()).add(st)
     except OSError:
         seen = {}
     out = set(r for r, ss in seen.items() if len(ss) > 1)
@@ -147,32 +148,33 @@ def rooms_for(strategy, since=None):
     since = _norm_since(since)
     out = []
     try:
-        for ln in io.open(RANKING, encoding="utf-8"):
-            ln = ln.strip()
-            if not ln:
-                continue
-            try:
-                d = json.loads(ln)
-            except Exception:
-                continue
-            if d.get("strategy") != strategy:
-                continue
-            if not _ts_ge(d.get("ts", ""), since):
-                continue
-            _why = _invalid_reason(d)
-            if _why:
-                INVALID[(d.get("ts"), d.get("room"))] = _why
-                continue
-            rk = d.get("ranking") or []
-            mine = next((x for x in rk if x.get("user_id") == ME), None)
-            others = [x.get("total_score") or 0 for x in rk if x.get("user_id") != ME]
-            if mine is None or len(others) != 3:
-                continue
-            out.append({"net": (mine.get("total_score") or 0) - sum(others) / 3.0,
-                        "score": mine.get("total_score") or 0,
-                        "rank": mine.get("rank") or 0,
-                        "room": d.get("room"),
-                        "ts": d.get("ts")})
+        with io.open(RANKING, encoding="utf-8") as _fh:
+            for ln in _fh:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    d = json.loads(ln)
+                except Exception:
+                    continue
+                if d.get("strategy") != strategy:
+                    continue
+                if not _ts_ge(d.get("ts", ""), since):
+                    continue
+                _why = _invalid_reason(d)
+                if _why:
+                    INVALID[(d.get("ts"), d.get("room"))] = _why
+                    continue
+                rk = d.get("ranking") or []
+                mine = next((x for x in rk if x.get("user_id") == ME), None)
+                others = [x.get("total_score") or 0 for x in rk if x.get("user_id") != ME]
+                if mine is None or len(others) != 3:
+                    continue
+                out.append({"net": (mine.get("total_score") or 0) - sum(others) / 3.0,
+                            "score": mine.get("total_score") or 0,
+                            "rank": mine.get("rank") or 0,
+                            "room": d.get("room"),
+                            "ts": d.get("ts")})
     except OSError:
         pass
     return out
