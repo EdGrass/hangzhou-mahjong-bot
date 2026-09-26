@@ -43,6 +43,21 @@ class TestFinalDayWiring(unittest.TestCase):
             r'(?m)^Reg-One\s+"HangzhouMajFinalArmConfirm"\s+"2026-10-07 08:30:00"\s+"_final_arm_confirm\.py"',
             "HangzhouMajFinalArmConfirm 必须真的被 Reg-One 注册（行首调用，不能只在注释里）")
 
+    def test_switch_card_matches_ready_check_items(self):
+        """★ R1573：`final-switch-card` 是 10/7 那天**照读**的东西 ⇒ 它写的“就绪校验（N 项）”
+        必须等于 `_final_ready_check.py` 里的 chk 项数，且四个新事实（令牌/申报页/11:00、10/9）必须在卡上。"""
+        import re
+        card = read(os.path.join(ROOT, "docs", "iter", "reports", "final-switch-card-20261007.md"))
+        src = read(os.path.join(ROOT, "var", "_final_ready_check.py"))
+        # ★ 注意：同一个项号会因分支（PASS/FAIL）出现多次 chk 调用 ⇒ 必须数**不同项号**，不是调用次数。
+        n = len(set(re.findall(r'chk\("(\d+) ', src)))
+        m = re.search(u"就绪校验（\\*\\*(\\d+) 项\\*\\*）", card)
+        self.assertIsNotNone(m, u"操作卡里没有‘就绪校验（N 项）’")
+        self.assertEqual(n, int(m.group(1)),
+                         u"操作卡写 %s 项，脚本实际 %d 项 ⇒ 卡已过期" % (m.group(1), n))
+        for k in (".token_final_20261010", ".SUBMITTED_FORM", "11:00", "10/9"):
+            self.assertIn(k, card, k)
+
     def test_check3_really_registered(self):
         """★ R1563：T-1 天的第三次就绪校验必须**真的被注册**（行首调用，不能只在注释里）。"""
         s = read(REG)
