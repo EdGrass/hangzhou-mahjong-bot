@@ -7019,3 +7019,26 @@ rc=0
 
 **测试**：`tests/test_submit_final.py` 新增 `TestFailMarkR1569`（标记含原因/截止/命令；**不误删别人的内容**），
 `tests/test_final_day_wiring.py` 新增“重试必须真被 Reg-One 注册” ⇒ 两个模块 **39 项 OK**。
+
+### §V.291 ★★★★ 门户 cookie 一旦失效，**10/5 选臂主序列与 10/10 上线都会 fail-closed**，而它**没有人报**（R1571）
+
+**怎么发现**：核“10/5 提案的输入靠什么”时发现“强手房”层是**现拉榜单**：
+
+| 工具 | 榜单来源 | 不可达时 |
+|---|---|---|
+| `var/_pick_arm.py` | `tools/gang_gap.board_top`（live） | **fail-closed**（拒绝输出可用表；除非显式 `--allow-no-board`） |
+| `var/_verdict_by_elite.py` | 自带 live 拉榜 | 抛错 |
+| `var/_strong_slice.py` | live 拉榜 + “空榜就拒绝切片” | 抛错 |
+| 10/10 `_final_event_switch` | 靠门户解“唯一 registering 赛事 id” | 拒绝上线（fail-closed） |
+
+它们全部依赖 **`var/.portal_cookie`**（本轮实测：mtime **2026-09-06**，已 20 天，但**今天仍有效**——
+`board_top(32)` 返回 32 个 id ✓，`_pick_arm.top32()` 同样 32 个 ✓）。而 `_portal_watch`（每 30 分钟）**只把 http 状态记进历史**，
+**不为“读不到”报警** ⇒ cookie 挂了就一直静默，直到 10/5 09:00 提案跑出一张无用的表（或 10/10 18:50 上不了线）。
+
+**已改**：`_portal_watch.alert_on_change()` 新增“**连续两次** `/portal/api/tournaments` 非 200”⇒ 写 `var/.portal_URGENT`
+（**已有标记、心跳 0g 已会转述**），内容点名影响（选臂与赛事 id 都 fail-closed）与动作（先看 cookie 是否过期，刷新后重跑）。
+**为何要两次**：30 分钟一次，单次抖动不报；连续两次才是真故障。
+
+**测试**：`tests/test_portal_watch_alert.py` 新增 2 条（单次不报 / 连续两次报），并把夹具对齐真实快照（带 `tournaments_http`）⇒ **7 项 OK**。
+（★ 本轮发现：把测试追加到文件末尾时，若末尾是 `if __name__ == "__main__": unittest.main()`，
+追加的方法会落在 **if-块里**（语法合法但**永远不会被收集**）——实测“Ran 5”而应为 7 ⇒ 已修。这类“空洞测试”必须用计数来防。）

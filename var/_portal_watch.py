@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """`var/_portal_watch.py` \u2014\u2014 **\u95e8\u6237\u8d5b\u4e8b/\u516c\u544a\u53ea\u8bfb\u5feb\u7167\u5668**\uff08\u4e0d\u7528\u4ee4\u724c\uff0c\u53ea\u7528\u95e8\u6237 cookie\uff09\u3002
 
 \u4e3a\u4ec0\u4e48\uff1a\u56db\u6d4b\uff08t_6266386bfd56\uff09\u662f**\u6211\u4eec\u5076\u7136\u67e5\u95e8\u6237\u624d\u53d1\u73b0\u7684**\uff08\u5f53\u65f6\u8ddd\u62a5\u540d\u622a\u6b62\u53ea\u5269 ~5h\uff09\u3002
@@ -84,6 +84,20 @@ def alert_on_change(prev, cur, now_ts=None):
             urgent.append("%s 报名截止 %s（不足 24h）且我方未报名" % (t["id"], f(dl)))
         elif not t.get("my_registered"):
             urgent.append("%s 我方尚未报名" % t["id"])
+    # ★ R1571：门户**连续两次非 200** ⇒ 当作人工项。
+    #   为何：`var/.portal_cookie` 一旦失效（或门户挂了），以下两件事都会**静默地**变得不可用：
+    #     ① 10/5 选臂主序列靠的“强手房”层（`_pick_arm` / `_strong_slice` / `_verdict_by_elite` 均现拉榜单）
+    #        —— 它们会 **fail-closed（拒绝出结论）**；② 10/10 上线时解“唯一 registering 赛事 id”也靠门户。
+    #   为什么要“连续两次”：单次抖动不怕（每 30 分钟一次）；连续两次才是真故障。
+    try:
+        _st = int(cur.get("tournaments_http") or 0)
+        _stp = int(prev.get("tournaments_http") or 0)
+    except Exception:
+        _st, _stp = 0, 0
+    if _st != 200 and _stp != 200:
+        urgent.append("\u95e8\u6237 /portal/api/tournaments \u8fde\u7eed\u4e24\u6b21\u975e 200\uff08\u672c\u6b21 http=%s\uff09"
+                      "\u21d2 \u9009\u81c2\u4e3b\u5e8f\u5217\u4e0e 10/10 \u8d5b\u4e8b id \u89e3\u6790\u90fd\u4f1a fail-closed\uff1b"
+                      "\u5148\u770b var/.portal_cookie \u662f\u5426\u8fc7\u671f\uff0c\u5237\u65b0\u540e\u91cd\u8dd1 `python -X utf8 var/_portal_watch.py --show`" % _st)
     return sorted(t["id"] for t in new_rows), new_a, urgent, new_rows
 
 

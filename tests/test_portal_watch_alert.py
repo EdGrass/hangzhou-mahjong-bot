@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """`var/_portal_watch.alert_on_change` \u7684\u5355\u6d4b\uff08\u7eaf\u51fd\u6570\uff0c\u65e0\u7f51\u7edc\uff09\u3002
 
 \u4e3a\u4ec0\u4e48\uff1a\u201c\u4e0d\u8981\u9519\u8fc7\u62a5\u540d\u622a\u6b62\u201d\u662f**\u771f\u5b9e\u6559\u8bad**\uff08\u56db\u6d4b\u662f\u5076\u7136\u67e5\u95e8\u6237\u624d\u53d1\u73b0\u7684\uff0c\u5f53\u65f6\u8ddd\u622a\u6b62 ~5h\uff09\u3002
@@ -14,9 +14,11 @@ sys.path.insert(0, os.path.join(ROOT, "var"))
 import _portal_watch as pw  # noqa: E402
 
 
-def _snap(ids, anns=(), my_registered=True):
+def _snap(ids, anns=(), my_registered=True, http=200):
+    """★ R1571：真快照里有 `tournaments_http`（实例由 `snapshot()` 写）⇒ 夹具必须带上，否则测的不是真路径。"""
     return {
         "ts": "2026-10-01 12:00:00",
+        "tournaments_http": http,
         "tournaments": [
             {"id": i, "name": "evt-%s" % i, "status": "registering",
              "start_at": 1791000000, "register_deadline": 1790999000,
@@ -60,7 +62,17 @@ class TestPortalAlert(unittest.TestCase):
                                                   _snap(["t_1"], anns=["a1", "a2"]))
         self.assertEqual([], nt)
         self.assertEqual(["a2"], na)
+    def test_single_http_failure_is_not_urgent(self):
+        """★ R1571：单次抛错不报（避免将偶发抖动变成噪声）。"""
+        nt, na, urgent, rows = pw.alert_on_change(_snap(["t_1"], http=200), _snap(["t_1"], http=0))
+        self.assertEqual([], urgent)
 
+    def test_two_consecutive_http_failures_are_urgent(self):
+        """★ R1571：连续两次 ⇒ 人工项（cookie 失效/门户故障会让 10/5 选臂与 10/10 上线都 fail-closed）。"""
+        nt, na, urgent, rows = pw.alert_on_change(_snap(["t_1"], http=0), _snap(["t_1"], http=0))
+        self.assertEqual(1, len(urgent))
+        self.assertIn("fail-closed", urgent[0])
+        self.assertIn("portal_cookie", urgent[0])
 
 if __name__ == "__main__":
     unittest.main()
