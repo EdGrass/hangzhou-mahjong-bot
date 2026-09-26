@@ -28500,3 +28500,12 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     `rules_guard` 只能 rc=3（读不到）、tid 解不出来。**它拒绝沿用历史 tid**（R1307 的修正）✓ —— 这正是“宁可不查也不查错赛事”。
   - 另记一个读数细节：该工具的“策略=”一行取自 `var/_keeper_strategy.txt` ⇒ A/B 期间它会显示**当前轮到的那根臂**（本次=speedvaluebc），
     这与 README 的“以 `_keeper_strategy.txt` 为准”一致 ✓（不是异常）。
+
+- [R1582 | 2026-09-26 14:3x ★★★★ **判官视角验收（今日版）**：clone → smoke → 全量，全绿]
+  - 为什么重做：§V.203 那次是 9/24，之后今天又改了 ~30 处（而 `var/` 的 94 个运维脚本**是被 git 跟踪的** ⇒ 改动已经进公开仓）。
+  - **实测**：`git clone` 到 %TEMP% ⇒ HEAD **bc71d5b**（= 最新推送）、`var/` **94 个文件**、**4 个模型权重全在**；
+    `run_bot.py --smoke` ⇒ **指南 v35 一致、冒烟全部通过**（rc=0）；R1345 那条**引擎链 import** ⇒ `ENGINE CHAIN IMPORT OK`；
+    `python -m unittest discover -s tests`（判官用的那条）⇒ **Ran 1165 tests, OK (skipped=61)**，44.7s。
+  - 读数对照：本机 **1303**（2 skipped） vs clone **1165**（61 skipped） —— 差的 138 项是**整个模块自跳**（需本机对局语料/令牌），
+    与 §V.261 的口径一致；新增的 +1 skip 就是 `test_campaign_status_defaults` 里那条“看真机 `.ab_mode`”的用例（clone 里没有 ⇒ 自跳）✓
+  - **结论**：判官拉下去就能跑（smoke 全绿、单测全绿、4 个权重在）；而且今天的修复已经在公开仓里 ✓。
