@@ -65,6 +65,19 @@ class TestB2Section(unittest.TestCase):
         self.assertIn("_pick_arm.py", " ".join(argv))
         self.assertIn("2026-09-25 20:52:39", argv)  # ★ 必须用它**自己那一役**的窗口
 
+    def test_section_states_the_r1557_discipline(self):
+        """★ R1557：这段必须写死“**未判正的臂不入最终臂候选池**”。
+
+        为什么：§V.161 A.1（已写死“不能事后挑”）+ campaign8 §4-4 都禁止部署未判正臂；
+        而 §V.247 的“全部臂”只是**列出/比较**的范围 —— 不能被读成“可以据此部署”。
+        """
+        out = M.b2_section(B2_TEXT)
+        # 正文里“（含 B2）”夹在中间 ⇒ 查关键子串（不拟合整句）
+        self.assertIn(u"不入最终臂候选池", out)
+        self.assertIn(u"§V.161 A.1", out)
+        self.assertIn(u"不得据此写", out)
+        self.assertIn(u"R1557", out)
+
     def test_no_window_tells_the_human_what_to_run(self):
         out = M.b2_section(u"x B2 备选臂\n  speedvaluebc —— 机制成立\n")
         self.assertIn(u"_pick_arm.py --since", out)
