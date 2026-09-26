@@ -95,5 +95,23 @@ class TestEventDayCard(unittest.TestCase):
         self.assertIn(u"绝不自动使用", c)
         self.assertIn(u"人工确认", c)
 
+
+class TestCardsDiscoverable(unittest.TestCase):
+    """★ R1588：五张当天卡必须在**入口指引里列成一行** —— 敞在四处等于没有。"""
+
+    CARDS = ("verdict-day-card-20260928.md", "pick-day-card-20261005.md",
+             "final-switch-card-20261007.md", "submission-day-card.md",
+             "event-day-card-20261010.md")
+
+    def test_handoff_lists_all_cards(self):
+        h = read(os.path.join(ROOT, "docs", "HANDOFF.md"))
+        for c in self.CARDS:
+            self.assertIn(c, h, u"HANDOFF 入口指引缺这张卡：" + c)
+
+    def test_cards_exist(self):
+        d = os.path.join(ROOT, "docs", "iter", "reports")
+        for c in self.CARDS:
+            self.assertTrue(os.path.exists(os.path.join(d, c)), c)
+
 if __name__ == "__main__":
     unittest.main()
