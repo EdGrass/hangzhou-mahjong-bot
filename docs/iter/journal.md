@@ -28354,3 +28354,6 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **审计**：重新注册后**终局 11 台全 Ready**、NextRunTime 逐一正确、rc=267011、**动作脚本 11/11 在场**。
   - **测试**：`test_submit_final` +2（标记内容 / 不误删别人内容）、`test_final_day_wiring` +1（重试真注册）⇒ 两模块 **39 项 OK**。
   - （写补丁时又踩一次旧坑：补丁脚本里的正则/换行字面量一旦写成真换行，生成的 .py 就是语法错 ⇒ 改完必须 `ast.parse` 一次）。
+
+- [R1569 补记 | 2026-09-26 13:4x ★★★ 全量回归（包含 R1569 的 `_submit_final` 行为改动，走 `_lowprio_run`）：
+  `python -X utf8 var/_lowprio_run.py -- python -X utf8 -m unittest discover` ⇒ **Ran 1298 tests, OK (skipped=2, expected failures=1)**，**775s**。
