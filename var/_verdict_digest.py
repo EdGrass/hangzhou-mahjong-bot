@@ -159,7 +159,9 @@ def main(argv=None):
         return 0
     stamp = time.strftime("%Y%m%d_%H%M%S")
     safe = re.sub(r"[^0-9]", "", a.since) or stamp
-    path = os.path.join(OUT_DIR, "_verdict_digest_%s.txt" % safe)
+    # ★ R1550：文件名带**时间戳** —— 同一窗口可能跑多次（例：9/27 部分数据、9/28 判词），
+    #   不能把上一次的证据覆盖掉（本项目的证据链习惯：只追加、不覆写）。
+    path = os.path.join(OUT_DIR, "_verdict_digest_%s_%s.txt" % (safe, stamp))
     digest, codes = [], {}
     _arms = [a.baseline] + cands
     with io.open(path, "w", encoding="utf-8", newline="\n") as out:
@@ -193,7 +195,13 @@ def main(argv=None):
         print("\n-- %s   rc=%s" % (name, rc))
         for ln in lines:
             print("   " + ln)
-    print("\n\u62a5\u544a\uff1a%s" % os.path.relpath(path, ROOT))
+    # ★ R1550：跨盘符时 `os.path.relpath` 会抛 ValueError（Windows）——
+    #   不能在“报告已经写完”之后才崩；退回绝对路径。
+    try:
+        _shown = os.path.relpath(path, ROOT)
+    except Exception:
+        _shown = path
+    print("\n\u62a5\u544a：%s" % _shown)
     print("\u2605 \u8bfb\u6cd5\uff1a\u6309**\u672c\u5f79\u8bfb\u5361**\uff08\u5f793 \u2192 yaku3-verdict-readcard.md \u00a70/\u00a70b/\u00a70c\uff1b"
           "\u5f794/5 \u5404\u81ea\u8bfb\u5361\uff09\uff1b\u5f3a\u624b\u623f\u82e5\u67d0\u5c42\u4e0d\u8db3 15 \u623f/\u81c2 \u2192 \u6309\u9884\u767b\u8bb0\u53ea\u8bb0\u5f55\uff0c"
           "\u4f46**\u5fc5\u987b\u4eba\u8bfb\u8be5\u5c42\u539f\u503c\u65b9\u5411**\u3002")

@@ -23,6 +23,8 @@
 
 > **量纲（R1540）**：`_gate2` 打印的副端点列现在叫 **`番/轮×100`**（它**等于预登记“番/房”端点的一个常数倍变换**）⇒ 判据（z≥1.50、方向）**完全不受影响**；真“番/房”≈ 该值×0.08（8 局/房）。
 
+> **一条命令版（R1547）**：`python -X utf8 var/_verdict_digest.py --since "<役 4 起点>" --baseline <B> --candidates <C> --mechanism melds`（只读；把本卡要求的条目按固定顺序跑完；它**不作判断**，副端点阈值仍然看本卡 §0）
+
 ## 1. 怎么读判词
 
 - 文件：`var/_verdict_役4<候选>.txt` / 哨兵 `var/.verdict_done_役4<候选>`（例：`役4speedvaluebcmeldp45`）。

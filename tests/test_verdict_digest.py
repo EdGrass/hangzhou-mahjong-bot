@@ -56,6 +56,42 @@ class TestPickLines(unittest.TestCase):
         self.assertIn(u"第29", out[-1])
 
 
+class TestReportWriting(unittest.TestCase):
+    """★ R1550：真跑时报告必须**写出来**，且文件名带**时间戳**（同一窗口跑多次不互相覆盖）。
+
+    为什么：此前只有纯函数单测，“报告写盘”这条路径没人跑过；而它是判词当天的**证据文件**。
+    """
+
+    def test_main_writes_timestamped_report(self):
+        import tempfile, re as _re
+        with tempfile.TemporaryDirectory() as d:
+            class _P(object):
+                stdout = "x\n"
+                stderr = ""
+                returncode = 0
+            old_dir, old_run = g.OUT_DIR, g.subprocess.run
+            g.OUT_DIR = d
+            g.subprocess.run = lambda *a, **k: _P()
+            try:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = g.main(["--since", "2026-09-25 20:52:39", "--baseline", "speedvalue",
+                                 "--candidates", "speedvaluebc,speedvaluebaotouv5", "--min-rooms", "10"])
+            finally:
+                g.OUT_DIR, g.subprocess.run = old_dir, old_run
+            self.assertEqual(0, rc)
+            files = os.listdir(d)
+            self.assertEqual(1, len(files), files)
+            self.assertRegex(files[0], r"^_verdict_digest_\d{14}_\d{8}_\d{6}\.txt$")
+            with io.open(os.path.join(d, files[0]), encoding="utf-8") as fh:
+                body = fh.read()
+            self.assertIn("机制端点", body)
+            # ★ 注意：报告里记的是**完整命令行**（`$ -X utf8 ..._gate2.py ...`），
+            #   `gate2/臂` 这个简名只在**屏幕**摘要里 ⇒ 别拿屏幕文本去断报告。
+            self.assertIn("_gate2.py", body)
+            self.assertIn("speedvaluebc", body)
+
+
 class TestMechSection(unittest.TestCase):
     """★ R1548：机制端点（读卡 §0b/§0c）必须一并汇总。
 
