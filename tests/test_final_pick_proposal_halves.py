@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """★ R1549：10/5 提案必须**自己把两半 Pareto 跑出来**。
 
 为什么：R1501/R1505 已实测「主序列 MDE≈41 分，而臂间差 22~38」⇒ `_pick_arm` 几乎必然报
@@ -77,3 +77,26 @@ class TestHalvesSection(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestDeployStatusR1567(unittest.TestCase):
+    """★ R1567：提案里必须把“哪些臂**可部署**”标出来 —— 回退窗口会把旧臂混进同一张表，
+    实测（2026-09-26）主序列第一名就是一个从未判正的臂。"""
+
+    def test_marks_only_adopted_arms(self):
+        import tempfile
+        sys.path.insert(0, os.path.join(ROOT, "var"))
+        import _final_arm_confirm as C
+        d = tempfile.mkdtemp(prefix="r1567_")
+        p = os.path.join(d, "_verdict_役2.txt")
+        io.open(p, "w", encoding="utf-8").write(
+            u"=== 役：speedc151（基线） vs speedvalue（候选）  since=1\n"
+            u"★ 判定：ADOPT speedvalue（和牌率 z=+1.83）\n")
+        vs = C.load_verdicts([p])
+        st = M.deploy_status(["speedvalue", "speedvaluebc"], vs)
+        self.assertTrue(st["speedvalue"])
+        self.assertFalse(st["speedvaluebc"])
+        out = M.deploy_section(["speedvalue", "speedvaluebc"], vs)
+        self.assertIn(u"✅", out)
+        self.assertIn(u"不可部署", out)
+        self.assertIn(u"§V.161 A.1", out)
+

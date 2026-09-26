@@ -97,6 +97,50 @@ def b2_section(b2txt, min_rooms=30, strong_top=32):
     return out
 
 
+def deploy_status(arms, verdicts=None):
+    """★ R1567：逐臂给出“**是否已判正**”。
+
+    为什么：回退窗口（最可能的情形）会把**旧役的臂**混进同一张表 ——
+    实测（2026-09-26）`_pick_arm` 的**主序列第一名**就是一个 32 房、**从未判正**的臂（`speedc073w4`）。
+    而按 **§V.161 A.1**（写死“没过阈值的不进候选池”）与 **§V.279**，它**不能被部署**。
+    本函数把这条规则**落到具体的臂名上**（而不是让人自己去套规则）：
+    重用 `_final_arm_confirm` 的同一套判定（`load_verdicts` + `arm_adopted`，整词匹配 + 取最新一份），**不自己另写一份**。
+    返回 {arm: True/False/None}（None = 读不到，不猜）。
+    """
+    out = {}
+    try:
+        sys.path.insert(0, os.path.join(ROOT, "var"))
+        import _final_arm_confirm as C
+        vs = C.load_verdicts() if verdicts is None else verdicts
+        for a in arms:
+            out[a] = bool(C.arm_adopted(a, vs))
+    except Exception:
+        for a in arms:
+            out[a] = None
+    return out
+
+
+def deploy_section(arms, verdicts=None):
+    """→ 文本段：列出每个参与臂的可部署性，并在“表头名”不可部署时加一条醒目提醒。
+    """
+    st = deploy_status(arms, verdicts)
+    lines = ["\n" + "=" * 78, "\u2605 \u53ef\u90e8\u7f72\u6027\uff08\u00a7V.161 A.1\uff1a**\u53ea\u6709\u300c\u5df2\u5224\u6b63\u300d\u7684\u81c2\u80fd\u8fdb\u6700\u7ec8\u81c2**\uff09", "=" * 78]
+    for a in arms:
+        v = st.get(a)
+        if v is True:
+            lines.append("  %-18s \u2705 \u5df2\u5224\u6b63\uff08\u5224\u8bcd\u6700\u65b0\u4e00\u4efd\u7684\u672b\u6761 \u2605 \u5224\u5b9a\uff1a \u4ee5 ADOPT \u5f00\u5934\uff09" % a)
+        elif v is False:
+            lines.append("  %-18s \u274c \u65e0\u5224\u8bcd / \u672b\u6761\u975e ADOPT \u21d2 **\u53ea\u4f5c\u8bfb\u6570\uff0c\u4e0d\u53ef\u90e8\u7f72**" % a)
+        else:
+            lines.append("  %-18s \u2753 \u8bfb\u4e0d\u5230\u5224\u8bcd\uff08\u4e0d\u731c\uff09" % a)
+    bad = [a for a in arms if st.get(a) is not True]
+    if bad:
+        lines.append("")
+        lines.append("\u2605 \u63d0\u9192\uff1a\u4e0a\u8868\u91cc %d \u4e2a\u81c2\u4e2d\u6709 %d \u4e2a**\u672a\u5224\u6b63**\u3002\u82e5\u4e3b\u5e8f\u5217\uff08\u5f3a\u624b\u623f\u5206/\u623f\uff09\u7684\u7b2c\u4e00\u540d\u843d\u5728\u8fd9\u4e00\u7c7b\u91cc\uff0c"
+                     "**\u4e0d\u80fd\u636e\u6b64\u5199 `var/.final_arm.txt`** \u2014\u2014 \u5b83\u53ea\u662f\u8bfb\u6570\u3002" % (len(arms), len(bad)))
+    return "\n".join(lines) + "\n"
+
+
 def halves_cmds(since, strong_top, py=None, root=None):
     """★ R1549：两半 Pareto 的两条命令（§V.66 ② 的**真判据**）。纯函数，可单测。"""
     py = py or sys.executable

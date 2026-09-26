@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """`var/_final_arm_confirm.py` —— **10/7 换臂前把 `.final_arm.txt` 补上**。
 
 ## 为什么要有它
@@ -106,6 +106,10 @@ def load_verdicts(paths=None):
         base = os.path.basename(p)
         if base.startswith("_verdict_watch") or ".bak" in base:
             continue
+        # ★ R1567：`_verdict_digest_*.txt` 是**摘要报告**，不是判词 —— 而它同一命名空间 +比判词更新 +
+        #   正文里提到所有臂，会把别人的 ADOPT 算到本臂头上（实测假阳性，见下方 arm_adopted）。
+        if base.startswith("_verdict_digest"):
+            continue
         try:
             with io.open(p, encoding="utf-8-sig", errors="replace") as f:
                 txt = f.read()
@@ -120,9 +124,27 @@ def load_verdicts(paths=None):
     return out
 
 
+def about_arm(text, arm):
+    """这份判词**是不是关于这个臂**的 —— 认 `_gate2` 头行里的 `vs <arm>（候选）`（逐字）。
+
+    ★ R1567（高危修正）：旧实现用 `mentions(text, arm)`（“文件里**提到过**这个臂”）+“末条以 ADOPT 开头”，
+    **不核对 ADOPT 点名的是谁** ⇒ 两种真实误判：
+      · **假阳性**：一份提到多臂的文件（尤其是 `_verdict_digest_*` 报告，正是读卡要求人在判词当天跑的那条）
+        会把**别的臂的 ADOPT** 记到本臂头上 ⇒ 10/7 可能装上**从未判正的臂**（踩 §V.161 A.1 红线）；
+      · **假阴性**：报告的末条恰好是 UNDECIDED 时，会把**真判正**的层遮蔽掉 ⇒ 最终臂退回基线。
+    现在：只有“这份判词头行点名的**候选**就是它”才算数；认不出头行 ⇒ 不算（fail-closed，宁可退基线）。
+    """
+    if not text or not arm:
+        return False
+    if not mentions(text, arm):        # 先要求文件里确实整词出现过它
+        return False
+    m = re.search(r"vs\s+([0-9A-Za-z_]+)\s*（候选）", text)
+    return bool(m) and m.group(1) == arm
+
+
 def arm_adopted(arm, verdicts):
-    """该臂**最新**一份判词若判 ADOPT ⇒ 返回那份判词，否则 None。"""
-    hits = [v for v in verdicts if mentions(v["text"], arm)]
+    """该臂**最新**一份（**关于它的**）判词若判 ADOPT ⇒ 返回那份判词，否则 None。"""
+    hits = [v for v in verdicts if about_arm(v["text"], arm)]
     if not hits:
         return None
     hits.sort(key=lambda v: (v["mtime"], v["name"]), reverse=True)
