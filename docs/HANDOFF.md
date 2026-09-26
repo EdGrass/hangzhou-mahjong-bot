@@ -1,16 +1,16 @@
-> ⚠ **入口指引（2026-09-26 09:40 更新 · 在此之前的内容均为历史记录）**
+> ⚠ **入口指引（2026-09-26 09:50 更新 · 在此之前的内容均为历史记录）**
 >
 > | 用途 | 看哪个 |
 > |---|---|
-> | **作战计划（唯一权威，§A–§V.267）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1545**） |
+> | **作战计划（唯一权威，§A–§V.268）** | `docs/iter/reports/next-month-plan-20260923.md` |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1546**） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | 当前役进度 | `python -X utf8 var/_verdict_watch.py --label 役3bc --since "2026-09-25 20:52:39" --baseline speedvalue --candidate speedvaluebc --mechanism none --check-only`（另一条把 `役3bc/speedvaluebc` 换成 `役3v/speedvaluebaotouv5`） |
 > | 一屏总览 / 排期 / 环境 | `var/_campaign_status.py` · `var/_schedule_guard.py` · `tools/preflight.py` |
 > | **完整性（R1526）** | `python -X utf8 tools/ab_integrity.py --since "役3起点" --arms speedvalue,speedvaluebc,speedvaluebaotouv5`（含**每房 10 份复盘**检查） |
 >
-> **当前状态（2026-09-26 09:40）**
+> **当前状态（2026-09-26 09:50）**
 > - **役 3 在跑**：`speedvalue`（共享基线）+ `speedvaluebc` + `speedvaluebaotouv5`；窗口 `started = 2026-09-25 20:52:39`。
 >   判词 ETA（★ 按实测 **1.23 房/时/臂**（20:52→06:36 走 12 房）重算）：**80 房/臂 ≈ 9/28 13:41**；役盒 120/臂 ≈ 9/29 22:06。当前 **36 房（12/12/12）**；已完成的 35 房**复盘各 10/10 份**（唯一未齐的是刚结束那房，抓取延迟）。
 > - **机制端点**：`speedvaluebc` 足迹 **15.6%**（预登记 10–20% 带内）✓；
@@ -63,6 +63,10 @@
 > - **★ R1543（R1542 的下游）**：`.adopted_pair_役3` 原本记「**算出来的**」役4 配置；重试路径会重算四格，
 >   若判定翻转，标记就指向**没在跑的臂** ⇒ `_next_yaku_notice` 找不到哨兵 ⇒ **役4→役5 静默停摆**。
 >   已改为**以 `.ab_mode` 的实际配置为准**（不一致时大声记日志）。
+> - **★ R1546（9/28 读判词时的关键提示）**：**决赛相似层（`>=2 top32`）天生很薄** —— 今天占比仅 19–27%，
+>   投影到 80 房/臂只有 **15–21 房**，正好贴着否决门槛 15 ⇒ **9/28 的「决赛相似层否决」可能判 UNKNOWN**。
+>   届时**不许只看 rc**：`_strong_veto` 会照样打印该层的「分/房」「第1率」原值，**必须人读方向**（§V.183）。
+>   预登记的 per-役窗口与 15 房门槛**不动**；更宽窗口重跑只能算 **off-prereg 旁证**，不能当判据。
 > - **唯一人工输入**：10/10 前把当天令牌存成 **`var/.token_final_20261010`**（缺它 ⇒ 不上线）。
 
 # 交接 Prompt —— 杭麻 SpeedA Bot 项目（交接日期 2026-09-09 夜）
