@@ -13,7 +13,7 @@
 > | 用途 | 看哪个 |
 > |---|---|
 > | **作战计划（唯一权威，§A–§V.294）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1584**；含 R1557b/c 补记） |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1585**；含 R1557b/c 补记） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | **判词当天一屏摘要（R1547，R1553 起含 `_pick_arm`）** | `python -X utf8 var/_verdict_digest.py --since "<役起点>" --baseline <B> --candidates <C1,C2> --mechanism none`（**只读**；按固定顺序跑 **2×`_gate2` + 2×强手房否决 + `_pick_arm`（役5 主端点）+ 两半 Pareto**，并**汇总机制端点标记**，屏幕打关键行 + 落报告；**它不做判断**，读法看读卡） |
