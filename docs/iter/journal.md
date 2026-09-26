@@ -28519,3 +28519,12 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     —— 这正是 README §1 与申报正文第 33 行已写明的“**权重缺失⇒静默回退到纯规则基线**”✓。
   - ⇒ **结论**：公开仓对判官是自洽的（smoke 全绿、单测 1165 全绿、四个权重在），且**任何可能上场的终端臂都能在 clone 里直接跑**。
     （因此不需要改 README/申报正文：它们已经把“回退到基线”这一行为写得很准。）
+
+- [R1584 | 2026-09-26 14:4x ★★★★ 在**今天这套代码**上重彩排“9/28 役3→役4 起役链”（dry-run；`.ab_mode` 一字未变）]
+  - 命令：`python var/_bsegment.py --label 役4 --baseline speedvalue --candidates speedvaluemeldp45 --watch-mechanism melds`（不带 `--go` ⇒ 只打印）
+  - 打印出的 B 段五步**与读卡 §3 一致**：
+    ① `ab_ctl.py stop` ② `_apply_p0_404.py --go`（P0 补丁，幂等）③ `tools/preflight.py`
+    ④ `_switch_campaign.py --baseline speedvalue --candidates speedvaluemeldp45 --bundles speedvalue --go`（= **NONE 行的配置**）
+    ⑤ `_register_campaign_watches.ps1 -Label 役4 -Since <ts> -Baseline speedvalue -Candidates speedvaluemeldp45 -Mechanism melds -Go`
+    （副露轴的机制口径 = `melds` ✓）；并自带 R1542 幂等注明（已切过 ⇒ 只重试第 5 步，避免新时戳重切）。
+  - 至此：端底链 6 步 + **起下一役**，全部在今天的代码上彩排过 ✓（端底链另见 §V.287/289/R1582）。
