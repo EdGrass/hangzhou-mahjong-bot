@@ -11,7 +11,8 @@
 
 ## 判据（逐字对 §V.186）
 
-- 役 4（副露）**未判正** ⇒ **不起役 5**，直接进 §V.66 选臂；
+- 役 4（副露）**未判正** ⇒ **不起役 5**，直接进 §V.66 选臂（★ R1560：此时第三个役位会**空置** 1.7–3.2 天 ⇒ 按 **§V.281** 另列一条
+  **供人定**的选项：用同一槽位起 `speedvaluerank`；本脚本**只列出、不执行**）；
 - 役 4 判正 **且 BC 与 V 都判正** ⇒ 起役 5：基线 = 役 4 的 2 层赢家，候选 = `speedvaluebcvmeld`
   （**或** 剂量对齐 `speedvaluebcvmeldp40`）；
 - 役 4 判正但**只有单层** ⇒ 无 3 层组合可用 ⇒ 不起役 5，直接选臂；
@@ -190,7 +191,18 @@ def main(argv=None):
             lines.append('  python -X utf8 var/_bsegment.py --go --label 役6 --baseline %s --candidates %s --watch-mechanism none' % (b, c))
         lines.append("  注：§V.186 说“不起役 5”，§V.161 规则 4 又说看不出差别时选组合臂 —— 两条口径冲突，**由人定**。")
     else:
-        lines.append("⇒ 不需要起新役；等 **10/5 09:00 的 `HangzhouMajFinalPickProposal`** 出选臂提案即可。")
+        lines.append("⇒ **默认：**不需要起新役；等 **10/5 09:00 的 `HangzhouMajFinalPickProposal`** 出选臂提案即可。")
+        # ★ R1560（§V.281）：这一分支会把**第三个役位空置 1.7–3.2 天**，而 10/7 的最终臂只能等于基线。
+        #   另一条路早已预登记好（§V.42 的第 4 号臂、足迹 37.0%、`_campaign_ready` 全 ✅、
+        #   `prereg-campaign5-speedvaluerank-20260924.md` 格式合格）—— 本脚本**只把它摆出来**，不替人拍。
+        lines += [
+            "",
+            u"★ 待决（§V.281，**由人拍**；本脚本不起役）：上面那条默认路会把第三个役位**空置 1.7–3.2 天**，",
+            u"  10/7 的最终臂就只能等于基线。§V.42 已把「同侧第二次下注」排为第 4 号臂（足迹 37.0%、打最大缺口）：",
+            "  python -X utf8 var/_bsegment.py --go --label 役5 --baseline %s --candidates speedvaluerank --watch-mechanism draw" % (base4 or "speedvalue"),
+            u"  （第二顺位 = `speedvalueplain`；两个都已注册、都有合格预登记）",
+            u"  起役前需先接好 §V.281 列的 4 条线（机制读数相位 / 读卡形状确认 / 命令出口）。",
+        ]
     # ★ R1483：把**机制端点的两个标记**一并附上 —— 它们会直接改写四格结果（B3），
     #   所以“该不该开下一役、开哪个”的决策包必须包含它们；否则读到提醒的人会以为四格是干净的。
     for _n, _t in ((".mech_warn", "机制端点告警（指向的臂按预登记 B3⇒不采用）"),

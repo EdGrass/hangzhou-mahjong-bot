@@ -128,8 +128,10 @@ class TestEndToEnd(unittest.TestCase):
             _fixture(d, REJ_4, ADOPT_BC, "\\u2605 \\u5224\\u5b9a\\uff1aUNDECIDED\uff08z=+0.9\uff09")
             N.main(["--label", "役4", "--var-dir", d])
             body = io.open(os.path.join(d, ".YAKU_NEXT_PENDING"), encoding="utf-8").read()
-            self.assertIn("FinalPickProposal", body)
-            self.assertNotIn("--label 役5", body)
+            self.assertIn("FinalPickProposal", body)          # 默认仍是“等 10/5 提案”
+            self.assertIn(u"由人拍", body)                     # ★ R1560（§V.281）的选项是**给人**的
+            self.assertIn("speedvaluerank", body)            # 但选项必须出现（否则阈候人看不见）
+            self.assertIn("--label 役5", body)              # 且给出可照拄命令
 
     def test_meld_not_decisive_waits(self):
         with tempfile.TemporaryDirectory() as d:
@@ -173,13 +175,32 @@ class TestYaku5WatchMechanismR1531(unittest.TestCase):
     预登记 `prereg-campaign8-combo-20260925.md` §5 写的就是 `none`。
     """
 
-    def test_yaku5_command_uses_none(self):
+    def test_yaku5_combo_command_uses_none(self):
+        """★ R1560 订正：本测原意是“**组合臂**那条命令必须 `none`”（不能拿已存在的副露层去卡）。
+        而 R1560 后源码里多了一条**单变量**分支命令（`speedvaluerank`，机制口径 = `draw`）
+        ⇒ 按形状分开钉，才不会把两种形状混在一起。"""
         src = io.open(os.path.join(ROOT, "var", "_next_yaku_notice.py"), encoding="utf-8").read()
         cmds = [ln for ln in src.splitlines() if "--label 役5" in ln and "watch-mechanism" in ln]
         self.assertTrue(cmds, "没找到役5 起役命令（测试已失效）")
-        for ln in cmds:
+        rank = [ln for ln in cmds if "speedvaluerank" in ln]
+        combo = [ln for ln in cmds if ln not in rank]   # 组合臂那条的候选是 `%s` 占位符
+        self.assertTrue(combo, "没找到役5 组合臂命令")
+        for ln in combo:
             self.assertIn("--watch-mechanism none", ln, ln)
             self.assertNotIn("melds", ln, ln)
+
+    def test_yaku5_rank_fallback_uses_draw(self):
+        """★ R1560（§V.281）：“副露未判正”分支给的是**单变量**臂
+        （足迹 37.0%）⇒ 它的机制口径是 `draw`（出牌改动率），**不是** `none`/`melds`。
+        同时钉死“必须写清楚是给人拍”—— 它是一个**选项**，不是自动动作。"""
+        src = io.open(os.path.join(ROOT, "var", "_next_yaku_notice.py"), encoding="utf-8").read()
+        rank = [ln for ln in src.splitlines()
+                if "--label 役5" in ln and "watch-mechanism" in ln and "speedvaluerank" in ln]
+        self.assertTrue(rank, "§V.281 的分支命令没出现在源码里")
+        for ln in rank:
+            self.assertIn("--watch-mechanism draw", ln, ln)
+            self.assertNotIn("melds", ln, ln)
+        self.assertIn(u"由人拍", src)
 
     def test_advisory_points_to_readcards(self):
         src = io.open(os.path.join(ROOT, "var", "_next_yaku_notice.py"), encoding="utf-8").read()
