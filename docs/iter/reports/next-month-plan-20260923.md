@@ -6969,3 +6969,28 @@ confirm 带 `--go` 会先落盘，所以不会出现这个 rc=2。两次彩排�
 已加 `_final_pick_proposal.deploy_section(arms)`：逐臂 `✅ 已判正` / `❌ 未判正 ⇒ 只作读数，不可部署`，
 并在存在未判正臂时追一行提醒：“若主序列第一名落在这一类里，**不能据此写 `var/.final_arm.txt`**”。
 重用 `_final_arm_confirm` 同一套判定（**不另写一份** ⇒ 不会漂移）；测试共 **39 项 OK**。
+
+### §V.289 ★★★ 10/10「18:50 上线 + 19:25 T-5 保险」的**活体彩排**（dry-run，不落标记）—— 端底链现已逐步彩排完（R1568）
+
+**彩排①：18:50 上线（`python -X utf8 var/_final_event_switch.py --dry-run`）**
+```
+2026-09-26 13:29:55 !! 缺 .final_arm.txt（最终臂未定） ⇒ （dry-run：不落 .EVENT_SWITCH_BLOCKED）
+2026-09-26 13:29:55 !! 缺 .final_arm.txt（最终臂未定）⇒ 不上线
+rc=2
+```
+
+⇒ **fail-closed 正确**：先查最终臂、再查令牌；**dry-run 不落任何标记**（实测 `var/.EVENT_SWITCH_BLOCKED` 未出现）。
+
+**彩排②：19:25 T-5 保险（`python -X utf8 var/_final_event_ready.py --dry-run`）**
+```
+2026-09-26 13:29:56 19:25 保险启动：official_mode=False ⇒ switch_then_ready
+（dry-run：将执行 switch_then_ready，不落 BLOCKED）
+rc=0
+```
+
+⇒ **行为正确**：`.official_mode` 不在 ⇒ 先**重试上线**再补 ready（而不是只发 ready）；同样不会在彩排里留下 `.EVENT_SWITCH_BLOCKED` / `.EVENT_M_HIGH` / `.official_mode`。
+
+**至此端底链 6 步全部彩排过（均为只读/演习）**：
+10/5 提案（§V.285 真跑 · §V.288b 可部署性）→ 10/7 08:30 定臂（§V.288 修后反复验）→ 10/7 09:00 换臂（§V.287 正向路径用临时臂文件彩排）→
+10/7 12:00 重试（§V.287）→ 10/7/8/9 就绪校验（§V.284/§V.286）→ 10/8 10:00 提交（GO）→ **10/10 18:50 上线 + 19:25 T-5 保险（本节）**。
+唯一人工剩两项：**10/10 的令牌**与 **10/8 12:00 前的申报页提交**（两项都已有检查项：第 8 / 第 9）。

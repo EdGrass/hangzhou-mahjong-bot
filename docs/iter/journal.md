@@ -28337,3 +28337,11 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   `python -X utf8 var/_lowprio_run.py -- python -X utf8 -m unittest discover` ⇒ **Ran 1295 tests, OK (skipped=2, expected failures=1)**，耗时 **769s**。
   涵盖今日行为改动：`_final_ready_check` 第 8/9 项、`_final_pick_proposal` 回退标签 + `deploy_section`、`_final_arm_confirm.arm_adopted` 高危修正。
   （注：第一次跑时用 `Select-Object -Last` 把汇总行截掉了（stdout 块缓冲 ⇒ stderr 的汇总在前）⇒ 第二次用 `Tee-Object` 落盘后 grep 才取到。经验：**要看汇总就得落盘再 grep**。）
+
+- [R1568 | 2026-09-26 13:2x ★★★ 10/10 的两步（18:50 上线 / 19:25 T-5 保险）活体彩排：都 fail-closed、都不落标记]
+  - `_final_event_switch.py --dry-run` ⇒ `!! 缺 .final_arm.txt（最终臂未定）⇒ 不上线`（rc=2），且**未落** `var/.EVENT_SWITCH_BLOCKED`（dry-run 不写标记）；
+    顺序也对：**先查最终臂、后查令牌**。
+  - `_final_event_ready.py --dry-run` ⇒ `19:25 保险启动：official_mode=False ⇒ switch_then_ready`（rc=0）⇒
+    `.official_mode` 不在时**先重试上线再补 ready**（而不是只发 ready），正是 R1491 想要的行为。
+  - 探针后 `.EVENT_SWITCH_BLOCKED` / `.EVENT_M_HIGH` / `.official_mode` **全不存在** ⇒ 演习没碰状态。
+  - 至此端底链 6 步（提案 → 定臂 → 换臂 → 就绪 → 提交 → 上线+T-5）**全部彩排过**；写入 §V.289。
