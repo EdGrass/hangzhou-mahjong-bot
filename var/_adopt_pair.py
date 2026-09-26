@@ -171,6 +171,27 @@ def apply_v_gate(v_adopted, v_state, v_why):
                   u"标记见 var/.v_mech_unknown" % (v_state, (v_why or "")[:60]))
 
 
+def ab_config(path=None):
+    """★ R1543：当前 `.ab_mode` 的**实际**（baseline, candidates）；读不出 ⇒ ("", "")。
+
+    baseline = `bundles[0]`（B 段就是拿它当 `--bundles` 去切的）；
+    candidates = `arms` 去掉 baseline。两者必须都非空才认。
+    """
+    try:
+        with io.open(path or AB, encoding="utf-8-sig") as f:
+            d = json.loads(f.read())
+    except Exception:
+        return "", ""
+    arms = [str(x) for x in (d.get("arms") or [d.get("a"), d.get("b")]) if x]
+    if not arms:
+        return "", ""
+    base = str(((d.get("bundles") or arms[:1]) or [""])[0] or "")
+    cands = [x for x in arms if x != base]
+    if not base or not cands:
+        return "", ""
+    return base, ",".join(cands)
+
+
 def parse_gate2_zs(line):
     """从 `_gate2` 的 `★ 判定：` 行里取 **( 主 z, 副 z )**；取不到返回 (None, None)。
 
@@ -515,6 +536,21 @@ def main(argv=None):
     log("B 段 rc=%s：\n%s" % (p.returncode, tail))
     if p.returncode != 0:
         return p.returncode
+    # ★ R1543：标记里必须记**实际切成的配置**，不是“我算出来的配置”。
+    #   为什么：`_next_yaku_notice` 靠这个标记的 `cands` 去找役 4 的判词文件（label = 役4 + 候选）；
+    #   而重试路径（R1542：切役已成功、只是注册失败）会**重新计算**四格——
+    #   若这次算出的 row 与上次不同（例如 `.mech_warn` 的“新鲜度”随 `since` 变了），
+    #   标记就会指向一个**根本没在跑的臂** ⇒ 役 4→役 5 永远找不到哨兵 ⇒ **静默停摆**。
+    #   ⇒ 以 `.ab_mode`（实际在跑的东西）为准。
+    _ab_base, _ab_cands = ab_config()
+    if _ab_base and _ab_cands:
+        if (_ab_base, _ab_cands) != (base, cands):
+            log("⚠ 实际切成的配置与本次重算的四格**不一致**：决策=(%s,%s) 实际=(%s,%s)"
+                " ⇒ 标记按**实际**写（否则役4→役5 会找错判词文件）"
+                % (base, cands, _ab_base, _ab_cands))
+        base, cands = _ab_base, _ab_cands
+    else:
+        log("⚠ 读不到 .ab_mode 的实际配置 ⇒ 标记按本次决策写（%s,%s）" % (base, cands))
     try:
         with io.open(marker, "w", encoding="utf-8") as f:
             f.write("%s row=%s base=%s cands=%s\n"

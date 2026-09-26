@@ -9,6 +9,7 @@ R1480 起它还要把预登记 **B3（机制不达标 ⇒ 本役作废）**接�
 """
 from __future__ import annotations
 import io
+import json
 import os
 import sys
 import unittest
@@ -207,6 +208,42 @@ class TestMechConflictGuard(unittest.TestCase):
         self.assertIsNone(A.mech_conflict("speedvalue", "speedvaluebc", "pairs"))
 
 
+
+
+class TestAbConfig(unittest.TestCase):
+    """★ R1543：`.adopted_pair_役3` 里必须记**实际切成的配置**（以 `.ab_mode` 为准）。
+
+    为什么：`_next_yaku_notice` 靠这个标记的 `cands` 去找役 4 的判词文件（label = 役4 + 候选）；
+    重试路径会重算四格，若结果翻转而标记照旧写，就会指向一个**没在跑的臂** ⇒ 静默停摆。
+    """
+
+    def _ab(self, d, obj):
+        f = os.path.join(d, ".ab_mode")
+        with io.open(f, "w", encoding="utf-8") as fh:
+            json.dump(obj, fh)
+        return f
+
+    def test_reads_baseline_and_candidates(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            f = self._ab(d, {"started": "x", "arms": ["speedvaluebc", "speedvaluebcmeldp45"],
+                             "bundles": ["speedvaluebc"]})
+            self.assertEqual(("speedvaluebc", "speedvaluebcmeldp45"), AP.ab_config(f))
+
+    def test_missing_file(self):
+        self.assertEqual(("", ""), AP.ab_config("no_such_ab_mode_xyz"))
+
+    def test_single_arm_is_not_enough(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            f = self._ab(d, {"arms": ["speedvalue"], "bundles": ["speedvalue"]})
+            self.assertEqual(("", ""), AP.ab_config(f))
+
+    def test_marker_write_uses_ab_config(self):
+        src = io.open(os.path.join(ROOT, "var", "_adopt_pair.py"), encoding="utf-8").read()
+        i = src.index("ab_config()")
+        j = src.index("with io.open(marker,")
+        self.assertLess(i, j, "必须先读实际配置再写标记")
 
 
 class TestVMechVerdict(unittest.TestCase):

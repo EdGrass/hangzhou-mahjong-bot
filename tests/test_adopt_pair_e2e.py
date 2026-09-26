@@ -40,11 +40,13 @@ class TestAdoptPairEndToEnd(unittest.TestCase):
         self.d = tempfile.TemporaryDirectory()
         # ★ R1534：V 的机制读数（`VREC`）与停摆标记（`VSTALL_OUT`）也必须改指临时路径，
         #   否则接线测试会读到**真实的** `var/_v_mech_readings.jsonl`、并可能写真实标记。
-        self._old = (AP.B2_OUT, AP.CONFLICT_OUT, AP.VREC, AP.VSTALL_OUT)
+        self._old = (AP.B2_OUT, AP.CONFLICT_OUT, AP.VREC, AP.VSTALL_OUT, AP.AB)
         AP.B2_OUT = os.path.join(self.d.name, ".B2_CANDIDATES")
         AP.CONFLICT_OUT = os.path.join(self.d.name, ".VERDICT_RULE_CONFLICT")
         AP.VSTALL_OUT = os.path.join(self.d.name, ".ADOPT_V_MECH_STALL")
         AP.VREC = os.path.join(self.d.name, "_v_mech_readings.jsonl")
+        # ★ R1543：`ab_config()` 会读 `.ab_mode` → 夹具必须隔离（否则读到**真实**役次）
+        AP.AB = os.path.join(self.d.name, ".ab_mode")
         self.marker = AP.VSTALL_OUT
         self._paths = []
         for suf in ("bc", "v"):
@@ -53,7 +55,7 @@ class TestAdoptPairEndToEnd(unittest.TestCase):
                 self._paths.append(p)
 
     def tearDown(self):
-        (AP.B2_OUT, AP.CONFLICT_OUT, AP.VREC, AP.VSTALL_OUT) = self._old
+        (AP.B2_OUT, AP.CONFLICT_OUT, AP.VREC, AP.VSTALL_OUT, AP.AB) = self._old
         for p in self._paths:
             if os.path.exists(p):
                 os.remove(p)
