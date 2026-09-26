@@ -28481,3 +28481,12 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **已修**：`var/_register_adopt_watch.ps1` 的注册命令行补上 `--strong-veto`（BOM/CRLF 保持）+ 注释说明；**现场那台任务不重注册**（`.adopted_役2` 已在 ⇒ 它永远 no-op；重注册只会白折腾调度而无收益）—— 但下次（重）注册就会带上。
   - **测试**：`tests/test_strong_strata.py` 新增 1 项（注册命令行必须含 `--strong-veto`）⇒ **20 项 OK**。
   - **对照**：役3 的 `HangzhouMajAdoptPairWatch` 用 `_adopt_pair`，后者**无条件**跑否决 ⇒ 当前链合规 ✓。
+
+- [R1580 | 2026-09-26 14:3x ★★★ R1528 同类扫完：两个终局注册脚本**再也不写死 `D:\hangzhouMaj`**]
+  - 实查发现 `_register_final_day.ps1` 与 `_register_final_event.ps1` 都写死 `$root = "D:\hangzhouMaj"` —— 与 R1528 已修的
+    `_final_switch_retry.ps1` 同类。后果：**仓库一旦换目录，重注册出来的任务会指向不存在的路径**，而当下看不出来。
+  - **已改**：两处都改为 `$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)`（从脚本位置推），
+    保持 **BOM + CRLF**。**现场任务一个没动**（它们已注册且路径正确；这个修只保护“将来重注册”）。
+  - **干跑验证（不带 `-Go`，只打印）**：两个脚本打出的 8 条注册行**都指向 `D:\hangzhouMaj\var\...`**（推导正确）。测试：`test_final_day_wiring` + 行尾门 **31 项 OK**。
+  - 另核：10/10 两台任务的**现场参数正确**（`_final_event_switch.py --go`、`_final_event_ready.py`，均 `pythonw` + 正确工作目录；
+    **没有** `-AllowNotReady`）✓。

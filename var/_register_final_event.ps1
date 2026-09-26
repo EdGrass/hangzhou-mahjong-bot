@@ -14,7 +14,9 @@ param(
   [string]$ReadyAt  = "2026-10-10 19:25:00",
   [string]$TokenFile = "D:\hangzhouMaj\var\.token_final_20261010"
 )
-$root = "D:\hangzhouMaj"
+# ★ R1580（R1528 同类）：**从脚本位置推根目录**，不写死 `D:\hangzhouMaj`
+#   （写死的后果：仓库一旦换目录，重注册出来的任务会指向不存在的路径，而当下看不出来）。
+$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $pyw  = (Get-Command pythonw.exe).Source
 function Reg-One($name, $at, $argStr) {
   Write-Host "注册 $name @ $at → $pyw $argStr"

@@ -7,7 +7,9 @@
 #
 # 为什么用 pythonw：无控制台，不会被误关窗口/Ctrl+C 打死（R1393 教训）。日志见各自 var/_*.log/.out。
 param([switch]$Go)
-$root = "D:\hangzhouMaj"
+# ★ R1580（R1528 同类）：**从脚本位置推根目录**，不写死 `D:\hangzhouMaj`
+#   （写死的后果：仓库一旦换目录，重注册出来的任务会指向不存在的路径，而当下看不出来）。
+$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $pyw  = (Get-Command pythonw.exe).Source
 function Reg-One($name, $at, $script) {
   $args = '-X utf8 "{0}\var\{1}" --go' -f $root, $script
