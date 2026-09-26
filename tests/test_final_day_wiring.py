@@ -118,6 +118,10 @@ class TestConfirmScriptInvariants(unittest.TestCase):
         self.assertIn("--fallback-days", src)
         self.assertIn("fallback = True", src)
         self.assertIn("回退口径", src)
+        # ★ R1564：不只要“注释里有”——该标签必须打在**提案正文**里（人读的是正文）。
+        # 该文件正文用的是**字面 \\uXXXX 转义** ⇒ 断言必须用 raw 字面量。
+        self.assertIn(r"\u8de8\u591a\u4e2a\u5f79\u6b21", src)
+        self.assertIn(r"\u4e0d\u53ef\u5f53\u67d0\u4e00\u5f79\u7684\u5224\u8bcd", src)
 
 
 
