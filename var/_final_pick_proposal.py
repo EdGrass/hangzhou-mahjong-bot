@@ -94,6 +94,51 @@ def b2_section(b2txt, min_rooms=30, strong_top=32):
     return out
 
 
+def halves_cmds(since, strong_top, py=None, root=None):
+    """★ R1549：两半 Pareto 的两条命令（§V.66 ② 的**真判据**）。纯函数，可单测。"""
+    py = py or sys.executable
+    root = root or ROOT
+    low = os.path.join(root, "var", "_lowprio_run.py")
+    return [
+        ("half-A(胡牌率缺口两段分解)",
+         [py, "-X", "utf8", low, "--", py, "-X", "utf8",
+          os.path.join(root, "tools", "hu_gap_split.py"),
+          "--dir", "recent", "--since", since, "--by-arm"]),
+        ("half-B(同席头对头 TOP%d)" % strong_top,
+         [py, "-X", "utf8", low, "--", py, "-X", "utf8",
+          os.path.join(root, "var", "_seat_h2h.py"),
+          "--since", since, "--by-arm", "--top", str(strong_top)]),
+    ]
+
+
+def halves_section(since, strong_top, runner=None):
+    """★ R1549：把**两半 Pareto** 直接跑进提案里。
+
+    为什么：R1501/R1505 已实测「主序列（强手房分/房）池化 SD≈129 ⇒ 80 房/臂 MDE≈41 分，
+    而实测臂间差 22~38」⇒ `_pick_arm` **几乎必然报“不可区分”**，而它只会**叫人去跑**这两条 ——
+    万一没跑，10/5 的人工选臂就是在**没有真正判据**的情况下做的。本函数把它跑完并贴进提案
+    （只读、走 `_lowprio_run.py`）。
+    """
+    def _default(cmd):
+        return subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=1800)
+    runner = runner or _default
+    out = ("\n" + "=" * 78 + "\n"
+           + "★ 两半 Pareto（R1501/R1505：**这才是真正判据**）\n"
+           + "★ 为什么必须看：主序列（强手房分/房）池化 SD≈129 ⇒ 80 房/臂 MDE≈41 分，而实测臂间差 22~38\n"
+           + "  ⇒ `_pick_arm` **几乎必然报“不可区分”**（≠没差别）；此时按 §V.66 ② 读这两张表：\n"
+           + "  **两半都不差、且至少一半更好 ⇒ 候选胜**（half-A = 胡牌率缺口两段分解；half-B = 同席头对头）。\n"
+           + "=" * 78 + "\n")
+    for name, cmd in halves_cmds(since, strong_top):
+        out += "\n---- %s ----\n$ %s\n" % (name, " ".join(cmd[1:]))
+        try:
+            p = runner(cmd)
+            out += ((getattr(p, "stdout", "") or "") + (getattr(p, "stderr", "") or "")).strip() + "\n"
+        except Exception as e:
+            out += "（跑不动：%s）\n" % str(e)[:80]
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--min-rooms", type=int, default=30)
@@ -174,6 +219,8 @@ def main():
                  + "★ 为何要看：正式赛是强场（16 人）⇒ 至少并读「强手房 ≥1」与「强手房 ≥2」两层；\n"
                  + "  两层优劣**可能方向相反**（役 2 实测：≥1 层 c151 好、≥2 层 value 好）。\n"
                  + "=" * 78 + "\n" + strat + "\n")
+    # ★ R1549：把两半 Pareto（真判据）直接跑进提案（只读，走 lowprio）
+    text += halves_section(started, a.strong_top)
     _b2 = read_text(B2)
     if _b2:
         text += b2_section(_b2, a.min_rooms, a.strong_top)
