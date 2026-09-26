@@ -17,7 +17,8 @@
 | `.EVENT_M_HIGH` | `_final_event_switch.py`（18:50 读 `/rules`） | — | **0g** | 赛事 **M>10**（超出阶梯上见过的 M=10）⇒ **人定**：保留链上赢家臂，或换 M 已验证轻臂族（c136/c146/c148/c153/speedtugc；YCBK=true 时只有 c148/c153 合规）。M≤10 时脚本**自动清除** |
 | `.SCHEDULE_TIGHT` | `_schedule_guard.py` | — | **0g** | 排期不够 ⇒ 按 §V.160 丢弃顺序**丢一个役**（丢哪个由人定） |
 | `.FINAL_ARM_UNRESOLVED` | `_final_arm_confirm.py` | — | **0g** | 定臂被拒（臂未注册/不能实例化）⇒ 10/7 换臂会失败 |
-| `.FINAL_NOT_READY` / `.FINAL_READY` | `_final_ready_check.py` | — | **0g** | 就绪校验 FAIL 清单（10/7 10:30 / 10/8 09:00 各跑一次） |
+| `.FINAL_NOT_READY` / `.FINAL_READY` | `_final_ready_check.py` | — | **0g** | 就绪校验 FAIL 清单（10/7 10:30 / 10/8 09:00 / **10/9 09:00** 各跑一次） |
+| `.SUBMITTED_FORM` | **人工**（放一行即可） | `_final_ready_check.py`（第 9 项） | **0g**（经 `.FINAL_NOT_READY`） | 人工**申报页提交**的收据：10/8 12:00 前必须把 `docs/申报正文-最终.md` 正文 + 仓库链接交到申报页（机器只能推仓） |
 | `.final_submitted` | `_submit_final.py` | `_submit_final.py`（幂等） | **0g** | 10/8 提交已完成（**成功**标记） |
 | `.portal_URGENT` | `_portal_watch.py` | — | **0g** | 门户紧急告警（另见 `var/_portal_alert.log`） |
 | `.portal_new_event` | `_portal_watch.py` | — | **0g** | 门户出现新赛事（可能是 10/10 的赛事） |

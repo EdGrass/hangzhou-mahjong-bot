@@ -58,6 +58,9 @@ class TestFinalDayWiring(unittest.TestCase):
         self.assertIn(".token_final_20261010", src)
         self.assertIn("8 10/10", src)
         self.assertIn("fail-closed", src)
+        # ★ R1565：第九项 = 人工申报页提交收据（机器只能推仓，不能替人交表）。
+        self.assertIn(".SUBMITTED_FORM", src)
+        self.assertIn("12:00", src)
 
     def test_retry_task_really_registered(self):
         s = read(REG)

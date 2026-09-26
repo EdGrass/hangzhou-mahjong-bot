@@ -1,9 +1,9 @@
-> ⚠ **入口指引（2026-09-26 12:55 更新 · 在此之前的内容均为历史记录）**
+> ⚠ **入口指引（2026-09-26 12:57 更新 · 在此之前的内容均为历史记录）**
 >
 > | 用途 | 看哪个 |
 > |---|---|
-> | **作战计划（唯一权威，§A–§V.285）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1564**；含 R1557b/c 补记） |
+> | **作战计划（唯一权威，§A–§V.286）** | `docs/iter/reports/next-month-plan-20260923.md` |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1565**；含 R1557b/c 补记） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | **判词当天一屏摘要（R1547，R1553 起含 `_pick_arm`）** | `python -X utf8 var/_verdict_digest.py --since "<役起点>" --baseline <B> --candidates <C1,C2> --mechanism none`（**只读**；按固定顺序跑 **2×`_gate2` + 2×强手房否决 + `_pick_arm`（役5 主端点）+ 两半 Pareto**，并**汇总机制端点标记**，屏幕打关键行 + 落报告；**它不做判断**，读法看读卡） |
@@ -11,7 +11,7 @@
 > | 一屏总览 / 排期 / 环境 | `var/_campaign_status.py` · `var/_schedule_guard.py` · `tools/preflight.py` |
 > | **完整性（R1526）** | `python -X utf8 tools/ab_integrity.py --since "役3起点" --arms speedvalue,speedvaluebc,speedvaluebaotouv5`（含**每房 10 份复盘**检查） |
 >
-> **当前状态（2026-09-26 12:55）**
+> **当前状态（2026-09-26 12:57）**
 > - **★ R1559（等你拍，尚未执行）**：按中期投影，最可能的分支是**役 3 = NONE + 役 4 副露未判正** ⇒ 现写死的 `no_yaku5` 会让**第三个役位空置 1.7–3.2 天**，10/7 最终臂就只能等于今天的 `speedvalue`。
 >   §V.281 提议：**该分支下用同一个槽位**起预登记好、已就绪的 `speedvaluerank`（足迹 37.0%、打的正是最大缺口「同状态听牌率」；臂 / 预登记 / 排期三项都已验 ✅）。
 >   **我没有起役** —— 要不要这么做由你拍（另：起役前还有线要先接好，见 §V.281）。
@@ -83,6 +83,8 @@
 > - **唯一人工输入**：10/10 前把当天令牌存成 **`var/.token_final_20261010`**（缺它 ⇒ 不上线）。
 >   ★ R1563：已把它变成一条**提前的检查项** —— `_final_ready_check` 第 8 项（10/7 / 10/8 / **10/9（T-1）** 各收一次），
 >   不在 ⇒ `.FINAL_NOT_READY`（心跳 0g 转述）；终局现为 **10 台**任务全 Ready（§V.284）。
+>   ★ R1565：同类地，**申报页的提交本身**（截止 10/8 12:00，机器只能推仓）现也有检查项（第 9 项）：
+>   若已提交过（仓库 URL 固定）⇒ 建 `var/.SUBMITTED_FORM` 一行收据即可；否则 **10/8 12:00 前**新增务完成（§V.286）。
 
 # 交接 Prompt —— 杭麻 SpeedA Bot 项目（交接日期 2026-09-09 夜）
 
