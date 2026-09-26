@@ -28006,3 +28006,14 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **测试**：`tests/test_adopt_pair.py` +4（`TestAbConfig`：正常 / 缺文件 / 单臂不算 / 源码顺序）；
     并给 `tests/test_adopt_pair_e2e.py` 补 `AP.AB` 的 temp 隔离（它此前会**读真实 `.ab_mode`**，与 R1501 同类隐患）。
   - 证据：`tests.test_adopt_pair` + `tests.test_adopt_pair_e2e` **46 项 OK**。
+
+- [R1544 | 2026-09-26 09:20 ★★★钉住 `.ab_mode` 的写入/读取**契约**（R1542/R1543 的保护都建在它上面）]
+  - **为什么**：R1542 与 R1543 都靠 `.ab_mode` 的**键名**（`arms` / `a`+`b` / `bundles` / `started`）判断"这一役切成什么了"，
+    而该契约**此前没有任何测试** —— 若将来 `ab_ctl` 改键名，`ab_config()` 会**静默返回空** ⇒ R1543 的保护静默失效。
+  - **做**：新增 `tests/test_ab_mode_contract.py` **3 项**：用写入器（`ab_ctl.build_cfg`）产出两种真实格式
+    （2 臂 `a`/`b`、≥3 臂 `arms`，都带 `bundles`），断言两个读取器（`_adopt_pair.ab_config`、`_bsegment.read_ab`）
+    都能读出正确结果；另钉 `bundles` 两分支都必须写（R1156 同类：漏了阈值会 1.50→1.96）。
+  - **只读复核（本轮）**：`_switch_campaign.py` 失败语义可接受 —— 检查不过⇒不执行任何动作；`stop`/`start` 失败⇒
+    非零返回且**不写"已切役"标记** ⇒ 重试正确地重跑 1–4。整条切换链的数据格式已逐环对齐。
+  - 测试侧小坑（如实记）：第一版用 `tempfile.mkstemp` 取路径却**没关 fd** ⇒ Windows 上删不掉文件（PermissionError），
+    改成 `TemporaryDirectory` 管；第一版删 `finally` 删得不干净还撞出过语法错。

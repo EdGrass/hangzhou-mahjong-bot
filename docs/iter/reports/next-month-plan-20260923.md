@@ -6344,3 +6344,18 @@ R1538 让我确认了"文件在不在"，这里再确认**数字对不对**：�
 
 **测试**：`tests/test_adopt_pair.py` +4（`TestAbConfig`：正常读出 / 文件缺失 / 单臂不算 / 源码顺序必须先读实际配置再写标记）；
 顺手把 `tests/test_adopt_pair_e2e.py` 的夹具补上 `AP.AB` 的 temp 隔离 —— 它此前会**读真实 `.ab_mode`**（与 R1501 那次 hermeticity 隐患同类）。
+
+### §V.266 钉住 `.ab_mode` 的**写入/读取契约**（R1544）——R1542/R1543 的保护都建在它上面
+
+**为什么**：R1542（`_bsegment.already_switched`）与 R1543（`_adopt_pair.ab_config`）都靠 `.ab_mode` 的**键名**
+（`arms` / `a`+`b` / `bundles` / `started`）来判断"这一役切成什么了"。可这个契约**此前没有任何测试**：
+若将来 `tools/ab_ctl.py` 改了键名，`ab_config()` 会**静默返回空** ⇒ R1543 的保护静默失效（标记退回"按决策写"）
+⇒ 又回到"标记可能指向没在跑的臂"。没人会发现。
+
+**做的**：新增 `tests/test_ab_mode_contract.py` **3 项** —— 用**写入器**（`ab_ctl.build_cfg`）产出两种真实格式
+（2 臂写 `a`/`b`、≥3 臂写 `arms`，两者都带 `bundles`），再断言**两个读取器**（`_adopt_pair.ab_config`、
+`_bsegment.read_ab`）都能读出正确结果；另钉 `bundles` 两分支都必须写（R1156 同类：漏了会让阈值 1.50→1.96）。
+
+**本轮复核的结论（只读）**：`_switch_campaign.py` 的失败语义是可接受的 —— 检查不过 ⇒ 不执行任何动作；
+`stop`/`start` 任一失败 ⇒ 非零返回且**不写"已切役"标记** ⇒ 下一次重试按 R1542 正确地**重跑 1–4**（而不是错误跳过）。
+整条切换链的数据格式（`ab_ctl` 写 → `.ab_mode` → `_bsegment` / `_adopt_pair` / `_verdict_watch` / `_mech_watch` 读）**已逐环对齐**。
