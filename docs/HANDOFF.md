@@ -1,6 +1,7 @@
 ﻿> ### ⏱ TL;DR（2026-09-26 14:31 更新）—— “现在什么阶段 / 要我做什么”看这里
 > - **阶段**：役3 跑着（`speedvalue` 基线 + `speedvaluebc` + `speedvaluebaotouv5`）⇒ **9/28 判词** ⇒ 役4（副露）
 >   ⇒ **10/5 提案** ⇒ **10/7 08:30 定臂 / 09:00 换臂** ⇒ **10/8 10:00 提交** ⇒ **10/10 19:30 正式赛**。
+> - **10/5 选臂提案当天**：只看 **`docs/iter/reports/pick-day-card-20261005.md`**（一屏版）。
 > - **9/28 判词当天**：只看 **`docs/iter/reports/verdict-day-card-20260928.md`**（一屏版 6 条）。
 > - **下一个数据点**：**9/27 06:27**（V 轴机制首个真判定）；**9/28 ~12:15** 役3 判词（很可能落 NONE 行 ⇒ 役4 自动起在基线上）。
 > - **要你拍两件**：① 空出的第三役位给不给 `speedvaluerank`（**默认 B：保余量、不动手**，详见 §V.281）；
@@ -13,7 +14,7 @@
 > | 用途 | 看哪个 |
 > |---|---|
 > | **作战计划（唯一权威，§A–§V.294）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1585**；含 R1557b/c 补记） |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1586**；含 R1557b/c 补记） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | **判词当天一屏摘要（R1547，R1553 起含 `_pick_arm`）** | `python -X utf8 var/_verdict_digest.py --since "<役起点>" --baseline <B> --candidates <C1,C2> --mechanism none`（**只读**；按固定顺序跑 **2×`_gate2` + 2×强手房否决 + `_pick_arm`（役5 主端点）+ 两半 Pareto**，并**汇总机制端点标记**，屏幕打关键行 + 落报告；**它不做判断**，读法看读卡） |

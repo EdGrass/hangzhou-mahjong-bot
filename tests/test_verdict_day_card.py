@@ -43,3 +43,34 @@ class TestVerdictDayCard(unittest.TestCase):
         if not since:
             self.skipTest(u".ab_mode 无 started")
         self.assertIn(since, read(CARD), u"卡上的 `--since` 必须等于当前役的 started")
+
+class TestPickDayCard(unittest.TestCase):
+    """★ R1586：10/5（选臂提案日）的一屏版操作单。
+
+    为什么：这是**人在 10/7 之前最后一个可以改变最终臂的时刻**，而此前只有 10/7 的卡与各役读卡。
+    它必须与代码对得上：提案文件名、自动定臂任务名、以及“只能在已判正臂之间改选”这条纪律。"""
+
+    def test_card_matches_code(self):
+        p = os.path.join(ROOT, "docs", "iter", "reports", "pick-day-card-20261005.md")
+        self.assertTrue(os.path.exists(p), p)
+        c = read(p)
+        self.assertIn("var/_final_pick_proposal.txt", c)
+        self.assertIn("var/.final_arm.txt", c)
+        self.assertIn(u"§V.161 A.1", c)
+        self.assertIn("HangzhouMajFinalArmConfirm", c)
+        vd = os.path.join(ROOT, "var")
+        if os.path.isdir(vd):
+            regs = u"".join(read(os.path.join(vd, f)) for f in os.listdir(vd)
+                            if f.startswith("_register_") and f.endswith(".ps1"))
+            self.assertIn("HangzhouMajFinalArmConfirm", regs,
+                          u"卡上写的定臂任务名必须真在注册脚本里")
+
+    def test_card_says_default_is_no_action(self):
+        c = read(os.path.join(ROOT, "docs", "iter", "reports", "pick-day-card-20261005.md"))
+        self.assertIn(u"什么都不用做", c)
+        self.assertIn(u"不可区分", c)      # 用代码里的原词（_pick_arm 打的就是这四个字）
+        self.assertIn(u"MDE", c)            # 不可区分 ≠ 没差别
+
+
+if __name__ == "__main__":
+    unittest.main()
