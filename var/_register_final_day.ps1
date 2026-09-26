@@ -1,6 +1,6 @@
 ﻿# 注册 10/7 最终换臂 + 10/7/10/8 最终就绪校验（用户指令：10/7 换上最屌的模型，准备最后的比赛）。
 #
-# 六个一次性任务：
+# 七个一次性任务：
 #   ① HangzhouMajFinalSwitch  @ 2026-10-07 09:00 → var/_switch_final.py --go   （读 .final_arm.txt；未选定就拒绝）
 #   ② HangzhouMajFinalCheck   @ 2026-10-07 10:30 → var/_final_ready_check.py    （换完 1.5 小时后验收）
 #   ③ HangzhouMajFinalCheck2  @ 2026-10-08 09:00 → var/_final_ready_check.py    （提交截止 12:00 前最后验收）
@@ -26,6 +26,8 @@ Reg-One "HangzhouMajFinalCheck"   "2026-10-07 10:30:00" "_final_ready_check.py"
 Reg-One "HangzhouMajFinalCheck2"  "2026-10-08 09:00:00" "_final_ready_check.py"
 # ★ R1563：**T-1 天**再收一次 —— 令牌是唯一人工输入，到这一天还不在就必须人为了。
 Reg-One "HangzhouMajFinalCheck3"  "2026-10-09 09:00:00" "_final_ready_check.py"
+# ★ R1569：10/8 提交的**第二枪** —— 10:00 那次若因网络/推送瞬时失败，11:00 自动重试（幂等：已提交则 no-op）。
+Reg-One "HangzhouMajFinalSubmitRetry" "2026-10-08 11:00:00" "_submit_final.py"
 # ★ R1436：④ 换臂前的自动裁决 —— 把 10/5 提案里"该写哪一行"机械化（人工 echo 断点的替身）。
 #   人工已写 .final_arm.txt ⇒ 一律 no-op（绝不抢人工裁决）；只叠已判正的层（§V.161/165）。
 Reg-One "HangzhouMajFinalArmConfirm" "2026-10-07 08:30:00" "_final_arm_confirm.py"

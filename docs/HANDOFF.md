@@ -1,9 +1,9 @@
-> ⚠ **入口指引（2026-09-26 13:30 更新 · 在此之前的内容均为历史记录）**
+> ⚠ **入口指引（2026-09-26 13:31 更新 · 在此之前的内容均为历史记录）**
 >
 > | 用途 | 看哪个 |
 > |---|---|
-> | **作战计划（唯一权威，§A–§V.289）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1568**；含 R1557b/c 补记） |
+> | **作战计划（唯一权威，§A–§V.290）** | `docs/iter/reports/next-month-plan-20260923.md` |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1569**；含 R1557b/c 补记） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | **判词当天一屏摘要（R1547，R1553 起含 `_pick_arm`）** | `python -X utf8 var/_verdict_digest.py --since "<役起点>" --baseline <B> --candidates <C1,C2> --mechanism none`（**只读**；按固定顺序跑 **2×`_gate2` + 2×强手房否决 + `_pick_arm`（役5 主端点）+ 两半 Pareto**，并**汇总机制端点标记**，屏幕打关键行 + 落报告；**它不做判断**，读法看读卡） |
@@ -11,12 +11,14 @@
 > | 一屏总览 / 排期 / 环境 | `var/_campaign_status.py` · `var/_schedule_guard.py` · `tools/preflight.py` |
 > | **完整性（R1526）** | `python -X utf8 tools/ab_integrity.py --since "役3起点" --arms speedvalue,speedvaluebc,speedvaluebaotouv5`（含**每房 10 份复盘**检查） |
 >
-> **当前状态（2026-09-26 13:30）**
+> **当前状态（2026-09-26 13:31）**
 > - **★ R1559（等你拍，尚未执行）**：按中期投影，最可能的分支是**役 3 = NONE + 役 4 副露未判正** ⇒ 现写死的 `no_yaku5` 会让**第三个役位空置 1.7–3.2 天**，10/7 最终臂就只能等于今天的 `speedvalue`。
 >   §V.281 提议：**该分支下用同一个槽位**起预登记好、已就绪的 `speedvaluerank`（足迹 37.0%、打的正是最大缺口「同状态听牌率」；臂 / 预登记 / 排期三项都已验 ✅）。
 >   **我没有起役** —— 要不要这么做由你拍（另：起役前还有线要先接好，见 §V.281）。
 >   ★ R1560：为免这个选项在判词当天被漏看，已把它写进 **`yaku5` 读卡顶部**与 **`.YAKU_NEXT_PENDING` 的 `no_yaku5` 分支**（只展示、不执行）；
 >   会改检测行为的 `_mech_watch.phases_for` 仍没动。
+> - **★★ R1569（已补）**：10/8 提交**失败原本是静默的**（心跳只认成功标记）⇒ 现在失败会写 `.FINAL_NOT_READY`，
+>   并且新增 **`HangzhouMajFinalSubmitRetry` @ 10/8 11:00**（幂等，仍在 12:00 截止前）；终局现为 **11 台**任务全 Ready（§V.290）。
 > - **★★ R1567（高危，已修）**：**10/7 定臂写入器曾会认错“已判正”** —— 一份 `_verdict_digest_*` 摘要（判词当天要跑的那条）
 >   就能让**未判正**的臂变成“已判正”（或把真判正的遮蔽）。已改：排除摘要报告 + 只认判词头行 `vs <arm>（候选）`；
 >   10/5 提案现会**逐臂标出可部署性**（§V.288/288b）。

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """var/_submit_final.py —— 10/8 提交（把操作卡里那三步变成一条自动链，并加门禁与收据）。
 
 ## 为什么
@@ -35,6 +35,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "var"))
 LOG = os.path.join(ROOT, "var", "_submit_final.log")
 MARKER = os.path.join(ROOT, "var", ".final_submitted")
+NOT_READY = os.path.join(ROOT, "var", ".FINAL_NOT_READY")   # ★ R1569：失败要有人读（心跳 0g 会转述）
 OUT = os.path.join(ROOT, "var", "_submit_final.out")
 PS1 = os.path.join(ROOT, "var", "_prepare_submission.ps1")
 COMMIT_MSG = "chore(R1448): 10/8 提交物（_prepare_submission -Go 自动提交）"
@@ -60,6 +61,37 @@ def gate(check_rc, marker_exists):
     if check_rc != 0:
         return "abort", "提交物检查 rc=%s（不为 0 ⇒ 不提交；先看 _prepare_submission 的输出）" % check_rc
     return "go", "门禁通过（提交物检查 rc=0）"
+
+
+def fail_mark(reason, path=None):
+    """★ R1569：提交失败必须**留一个有人读的标记**。
+
+    为什么：`_submit_final` 失败时只 `log()` + `return 2` ⇒ 而心跳 0g 只认
+    `.final_submitted`（**成功**标记）⇒ **失败是静默的**，而这条链的截止是 **10/8 12:00**。
+    复用已有的 `.FINAL_NOT_READY`（总账里已登记，心跳 0g 已会转述）—— 不新造标记名。
+    """
+    p = path or NOT_READY
+    try:
+        with io.open(p, "w", encoding="utf-8", newline="") as f:
+            f.write(u"%s 10/8 提交失败：%s\n"
+                    u"  ⇒ **10/8 12:00 前必须人工完成**（该项有一次 11:00 自动重试）："
+                    u"`python -X utf8 var/_submit_final.py --go`\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), reason))
+        return True
+    except Exception:
+        return False
+
+
+def clear_fail_mark(path=None):
+    """仅清**我们自己写的**那行（避免误删 `_final_ready_check` 的内容）。"""
+    p = path or NOT_READY
+    try:
+        s = io.open(p, encoding="utf-8-sig", errors="replace").read()
+        if u"10/8 提交失败" in s:
+            os.remove(p)
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def _dec(b):
@@ -115,6 +147,7 @@ def main(argv=None):
     log("准备提交物（-Go）rc=%s" % rc2)
     if rc2 != 0:
         log("!! -Go 失败 ⇒ 不推送：%s" % out2[-300:])
+        fail_mark(u"-Go 失败：%s" % out2[-200:])
         return 2
     dirty = run(["git", "status", "--porcelain"])[1]
     if dirty.strip():
@@ -126,6 +159,7 @@ def main(argv=None):
     log("push rc=%s %s" % (rc4, out4[-200:]))
     if rc4 != 0:
         log("!! 推送失败 ⇒ 未写 .final_submitted（需人工）")
+        fail_mark(u"推送失败 rc=%s" % rc4)
         return 2
     run(["git", "fetch", "origin"], timeout=300)
     lr = run(["git", "rev-list", "--left-right", "--count", "origin/main...HEAD"])[1].strip()
@@ -134,12 +168,14 @@ def main(argv=None):
     log("提交后校验：工作区干净=%s 本地==origin/main=%s（%s）" % (clean, in_sync, lr))
     if not (clean and in_sync):
         log("!! 提交后校验未过 ⇒ 不写 marker（需人工看上面）")
+        fail_mark(u"提交后校验未过（%s）" % lr)
         return 2
     try:
         with io.open(MARKER, "w", encoding="utf-8", newline="") as f:
             f.write("%s submitted（push ok，本地==origin/main）" % time.strftime("%Y-%m-%d %H:%M:%S"))
     except Exception as e:
         log("⚠ 写 marker 失败：%s" % str(e)[:60])
+    clear_fail_mark()
     log("★ 已提交并推送：HEAD 与 origin/main 一致")
     return 0
 

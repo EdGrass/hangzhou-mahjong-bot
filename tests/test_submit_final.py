@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """var/_submit_final.py 的单测（门禁纯函数 + 编码兜底 + 接线）。
 
 为什么要钉：这是**唯一一个硬截止（10/8 12:00）**的自动化。它错了的后果是"没交上"或"交了坏东西"，
@@ -69,3 +69,29 @@ class TestWiring(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestFailMarkR1569(unittest.TestCase):
+    """★ R1569：提交失败必须落**有人读**的标记（复用 `.FINAL_NOT_READY`，心跳 0g 会转述）；
+    成功后只清**自己写的**那行，不动就绪校验写的内容。"""
+
+    def test_fail_mark_writes_reason_and_deadline(self):
+        import tempfile
+        d = tempfile.mkdtemp(prefix="r1569_")
+        p = os.path.join(d, ".FINAL_NOT_READY")
+        self.assertTrue(S.fail_mark(u"推送失败 rc=1", p))
+        body = io.open(p, encoding="utf-8").read()
+        self.assertIn(u"10/8 提交失败", body)
+        self.assertIn(u"12:00", body)
+        self.assertIn(u"--go", body)
+
+    def test_clear_only_our_line(self):
+        import tempfile
+        d = tempfile.mkdtemp(prefix="r1569_")
+        p = os.path.join(d, ".FINAL_NOT_READY")
+        io.open(p, "w", encoding="utf-8").write(u"就绪校验 FAIL 3 项：…\n")
+        self.assertFalse(S.clear_fail_mark(p))
+        self.assertTrue(os.path.exists(p), "不能误删别人的内容")
+        S.fail_mark(u"推送失败 rc=1", p)
+        self.assertTrue(S.clear_fail_mark(p))
+        self.assertFalse(os.path.exists(p))
+

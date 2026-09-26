@@ -62,6 +62,14 @@ class TestFinalDayWiring(unittest.TestCase):
         self.assertIn(".SUBMITTED_FORM", src)
         self.assertIn("12:00", src)
 
+    def test_submit_retry_really_registered(self):
+        """★ R1569：10/8 提交失败不能静默 —— 11:00 必须真的有一次自动重试。"""
+        s = read(REG)
+        self.assertRegex(
+            s,
+            r'(?m)^Reg-One\s+"HangzhouMajFinalSubmitRetry"\s+"2026-10-08 11:00:00"\s+"_submit_final\.py"',
+            "HangzhouMajFinalSubmitRetry（10/8 11:00）必须真的被 Reg-One 注册")
+
     def test_retry_task_really_registered(self):
         s = read(REG)
         self.assertIn('$retryName = "HangzhouMajFinalSwitchRetry"', s)

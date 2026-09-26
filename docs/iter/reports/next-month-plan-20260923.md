@@ -6994,3 +6994,28 @@ rc=0
 10/5 提案（§V.285 真跑 · §V.288b 可部署性）→ 10/7 08:30 定臂（§V.288 修后反复验）→ 10/7 09:00 换臂（§V.287 正向路径用临时臂文件彩排）→
 10/7 12:00 重试（§V.287）→ 10/7/8/9 就绪校验（§V.284/§V.286）→ 10/8 10:00 提交（GO）→ **10/10 18:50 上线 + 19:25 T-5 保险（本节）**。
 唯一人工剩两项：**10/10 的令牌**与 **10/8 12:00 前的申报页提交**（两项都已有检查项：第 8 / 第 9）。
+
+### §V.290 ★★★★ 10/8 提交**失败是静默的** —— 现在既有**有人读的标记**、也有**次日 11:00 的第二枪**（R1569）
+
+**怎么发现**：读 `_submit_final.py` 的失败路径 —— 它在（① `-Go` 失败 ② push 失败 ③ 提交后校验未过）时只 `log()` + `return 2`；
+而心跳 0g **只认 `.final_submitted`（成功标记）** ⇒ **失败没有任何人会被告知**。而这条链是**硬截止 10/8 12:00**，
+失败 = 整件事等于没交。
+
+**已改（两处）**：
+1. `var/_submit_final.py` 新增 `fail_mark()` / `clear_fail_mark()`：三条失败路径都写 **`var/.FINAL_NOT_READY`**（复用已登记、心跳 0g 已会转述的那个标记，
+   **不新造标记名**），内容含原因、**截止**与可照拄命令；成功时**只清自己写的那行**（不动就绪校验的内容）。
+2. 新增计划任务 **`HangzhouMajFinalSubmitRetry` @ 2026-10-08 11:00**（`_submit_final.py --go`）：
+   10:00 那次若瞬时失败（网络/推送），11:00 自动重试（**幂等**：已提交 ⇒ `gate()` 返 `noop` ⇒ rc=0）—— 仍在 12:00 之前。
+
+**重新注册后的实测审计：终局 11 台全部 `Ready`**、NextRunTime 逐一正确、`LastTaskResult=267011`（从未运行）、**动作脚本 11/11 在场**：
+
+| 时刻 | 任务 | 状态 |
+|---|---|---|
+| 10/5 09:00 | `FinalPickProposal` | Ready |
+| 10/7 08:30 / 09:00 / 10:30 / 12:00 | `FinalArmConfirm` / `FinalSwitch` / `FinalCheck` / `FinalSwitchRetry` | Ready |
+| 10/8 09:00 / 10:00 / **11:00** | `FinalCheck2` / `FinalSubmit` / **`FinalSubmitRetry`（新）** | Ready |
+| 10/9 09:00 | `FinalCheck3` | Ready |
+| 10/10 18:50 / 19:25 | `FinalEventSwitch` / `FinalEventReady` | Ready |
+
+**测试**：`tests/test_submit_final.py` 新增 `TestFailMarkR1569`（标记含原因/截止/命令；**不误删别人的内容**），
+`tests/test_final_day_wiring.py` 新增“重试必须真被 Reg-One 注册” ⇒ 两个模块 **39 项 OK**。
