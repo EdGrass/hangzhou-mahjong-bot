@@ -162,6 +162,11 @@ def main(argv=None):
         % (row or "?", bc_ok, v_ok, base4, cands4),
         "",
         "判据：%s" % why,
+        # ★ R1554：把**判词读数命令**一并给出 —— 这一刻最容易只看一半证据。
+        #   读卡 §0 说了副端点三种形状阈值不同、机制端点在 `_mech_watch` 里；`_verdict_digest` 把它们一次性跑完。
+        "判词读数（主/副/护栏/机制 + 强手房两层 + 两半 Pareto）：",
+        "  python -X utf8 var/_verdict_digest.py --since \"<役4 起点（见 var/.ab_mode.started）>\" "
+        "--baseline %s --candidates %s --mechanism melds" % (base4, cands4),
         "",
     ]
     if kind == "start":
