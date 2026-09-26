@@ -1,4 +1,4 @@
-# 役 3 判词读卡（三臂：`speedvalue` 基线 + `speedvaluebc` + `speedvaluebaotouv5`）
+﻿# 役 3 判词读卡（**赶时间只看一屏版**：`verdict-day-card-20260928.md`）（三臂：`speedvalue` 基线 + `speedvaluebc` + `speedvaluebaotouv5`）
 
 > 判词由两个看护自动落盘：`var/_verdict_役3bc.txt`、`var/_verdict_役3v.txt`
 > （各 10 分钟一次；各臂 ≥80 房起判；役盒 120 房/臂）。
