@@ -6905,3 +6905,35 @@ python -X utf8 var/_lowprio_run.py -- python -X utf8 tools/offline_replay.py --b
 
 **本轮实测**：跑 `_final_ready_check.py` ⇒ 第 9 项正确 FAIL、第 7 项（提交物）PASS；测试 32 项 OK
 （含总账门：`_final_ready_check.py` 里的新字面量必须在总账里）；探针产生的 `.FINAL_NOT_READY` 已清。
+
+### §V.287 ★★★ 10/7 的**两条换臂路径**做了活体彩排：正向路径可验，尾部失败路径也可验（R1566）
+
+**为什么还要重排**：§V.280 只验了“任务在、脚本在”；而两条路径都是**一次性、失败就没有第二次**（误了就是正式赛少一层）。
+
+**彩排①：正向路径（换臂真的会怎么做）**—— 用**临时**最终臂文件（`%TEMP%\_hm_final_arm_probe.txt` = `speedvalue`），
+跑 `python -X utf8 var/_switch_final.py --dry-run --final-file <临时文件>`（**不碰真实 `.final_arm.txt`**）：
+
+```
+2026-09-26 12:58:13 最终臂 = speedvalue（校验：ok）
+=== dry-run：将执行 ===
+  1) tools/ab_ctl.py stop      2) 写 _keeper_strategy.txt = speedvalue
+  3) 杀 _keeper.py（只杀监督器）  4) 等对局进程自然结束（最多 25 分钟）
+  5) var/_switch_test_strategy.py speedvalue
+  6) 校验 + 写 .rate_guard_off（防熔断回退）＋ 写 .final_installed
+rc=0
+```
+
+⇒ **正向路径通**：读臂 → **真实实例化校验** → 六步计划逐条列出（`--dry-run` 在任何状态变更**之前**返回）。
+（**不**能拿真的 `.final_arm.txt` 练：它一旦存在，10/7 08:30 的 `_final_arm_confirm` 会按“人工裁决已在位”**no-op** ⇒ 相当于把臂**提前定死**。）
+
+**彩排②：10/7 12:00 的重试包装（`_final_switch_retry.ps1 -DryRun`）**：
+
+```
+confirm rc=0   基线=speedvalue（来源 .ab_mode.bundles[0]）｜提名 ['speedvaluebc','speedvaluebaotouv5']｜判词文件 4 份
+合格（已判正）层：（无）   结论：speedvalue   实例化校验：通过
+switch rc=2   !! 最终臂未选定（缺 .final_arm.txt）⇒ 拒绝执行
+```
+
+★ **读日志的人请注意**：`-DryRun` 下第二步**必然**是 `switch rc=2`（因为 dry-run 的 confirm **不落盘**）
+（—— 这正好也把“**缺最终臂就拒绝**”这条 fail-closed 实测了）⇒ **它不是故障**；真跑时
+confirm 带 `--go` 会先落盘，所以不会出现这个 rc=2。两次彩排都**未碰**任何对局/进程/`.ab_mode`。
