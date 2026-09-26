@@ -28357,3 +28357,9 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
 
 - [R1569 补记 | 2026-09-26 13:4x ★★★ 全量回归（包含 R1569 的 `_submit_final` 行为改动，走 `_lowprio_run`）：
   `python -X utf8 var/_lowprio_run.py -- python -X utf8 -m unittest discover` ⇒ **Ran 1298 tests, OK (skipped=2, expected failures=1)**，**775s**。
+
+- [R1570 | 2026-09-26 13:4x ★★ 入口文档不再写死进度数（止飘）+ 当前健康检查]
+  - `docs/HANDOFF.md` 里的“当前 **55 房（19/18/18）**”已飘两次（R1559、R1560 各修正一次）⇒
+    改成**给命令**（`_verdict_watch --check-only` / `_schedule_guard`），不再写数字。
+  - 健康（本轮实测）：役3 已走 **63 房**（到正式线 80 还差 177）、全到盒收口投影 **10/05 00:30**（截止 10/7 08:30 ⇒ 够）；
+    `.CAMPAIGN_ABORTED` / `.SCHEDULE_TIGHT` / `.mech_warn` / `.ADOPT_V_MECH_STALL` **均不存在**；对局侧 3 个进程在跑（driver/super/bot 一条链）。
