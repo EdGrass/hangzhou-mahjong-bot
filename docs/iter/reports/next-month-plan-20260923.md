@@ -6828,3 +6828,31 @@ python -X utf8 var/_lowprio_run.py -- python -X utf8 tools/offline_replay.py --b
 - 延时审计同步健康（1008 样本）：p50 **15.7ms** / p90 25.1 / p99 **27.9** / max 1022.7；≥1s **2 次（0.2%）**。
 
 ⇒ **结论**：R1536 的修复在生产里**已验证**；「V 轴从未被测量」这一条**已结案**（至此起，若 V 判正而机制读数缺失，那将是真的稀少而不是管线坏）。
+
+### §V.284 ★★★★ 「唯一人工输入」（10/10 令牌）此前**只在比赛当天才会被发现** —— 现在变成一条提前的检查项（R1563）
+
+**怎么发现**：盘点“10/7–10/10 还有哪些东西没人管”时，把 `var/.token_final_20261010` 的**读者**全找了一遍：
+只有 `_final_event_switch.py`（10/10 18:50）与 `_final_event_ready.py`（19:25）在读它 ⇒ **缺它的第一个信号就是比赛当天的 fail-closed**（那时只剩 ~40 分钟救场）。
+
+**已改（两处）**：
+1. `var/_final_ready_check.py` 新增 **第 8 项**：`var/.token_final_20261010` 存在且非空 ⇒ 否则 **FAIL**（内容里写明“若平台尚未发牌属预期；★ 最迟 10/10 18:00 前放好”）；
+   它不被任何其它脚本读取 ⇒ **不会阻断 10/8 的提交**；它会让 `.FINAL_NOT_READY` 在心跳第 0g 步**被转述给人**（已验证：本轮试跑输出第 8 项 FAIL、第 7 项 PASS 后已清掉探针标记）。
+2. `var/_register_final_day.ps1` 新增 **`HangzhouMajFinalCheck3` @ 2026-10-09 09:00（T-1 天）** ⇒ 就绪校验从 3 次变 4 次（换臂后 / 提交前 / **T-1**）；
+   它同时是这件事的“**最后一道人工阐门**”。
+
+**重新注册后的实测审计（本轮，只读）—— 终局**10 台**全部正常**：
+
+| 时刻 | 任务 | State | NextRunTime | 动作脚本 |
+|---|---|---|---|---|
+| 10/5 09:00 | `HangzhouMajFinalPickProposal` | Ready | ✓ | 在场 |
+| 10/7 08:30 | `HangzhouMajFinalArmConfirm` | Ready | ✓ | 在场 |
+| 10/7 09:00 | `HangzhouMajFinalSwitch` | Ready | ✓ | 在场 |
+| 10/7 10:30 | `HangzhouMajFinalCheck` | Ready | ✓ | 在场 |
+| 10/7 12:00 | `HangzhouMajFinalSwitchRetry` | Ready | ✓ | 在场 |
+| 10/8 09:00 | `HangzhouMajFinalCheck2` | Ready | ✓ | 在场 |
+| **10/9 09:00** | **`HangzhouMajFinalCheck3`（新）** | Ready | ✓ | 在场 |
+| 10/8 10:00 | `HangzhouMajFinalSubmit` | Ready | ✓ | 在场 |
+| 10/10 18:50 | `HangzhouMajFinalEventSwitch` | Ready | ✓ | 在场 |
+| 10/10 19:25 | `HangzhouMajFinalEventReady` | Ready | ✓ | 在场 |
+
+（全部 `LastTaskResult=267011`（从未运行）、动作脚本 10/10 存在 ⇒ 与 §V.280 的审计一致，只是多了 T-1 那一台。）

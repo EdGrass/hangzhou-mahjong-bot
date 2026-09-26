@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """10/7 换臂链的**接线门**（R1436）。
 
 为什么要这门外加一层：本轮的第一次接线就插错了位置 —— 新增的两行被放进了**头部注释**
@@ -42,6 +42,22 @@ class TestFinalDayWiring(unittest.TestCase):
             s,
             r'(?m)^Reg-One\s+"HangzhouMajFinalArmConfirm"\s+"2026-10-07 08:30:00"\s+"_final_arm_confirm\.py"',
             "HangzhouMajFinalArmConfirm 必须真的被 Reg-One 注册（行首调用，不能只在注释里）")
+
+    def test_check3_really_registered(self):
+        """★ R1563：T-1 天的第三次就绪校验必须**真的被注册**（行首调用，不能只在注释里）。"""
+        s = read(REG)
+        self.assertRegex(
+            s,
+            r'(?m)^Reg-One\s+"HangzhouMajFinalCheck3"\s+"2026-10-09 09:00:00"\s+"_final_ready_check\.py"',
+            "HangzhouMajFinalCheck3（T-1 天）必须真的被 Reg-One 注册")
+
+    def test_ready_check_includes_event_token(self):
+        """★ R1563：就绪校验必须把**唯一人工输入**（10/10 令牌）列为一项。
+        注意：该文件用的是**字面 \\uXXXX 转义** ⇒ 断言只能用 ASCII 子串。"""
+        src = read(os.path.join(ROOT, "var", "_final_ready_check.py"))
+        self.assertIn(".token_final_20261010", src)
+        self.assertIn("8 10/10", src)
+        self.assertIn("fail-closed", src)
 
     def test_retry_task_really_registered(self):
         s = read(REG)
