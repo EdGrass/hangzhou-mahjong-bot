@@ -28430,3 +28430,7 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **已修**：两分支均改为记入告警，措辞“**读数缺失（不是‘不达标’）⇒ 需人工看 offline_replay…**”；
     认出情形的阈值/日志一字未改 ⇒ 役3 当前读数不受影响。
   - **测试**：`test_mech_watch_arms` +2（mock 掉 subprocess：未识别⇒告警且含“不是‘不达标’”；认出+达标⇒清旧标记）⇒ **30 项 OK**。
+
+- [R1576 补记 | 2026-09-26 14:2x ★★★ 批量全量回归（覆盖 R1576 的 `_mech_watch` 裁决路径改动）：
+  `python -X utf8 var/_lowprio_run.py -- python -X utf8 -m unittest discover` ⇒ **Ran 1303 tests, OK (skipped=2, expected failures=1)**，**824s**。
+  （自 1301 以来 +2 = R1576 的两项 mock 测试。）
