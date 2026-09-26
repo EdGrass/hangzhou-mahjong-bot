@@ -72,5 +72,28 @@ class TestPickDayCard(unittest.TestCase):
         self.assertIn(u"MDE", c)            # 不可区分 ≠ 没差别
 
 
+
+class TestEventDayCard(unittest.TestCase):
+    """★ R1587：10/10（正式赛当天）的一屏版操作单 —— 风险最高的一天。"""
+
+    def test_card_matches_code(self):
+        p = os.path.join(ROOT, "docs", "iter", "reports", "event-day-card-20261010.md")
+        self.assertTrue(os.path.exists(p), p)
+        c = read(p)
+        self.assertIn("var/.token_final_20261010", c)
+        self.assertIn(".EVENT_SWITCH_BLOCKED", c)
+        self.assertIn("_switch_to_official.ps1", c)
+        self.assertIn("AllowNotReady", c)
+        for t in ("HangzhouMajFinalEventSwitch", "HangzhouMajFinalEventReady"):
+            self.assertIn(t, c, t)
+        self.assertIn("_exit_official.py", c)
+        self.assertTrue(os.path.exists(os.path.join(ROOT, "var", "_exit_official.py")))
+
+    def test_escape_valve_is_gated(self):
+        """逃生阀只能写成“有条件的人工决定”，不能写成默认动作。"""
+        c = read(os.path.join(ROOT, "docs", "iter", "reports", "event-day-card-20261010.md"))
+        self.assertIn(u"绝不自动使用", c)
+        self.assertIn(u"人工确认", c)
+
 if __name__ == "__main__":
     unittest.main()
