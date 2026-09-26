@@ -140,14 +140,30 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", default="")
     ap.add_argument("--ab-file", default="", help="单测用；默认 var/.ab_mode")
+    ap.add_argument("--arms", default="",
+                    help="★ R1552：显式臂集（逗号分隔，**首个＝基线**）。缺省时才读 .ab_mode —— "
+                         "役已收口（没有 .ab_mode）时，10/5 的第1率读数仍然要能跑。")
     a = ap.parse_args()
-    m = _mode(a.ab_file or None)
-    since = a.since or m.get("started")
-    arms = arms_of(m)
-    base = (m.get("bundles") or arms or [m.get("a")])[0]
+    m = {}
+    if a.arms.strip():
+        arms = [x.strip() for x in a.arms.split(",") if x.strip()]
+        base = arms[0] if arms else ""
+        try:
+            m = _mode(a.ab_file or None)        # 只为了取 started；读不到也没关系
+        except Exception:
+            m = {}
+    else:
+        m = _mode(a.ab_file or None)
+        arms = arms_of(m)
+        base = (m.get("bundles") or arms or [m.get("a")])[0]
+    since = a.since or m.get("started") or ""
     cands = [x for x in arms if x and x != base]
     if not base or not cands:
-        print("读不到臂集（.ab_mode 缺 arms 也缺 a/b）⇒ 不输出")
+        print("读不到臂集（--arms 没给、.ab_mode 也缺 arms/a/b）⇒ 不输出")
+        return 1
+    if not since:
+        # ★ R1552：不允许拿“全时段”数字冒充役次读数（会把历史房混进去）。
+        print("★ 需要 --since：没有 .ab_mode.started 可用 ⇒ 拒绝用全时段数字冒充役次读数。")
         return 1
     print("A/B 第一率口径：基线 %s；候选 %s   since %s"
           % (base, ", ".join(str(c) for c in cands), since or "(全时段)"))

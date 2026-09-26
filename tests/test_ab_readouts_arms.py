@@ -49,6 +49,47 @@ class TestArmsOf(unittest.TestCase):
         self.assertEqual([], BW.arms_of({}))
 
 
+class TestFirstRateArmsOverride(unittest.TestCase):
+    """★ R1552：`--arms` 覆盖 + 缺 `since` 时**明确拒绝**。
+
+    为什么：该工具原本**只能从 `.ab_mode` 取臂集** ⇒ 役已收口（没有 `.ab_mode`）时
+    直接输出“读不到臂集” —— 而 10/5 的 §V.66 破平第③步正是**第1率**。
+    同时：拿不到 `since` 就不能拿“全时段”数字冒充役次读数。
+    """
+
+    def _run(self, argv, mode):
+        import contextlib, io as _io
+        from unittest import mock
+        old_report = FR._report
+        seen = []
+        FR._report = lambda b, c, s: seen.append((b, c, s)) or 0
+        try:
+            buf = _io.StringIO()
+            with mock.patch.object(FR, "_mode", mode), mock.patch.object(sys, "argv", argv), \
+                 contextlib.redirect_stdout(buf):
+                rc = FR.main()
+        finally:
+            FR._report = old_report
+        return rc, seen, buf.getvalue()
+
+    def test_arms_override_works_without_ab_mode(self):
+        def _boom(*a, **k):
+            raise RuntimeError("no .ab_mode")
+        rc, seen, out = self._run(
+            ["x", "--arms", "speedvalue,speedvaluebc,speedvaluebaotouv5", "--since", "T"], _boom)
+        self.assertEqual(0, rc, out)
+        self.assertEqual([("speedvalue", "speedvaluebc", "T"),
+                          ("speedvalue", "speedvaluebaotouv5", "T")], seen)
+
+    def test_missing_since_is_refused(self):
+        def _boom(*a, **k):
+            raise RuntimeError("no .ab_mode")
+        rc, seen, out = self._run(["x", "--arms", "speedvalue,speedvaluebc"], _boom)
+        self.assertEqual(1, rc, out)
+        self.assertEqual([], seen)
+        self.assertIn(u"需要 --since", out)
+
+
 class TestPowerArmsFromCfg(unittest.TestCase):
     def test_n_arm_derives_base_and_first_candidate(self):
         base, cand = PW.arms_from_cfg(NARM)
