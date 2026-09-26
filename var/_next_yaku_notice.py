@@ -151,6 +151,9 @@ def main(argv=None):
     v_ok = is_adopt(last_verdict_line(_read(os.path.join(vd, "_verdict_役3v.txt"))))
 
     kind, why, cmds = decide(meld_ok, bc_ok, v_ok, base4, cand4)
+    # ★ R1556：BOXED（到盛未决定性）**不是判负** —— 机器按“未判正”处理，
+    #   而预登记下“主过 + 副同号”仍算通过（yaku4 读卡 §0 已写明三种形状的阈值差异）。
+    _boxed4 = bool(line4) and line4.upper().startswith("BOXED")
 
     lines = [
         "== 役 4 判词已落地 —— “下一步”需要一个判断 ==",
@@ -169,6 +172,11 @@ def main(argv=None):
         "--baseline %s --candidates %s --mechanism melds" % (base4, cands4),
         "",
     ]
+    if _boxed4:
+        lines += ["",
+                  "★ 注意：役 4 判词是**到盛未决定性（BOXED）**，**不是判负** —— 按 yaku4-verdict-readcard.md §0 的三形状阈值**人工定性**"
+                  "（A/B 行副端点只需‘同号’）；机器按“未判正”处理（**不进自动池**），"
+                  "人若定性为通过 ⇒ 可按 §V.247 在 **10/5 提案**里改选。"]
     if kind == "start":
         lines.append("== 可照拄命令（二选一：§V.186 对剂量口径留了“或”）==")
         for b, c in cmds:

@@ -97,6 +97,21 @@ class TestEndToEnd(unittest.TestCase):
             self.assertIn("--candidates speedvaluebcvmeldp40", body)
             self.assertIn("--watch-mechanism none", body)
 
+    def test_boxed_verdict_says_not_a_reject(self):
+        """★ R1556：役 4 判词是 **BOXED（到盛未决定）** 时，提醒必须说清“**不是判负**”
+
+        并指向读卡 §0 的**人工定性**路径（预登记下 A/B 行副端点只需‘同号’）。
+        否则人会把“到盛仍不决定”误读成“这一层没用”，直接放弃组合臂。
+        """
+        boxed = u"★ 判定：BOXED（达役盒未决定性，按§V.66破平收口）"
+        with tempfile.TemporaryDirectory() as d:
+            _fixture(d, boxed, ADOPT_BC, ADOPT_V)
+            self.assertEqual(0, N.main(["--label", "役4", "--var-dir", d]))
+            body = io.open(os.path.join(d, ".YAKU_NEXT_PENDING"), encoding="utf-8").read()
+            self.assertIn(u"不是判负", body)
+            self.assertIn(u"yaku4-verdict-readcard.md §0", body)
+            self.assertIn(u"人工定性", body)
+
     def test_idempotent(self):
         with tempfile.TemporaryDirectory() as d:
             _fixture(d, ADOPT4, ADOPT_BC, ADOPT_V)
