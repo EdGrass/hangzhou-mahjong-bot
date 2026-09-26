@@ -28434,3 +28434,12 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
 - [R1576 补记 | 2026-09-26 14:2x ★★★ 批量全量回归（覆盖 R1576 的 `_mech_watch` 裁决路径改动）：
   `python -X utf8 var/_lowprio_run.py -- python -X utf8 -m unittest discover` ⇒ **Ran 1303 tests, OK (skipped=2, expected failures=1)**，**824s**。
   （自 1301 以来 +2 = R1576 的两项 mock 测试。）
+
+- [R1577 | 2026-09-26 14:3x ★★★★ 「一屏总览」说谎两处：默认写死役2 + 把主/副端点行截掉]
+  - ① `_campaign_status.py` 默认值是役2（c151 vs speedvalue），而 HANDOFF 的“一屏总览”行叫人无参跑 ⇒ 打印役2 的
+    “✅ 可判决 / ADOPT speedvalue” ⇒ 读者以为**当前役**已有结论。② `keep=18` 把 `_gate2` 的**主/副端点行**（在表头）截掉；
+    `keep=14` 又把分层表的第三臂行截掉（实测：只出了 speedvalue / speedvaluebc 两臂）。
+  - **已改**：`ab_defaults()` 从 `var/.ab_mode` 取默认（N 臂）；①② 步骤逐候选跑；`keep` 26/24 且分层列全部臂；读不到 `.ab_mode` 时打“回退到写死役2”警告。
+  - **实跑**：彩头显示当前役 arms/started；主端点行现在出得来：`bc +0.85pp(z=+0.48)`、`V +2.67pp(z=+1.05)`（均 undecided）；三臂分层行全在。
+  - **测试**：新增 `tests/test_campaign_status_defaults.py` 4 项（含真机一致性）。
+  - **自踩**：`ab_defaults()` 第一版用 `json.loads` 但该文件**没有 `import json`** ⇒ 异常被 `except` 吃掉 ⇒ 全部返 None（探针发现）⇒ 补导入。

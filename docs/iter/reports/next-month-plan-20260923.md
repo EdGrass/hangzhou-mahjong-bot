@@ -7086,3 +7086,21 @@ rc=0
 **测试**：`tests/test_mech_watch_arms.py` 新增 `TestR1576UnrecognizedIsNotOk` **2 项**（用 mock 替掉 subprocess ⇒ 不真跑回放）：
 ① 未识别的 window 输出 ⇒ `.mech_warn` 必须存在且含“读数缺失”“不是‘不达标’”；
 ② 认出且达标 ⇒ 旧 `.mech_warn` 必须被清掉。合计 **30 项 OK**（并顺手把新测试自己的句柄卫生修好）。
+
+### §V.294 ★★★★ 「一屏总览」一直在**说谎**：`_campaign_status.py` 默认写死成役2，且把**主端点行截掉**（R1577）
+
+**两个真问题（本轮实测）**：
+1. **默认值是役2**（`--since 2026-09-23 03:13:44 --baseline speedc151 --candidate speedvalue`）。
+   而 HANDOFF 的“一屏总览”行就叫人这么跑 ⇒ 它打印役2 的“✅ 可判决 / ADOPT speedvalue”，
+   **读者会以为当前役已有结论**（工具在说谎 —— 同 **R1326** 对 `_pick_arm` 的担心：“无意义但看起来正常”）。
+2. **`keep=18` 把 `_gate2` 的主/副端点行截掉**（它们在表头），`keep=14` 又把分层表的**第三臂行**截掉 ⇒ “总览”里恰恰少了判词最该看的那几行。
+
+**已修**：新增纯函数 `ab_defaults()` —— 从 **`var/.ab_mode`** 取 `since/baseline/candidates`（支持 N 臂）；两个展示步骤改为**逐候选跑一遍**（→ 三臂也能看全）；
+`keep` 改 26 / 24 且分层步骤列**全部臂**；读不到 `.ab_mode` 时**显式打印“回退到写死的役2”的警告**（不再偷偷用旧口径）。
+
+**实跑验证**（无参）：彩头 `[campaign_status] 当前役：arms=speedvalue,speedvaluebc,speedvaluebaotouv5 started=2026-09-25 20:52:39（取自 var/.ab_mode）`；
+② 现在打出主端点行：`bc 24.20→25.06（+0.85, z=+0.48, undecided）`、`V 24.20→26.88（+2.67, z=+1.05, undecided）`；
+③ 三臂行全在（`全部/弱房/强手房>=2`）。**测试**：`tests/test_campaign_status_defaults.py` 4 项（含“真机上默认值必须等于 `.ab_mode`”）。
+
+**顺手修了一个新问题的根因**：该文件原本 `import argparse, os, subprocess, sys`（**无 json**），而我的 `ab_defaults()` 第一版用 `json.loads` ⇒
+异常被 `except Exception` 吃掉 ⇒ **全部返 None**（探针当场抳住）⇒ 补 `import io, json`。
