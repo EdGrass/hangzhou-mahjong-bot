@@ -30,6 +30,11 @@
 - 文件：`var/_verdict_役4<候选>.txt` / 哨兵 `var/.verdict_done_役4<候选>`（例：`役4speedvaluebcmeldp45`）。
 - 行内 `★ 判定：` 的四种含义：`ADOPT` 判正 / `REJECT` 判负 / `REFUSE` 护栏或机制不过 ⇒ 不采用 /
   `UNDECIDED`（未到盒继续攒房；到盒按 §V.66 破平收口）。
+  ★ **R1561 同源订正**：`UNDECIDED`/`BOXED` **都是“未判正”**（不是判负）—— 机器侧
+  （`_next_yaku_notice.decide`、`_adopt_pair`、`_final_arm_confirm`）**只认末条 `★ 判定：` 以 `ADOPT` 开头**；
+  §V.66 的破平**只在已判正的臂之间**选（**§V.161 A.1** + **§V.279/R1557**）。
+  ⇒ 若你按 §0 的“三种形状阈值”**人工定性**为通过，那只是**旁证**（可在 10/5 提案里比较），
+  **不得据此写 `var/.final_arm.txt`**，**更不要手改 `var/_verdict_役4*.txt`**（红线：不手搓状态文件）。
 - 破平与选臂（同口径）：`var/_pick_arm.py --since "<起役ts>" --min-rooms 30 --strong-top 32`、
   `var/_seat_h2h.py --since "<起役ts>" --by-arm --top 32`。
 
