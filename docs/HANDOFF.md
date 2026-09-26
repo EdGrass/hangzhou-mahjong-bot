@@ -15,7 +15,7 @@
 > | 用途 | 看哪个 |
 > |---|---|
 > | **作战计划（唯一权威，§A–§V.294）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1588**；含 R1557b/c 补记） |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1589**；含 R1557b/c 补记） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | **关键日一屏卡（照做即可）** | **9/28 判词** → `verdict-day-card-20260928.md`；**10/5 提案** → `pick-day-card-20261005.md`；**10/7 换臂** → `final-switch-card-20261007.md`；**10/8 提交** → `submission-day-card.md`；**10/10 正式赛** → `event-day-card-20261010.md` |
