@@ -14,7 +14,11 @@ param(
 )
 $root = "D:\hangzhouMaj"
 $pyw  = Join-Path (Split-Path (Get-Command pythonw.exe).Source -Parent) "pythonw.exe"
-$cmdArgs = '-X utf8 "{0}\var\_adopt_when_ready.py" --label 役2' -f $root
+# ★ R1579：**必须带 `--strong-veto`**（R1437 就写了“注册该役 AdoptWatch 时必须带”，
+#   而本脚本一直漏了：实测现场 `HangzhouMajAdoptWatch` 的参数只有 `--label 役2`）。
+#   役2 已完成且现拉强手房否决为 **OK（rc=0）** ⇒ 历史影响无；但脚本必须对，
+#   否则将来重注册会再漏一次强手房否决。
+$cmdArgs = '-X utf8 "{0}\var\_adopt_when_ready.py" --label 役2 --strong-veto' -f $root
 Write-Host "任务名: $TaskName"
 Write-Host "触发器: 每 $EveryMinutes 分钟（长期；采用后脚本自身毫秒级 no-op）"
 Write-Host "动作  : $pyw $cmdArgs"

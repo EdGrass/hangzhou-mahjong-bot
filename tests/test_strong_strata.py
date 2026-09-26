@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """分层读数工具的单测（`_strong_slice` / `_strong_veto` / `_adopt_when_ready.adopted_arm`）。
 
 为什么要钉：
@@ -196,6 +196,26 @@ class TestStrongVetoTwoLayers(unittest.TestCase):
         self.assertEqual(2, rc, buf.getvalue())
         self.assertIn("UNKNOWN", buf.getvalue())
 
+
+
+class TestAdoptWatchRegistrarR1579(unittest.TestCase):
+    """★ R1579：注册 `HangzhouMajAdoptWatch` 的脚本**必须带 `--strong-veto`**。
+
+    为什么：R1437 就写了“注册该役 AdoptWatch 时**必须**带 `--strong-veto`”，而脚本一直漏着
+    （实测现场任务参数只有 `--label 役2`）⇒ `_adopt_when_ready` 就**不会**跑强手房否决。
+    （役2 已完成且现拉强手房否决为 rc=0、方向也不亏 ⇒ 历史无损；但脚本要对。）
+    """
+
+    def test_registrar_passes_strong_veto(self):
+        p = os.path.join(ROOT, "var", "_register_adopt_watch.ps1")
+        if not os.path.exists(p):
+            self.skipTest("var/ 不在仓库里（gitignore）")
+        with io.open(p, encoding="utf-8-sig") as f:
+            src = f.read()
+        cmds = [ln for ln in src.splitlines() if "_adopt_when_ready.py" in ln and "cmdArgs" in ln]
+        self.assertTrue(cmds, "没找到注册命令行（测试已失效）")
+        for ln in cmds:
+            self.assertIn("--strong-veto", ln, ln)
 
 if __name__ == "__main__":
     unittest.main()
