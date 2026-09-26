@@ -151,5 +151,51 @@ class TestSlicePure(unittest.TestCase):
             SS.COOKIE = old
 
 
+class TestStrongVetoTwoLayers(unittest.TestCase):
+    """★ R1545：前置登记 ★追加要求强手房否决**一次判两层**（>=1 与 >=2 名 top32）。
+
+    为什么要**行为**测试而不是源码快照：`veto_of` 只是"单层判据"；若将来有人删掉 `>=2` 那一层，
+    现有测试全绿，而正式赛（16 人强场）恰好靠这一层保护（§V.183：两层优劣可能方向相反）。
+    这里造一个“**只有 >=2 层显著劣**”的数据集，要求真的返回 3=VETO。
+    """
+
+    def setUp(self):
+        self._rl, self._sr = SV.read_ledger, SV.strong_rooms
+
+    def tearDown(self):
+        SV.read_ledger, SV.strong_rooms = self._rl, self._sr
+
+    def test_second_layer_alone_can_veto(self):
+        # r1..r4 => 层数 2（决赛相似层）；r5..r8 => 层数 1
+        layers = {"r%d" % i: (2 if i <= 4 else 1) for i in range(1, 9)}
+        rows = []
+        for i in range(1, 5):                       # >=2 层：候选明显更差
+            rows.append(("r%d" % i, "A", 100.0 + i, True))
+            rows.append(("r%d" % i, "B", -100.0 - i, False))
+        for i in range(5, 9):                       # 只在 >=1 层：把混合口径拉平/略正
+            rows.append(("r%d" % i, "A", -200.0 - i, False))
+            rows.append(("r%d" % i, "B", 200.0 + i, True))
+        SV.read_ledger = lambda since, arms: list(rows)
+        SV.strong_rooms = lambda rooms: (dict(layers), None)
+        import io as _io, contextlib
+        buf = _io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = SV.main(["--since", "T", "--baseline", "A", "--candidate", "B", "--min-rooms", "2"])
+        out = buf.getvalue()
+        self.assertEqual(3, rc, u"只有 >=2 层显著劣时必须 VETO（否则第二层没被判）：\n" + out)
+        self.assertIn(u"强手房(>=2 top32)", out)
+        self.assertIn(u"显著劣", out)
+
+    def test_insufficient_sample_is_unknown_not_veto(self):
+        SV.read_ledger = lambda since, arms: [("r1", "A", 1.0, True), ("r1", "B", -1.0, False)]
+        SV.strong_rooms = lambda rooms: ({"r1": 2}, None)
+        import io as _io, contextlib
+        buf = _io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = SV.main(["--since", "T", "--baseline", "A", "--candidate", "B", "--min-rooms", "15"])
+        self.assertEqual(2, rc, buf.getvalue())
+        self.assertIn("UNKNOWN", buf.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
