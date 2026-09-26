@@ -28332,3 +28332,8 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **验证**：真实 `var/` 下 `load_verdicts()` 只载 `_verdict_役2.txt`；`speedvalue=已判正`、`bc/V/c073w4=未判正`；新增 2 条回归测试 ⇒ **22 项 OK**。
   - **同轮补**：10/5 提案新增**逐臂可部署性**段（`deploy_section`，重用同一套判定）—— 防“主序列第一名是从未判正的臂”被误选；测试共 **39 项 OK**。
   - **教训**：规则对不等于实现对 —— 而实现里最脆弱的一环是**“哪些文件算判词、它在说谁”**。
+
+- [R1567 补记 | 2026-09-26 13:2x ★★★ 全量回归（今日多处行为改动合并后跑一次，走 `_lowprio_run`）：
+  `python -X utf8 var/_lowprio_run.py -- python -X utf8 -m unittest discover` ⇒ **Ran 1295 tests, OK (skipped=2, expected failures=1)**，耗时 **769s**。
+  涵盖今日行为改动：`_final_ready_check` 第 8/9 项、`_final_pick_proposal` 回退标签 + `deploy_section`、`_final_arm_confirm.arm_adopted` 高危修正。
+  （注：第一次跑时用 `Select-Object -Last` 把汇总行截掉了（stdout 块缓冲 ⇒ stderr 的汇总在前）⇒ 第二次用 `Tee-Object` 落盘后 grep 才取到。经验：**要看汇总就得落盘再 grep**。）
