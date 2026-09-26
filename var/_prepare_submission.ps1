@@ -131,7 +131,9 @@ $opsScripts = @(
   "var/_replay_endpoint.py",             # ★ R1538：`_gate2` 的**导入期**依赖
   "var/_rotate_token.py",                # ★ R1538：`_watchdog` 的令牌轮换闭包
   "var/_submit_latency_audit.py",        # ★ R1538：`_mech_watch` 的延迟审计闭包
-  "var/_ps_syntax_check.ps1"
+  "var/_ps_syntax_check.ps1",
+  # ★ R1547：判词当天的一屏摘要 —— 只读，把读卡要求的 6 条命令按固定顺序跑成 1 条
+  "var/_verdict_digest.py"
 )
 $mustTrack = @(
   "run_bot.py",

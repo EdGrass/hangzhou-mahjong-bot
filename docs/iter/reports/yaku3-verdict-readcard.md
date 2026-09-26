@@ -75,6 +75,8 @@ V 的机制读数必须是明确的 `pass`：`fail` ⇒ V 记 ✗（B3 作废）
 这正是“本轴的全部理由就是赢得大”的规矩在起作用：**赢得更频繁 ≠ 赢得更大**，所以 V 不采用。
 （人工若认为该把 bc 带上四格，按 §V.247 在 **10/5 提案**里并排比较——提案不受该行限制。）
 
+> **一条命令版（R1547）**：`python -X utf8 var/_verdict_digest.py --since "<役起点>" --baseline speedvalue --candidates speedvaluebc,speedvaluebaotouv5 --mechanism none`（只读；把本卡要求的 6 条命令按**固定顺序**跑完并打一屏摘要；它**不作判断**，读法仍然看本卡）
+
 ## 1. 每个候选**各自**读判词
 
 | 判词 | 该轴结论 |
