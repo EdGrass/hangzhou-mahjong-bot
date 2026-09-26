@@ -28056,3 +28056,17 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     已给 `pick_lines` 加 `extra`（按臂名匹配），并把这条写进测试（`test_extra_matches_arm_rows` 专门钉它）。
     （另：生成这个文件时我又踩了一次"普通三引号里的 `\n` 被提前解释"⇒ 改用原始字符串重写；同坑当日第二次。）
   - **测试**：`tests/test_verdict_digest.py` **7 项**；**入 `$opsScripts`（88 项，注释不含括号）**；`yaku3`/`yaku5` 读卡加"一条命令版"。
+
+- [R1548 | 2026-09-26 10:30 ★★★★摘要补上**机制端点**（役3 的 V 机制不在 `_gate2` 里）+ 心跳改用它]
+  - **缺口**：R1547 的 `_verdict_digest.py` 只跑 `_gate2` + 强手房两层 + 两半 Pareto，而**役3 的 V 机制不在 `_gate2`**
+    （`--mechanism none`）：它由 `_mech_watch` 写在 `.mech_warn` / `.v_mech_unknown` / `_v_mech_readings.jsonl` / `_mech_watch.log`，
+    而读卡 §0b/§0c **明确要求**看它们 ⇒ 摘要不汇总就等于只给一半证据。
+  - **修**：新增 `mech_section()`：四个标记正文 + **每臂最新一条非 None 的 V 读数**（与 `_adopt_pair.v_mech_verdict` **同语义**，
+    抗瞬时 `ok=null`）+ `_mech_watch.log` 末 5 行；写进报告、并在屏幕摘要前打印。实测：屏幕上能看到
+    `.v_mech_unknown`、`V读数/speedvaluebaotouv5 ok=None 样本不足…`、日志尾。
+  - **测试**：`tests/test_verdict_digest.py` +2（都取到 / 空目录逐条"（不存在）"；其中一条专钉"最新**非 None**"）。
+    （★ 期间踩了三个小坑并当场修掉：全角/半角括号不一致；插入位置落进多行 `out.write(...)` 中间 ⇒ 语法错；
+    文件里的中文是**字面转义**导致锚点不匹配 ⇒ 改用行定位插入。）
+  - **心跳（automation 10-7）步骤 1 改为首选一屏摘要**（把 `★判定`/两层原值/两半行如实报一次再按读卡建议）——
+    理由：R1501 起已知"主端点几乎必然不可区分、**真正判据是两半 Pareto**"，只跑 `_gate2` 会漏掉真正判据。
+    提示词已逐字校验（5782 字符 `identical: True`），`status/rrule/target` 未变。

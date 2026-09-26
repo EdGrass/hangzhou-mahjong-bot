@@ -34,6 +34,68 @@ KEY_PREFIXES = ("\u2605 \u5224\u5b9a\uff1a", "\u2605 \u5f3a\u624b\u623f\u5426\u5
                 "\u548c\u724c\u7387/\u623f(\u4e3b)", "\u526f\u9732/\u623f(\u673a\u5236)", "!!")
 
 
+MARKERS = (".mech_warn", ".v_mech_unknown", ".ADOPT_V_MECH_STALL")
+
+
+def mech_section(var_dir=None, n_log=5):
+    """★ R1548：把**机制端点**的证据一并汇总（读卡 §0b/§0c 要求看的那些）。
+
+    为什么：役3 的 V 机制**不在** `_gate2` 里（`--mechanism none`），而在 `_mech_watch` 写的
+    `.mech_warn` / `.v_mech_unknown` / `_v_mech_readings.jsonl` / `_mech_watch.log`；摘要不汇总它们，
+    读卡要求的那一半证据就漏了。返回 [(title, body)]（纯函数，可单测）。
+    """
+    import json as _json
+    vd = var_dir or OUT_DIR
+    out = []
+    for name in MARKERS:
+        fp = os.path.join(vd, name)
+        if not os.path.exists(fp):
+            out.append((name, "（不存在）"))
+            continue
+        try:
+            with io.open(fp, encoding="utf-8-sig", errors="replace") as f:
+                out.append((name, f.read().strip() or "(空)"))
+        except Exception as e:
+            out.append((name, "（读不出：%s）" % str(e)[:60]))
+    # 最新一条**非 None** 的 V 机制读数（每臂）
+    rp = os.path.join(vd, "_v_mech_readings.jsonl")
+    last, any_rec = {}, False
+    if os.path.exists(rp):
+        try:
+            with io.open(rp, encoding="utf-8", errors="replace") as f:
+                for ln in f:
+                    ln = ln.strip()
+                    if not ln:
+                        continue
+                    try:
+                        d = _json.loads(ln)
+                    except Exception:
+                        continue
+                    arm = str(d.get("arm") or "")
+                    if not arm:
+                        continue
+                    any_rec = True
+                    if d.get("ok") is not None or arm not in last:
+                        last[arm] = d
+        except Exception:
+            pass
+    if any_rec:
+        for arm in sorted(last):
+            d = last[arm]
+            out.append(("V读数/%s" % arm, "ok=%s  %s" % (d.get("ok"), (d.get("why") or "")[:160])))
+    else:
+        out.append(("V读数", "（无 `_v_mech_readings.jsonl`）"))
+    lp = os.path.join(vd, "_mech_watch.log")
+    if os.path.exists(lp):
+        try:
+            with io.open(lp, encoding="utf-8", errors="replace") as f:
+                tail = [x.rstrip() for x in f.read().splitlines() if x.strip()][-n_log:]
+            out.append(("_mech_watch.log 末%d行" % n_log, "\n".join(tail) or "(空)"))
+        except Exception:
+            pass
+    return out
+
+
 def pick_lines(text, limit=14, extra=()):
     """从一份工具输出里挑出“关键行”（纯函数，可单测）。
 
@@ -104,6 +166,10 @@ def main(argv=None):
         out.write("\u5224\u8bcd\u5f53\u5929\u6458\u8981  %s\nsince=%s baseline=%s candidates=%s mechanism=%s min_rooms=%d\n"
                   % (time.strftime("%Y-%m-%d %H:%M:%S"), a.since, a.baseline,
                      ",".join(cands), a.mechanism, a.min_rooms))
+        # ★ R1548：机制端点（读卡 §0b/§0c）—— `_gate2 --mechanism none` 看不到这一半证据
+        out.write("\n---- 机制端点（读卡 §0b/§0c 要求看的）----\n")
+        for _t, _b in mech_section():
+            out.write("[%s] %s\n" % (_t, _b.replace("\n", "\n    ")))
         for name, cmd in steps:
             t0 = time.time()
             try:
@@ -119,6 +185,9 @@ def main(argv=None):
             # ★ 两半 Pareto 的表行首列是臂名 ⇒ 额外按臂名匹配（否则那两段为空）
             digest.append((name, rc, pick_lines(body, extra=(
                 _arms if name.startswith("half-") else ()))))
+    print("\n===== 机制端点（读卡 §0b/§0c；_gate2 --mechanism none 看不到这一半）=====")
+    for _t, _b in mech_section():
+        print("  [%s] %s" % (_t, _b.replace("\n", " | ")[:200]))
     print("\n===== \u5224\u8bcd\u5f53\u5929\u6458\u8981\uff08\u53ea\u8bfb\uff1b\u4e0d\u505a\u5224\u65ad\uff09=====")
     for name, rc, lines in digest:
         print("\n-- %s   rc=%s" % (name, rc))

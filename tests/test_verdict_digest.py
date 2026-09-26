@@ -10,6 +10,7 @@ import importlib.util
 import io
 import os
 import sys
+import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -53,6 +54,47 @@ class TestPickLines(unittest.TestCase):
         out = g.pick_lines(text, limit=3)
         self.assertEqual(3, len(out))
         self.assertIn(u"第29", out[-1])
+
+
+class TestMechSection(unittest.TestCase):
+    """★ R1548：机制端点（读卡 §0b/§0c）必须一并汇总。
+
+    为什么：役3 的 V 机制**不在** `_gate2`（`--mechanism none`）里，而在 `_mech_watch` 写的那几个文件里；
+    摘要不汇总它们，判词人就只看到一半证据。
+    """
+
+    def setUp(self):
+        self.d = tempfile.TemporaryDirectory()
+        self.addCleanup(self.d.cleanup)
+
+    def _w(self, name, text):
+        with io.open(os.path.join(self.d.name, name), "w", encoding="utf-8") as f:
+            f.write(text)
+
+    def test_markers_readings_and_log(self):
+        self._w(".mech_warn", u"2026-09-26 07:00 speedvaluebc 足迹脱离预期\n")
+        self._w(".v_mech_unknown", u"2026-09-26 06:36 V 轴机制读数缺失\n")
+        self._w("_v_mech_readings.jsonl",
+                u'{"arm": "speedvaluebaotouv5", "ok": true, "why": "旧"}\n'
+                u'{"arm": "speedvaluebaotouv5", "ok": null, "why": "拖动"}\n'
+                u'{"arm": "speedvaluebc", "ok": false, "why": "不达标"}\n')
+        self._w("_mech_watch.log", u"line1\nline2\nline3\n")
+        got = dict(g.mech_section(self.d.name, n_log=2))
+        self.assertIn(u"足迹脱离", got[".mech_warn"])
+        self.assertIn(u"V 轴", got[".v_mech_unknown"])
+        self.assertEqual(u"（不存在）", got[".ADOPT_V_MECH_STALL"])
+        # ★ 最新一条**非 None**的读数胜出（与 _adopt_pair.v_mech_verdict 同语义：抗瞬时抖动）
+        self.assertTrue(got[u"V读数/speedvaluebaotouv5"].startswith("ok=True"),
+                        got[u"V读数/speedvaluebaotouv5"])
+        self.assertIn("ok=False", got[u"V读数/speedvaluebc"])
+        self.assertNotIn("line1", got[u"_mech_watch.log 末2行"])
+        self.assertIn("line3", got[u"_mech_watch.log 末2行"])
+
+    def test_empty_dir(self):
+        got = dict(g.mech_section(self.d.name))
+        for name in g.MARKERS:
+            self.assertEqual(u"（不存在）", got[name])
+        self.assertIn(u"V读数", got)
 
 
 class TestCmdsFor(unittest.TestCase):

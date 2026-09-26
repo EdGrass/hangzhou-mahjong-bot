@@ -6438,3 +6438,21 @@ R1538 让我确认了"文件在不在"，这里再确认**数字对不对**：�
 **这正是第一版两半为空的 bug**；`limit` 取尾部；命令条数与顺序；`gate2` 必带 5 个 flag；两半必走 lowprio；dry-run 只打印）。
 
 **已入提交清单**：`$opsScripts` 88 项（注释**不含括号**——R1437 那个"非贪婪到第一个右括号"的坑）。读卡（`yaku3`/`yaku5`）已加"一条命令版"入口。
+
+### §V.270 摘要补上**机制端点**（`_mech_warn` / `.v_mech_unknown` / V 读数 / `_mech_watch.log`）+ 心跳改用它（R1548）
+
+**缺口**：R1547 的 `_verdict_digest.py` 只跑 `_gate2` + 强手房两层 + 两半 Pareto —— 而**役 3 的 V 机制根本不在 `_gate2` 里**
+（`--mechanism none`）：它由 `_mech_watch` 写在 `.mech_warn` / `.v_mech_unknown` / `_v_mech_readings.jsonl` 里，
+读卡 §0b/§0c **明确要求**看这些。⇒ 摘要若不汇总它们，判词人看到的仍是**一半证据**。
+
+**修**：`mech_section()` —— 汇总四个标记正文 + **每臂最新一条非 None 的 V 读数**（与 `_adopt_pair.v_mech_verdict` **同语义**：
+抗瞬时 `ok=null` 抖动）+ `_mech_watch.log` 末 5 行；写进报告、并在屏幕摘要**之前**打印。
+测试：`tests/test_verdict_digest.py` +2（标记/读数/日志尾都取到；空目录时逐条给"（不存在）"）；
+其中一条专门钉"最新**非 None**"（`ok=true` 后跟一条 `ok=null` ⇒ 仍应显示 True）。
+
+**心跳（automation 10-7）步骤 1 已改为首选这条一屏摘要**：
+> `python -X utf8 var/_verdict_digest.py --since "<started>" --baseline <arms[0]> --candidates <其余臂> --mechanism <该役口径>`
+> 并把屏幕关键行（`★判定` / `★强手房否决` / `>=1`、`>=2` 两层原值 / 每臂两半行）**如实报一次**，再按读卡给建议。
+
+理由：R1501 起我们就知道"**主端点几乎必然不可区分、真正判据是两半 Pareto**" ⇒ 心跳若只跑 `_gate2`，就会**漏掉真正判据**。
+提示词已改并**逐字校验**（5782 字符 `identical: True`），`status/rrule/target_thread_id` 未变。
