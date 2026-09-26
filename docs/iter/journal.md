@@ -28490,3 +28490,13 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **干跑验证（不带 `-Go`，只打印）**：两个脚本打出的 8 条注册行**都指向 `D:\hangzhouMaj\var\...`**（推导正确）。测试：`test_final_day_wiring` + 行尾门 **31 项 OK**。
   - 另核：10/10 两台任务的**现场参数正确**（`_final_event_switch.py --go`、`_final_event_ready.py`，均 `pythonw` + 正确工作目录；
     **没有** `-AllowNotReady`）✓。
+
+- [R1581 | 2026-09-26 14:3x ★★★ 实跑**判官/赛前体检台** `tools/tminus_check.py`（只读）：工具正常，两个 ❌ 是**环境性**的]
+  - 实测（无参，如判官那样跑）：
+    `✅ preflight：READY`、`✅ 本役数据完整性：干净`、`✅ 榜单(all, live): rank=611 rooms=1266 score=−18195（−14.4 分/房）firsts=227`、
+    `✅ 进程：{_ab_driver:1, _watchdog:1, match_super:1, run_bot:1}`；
+    `❌ rules_guard rc=3`、`❌ ready/报名状态：无法确定 --tid（拒绝沿用历史默认值）`、`⚠ 门户赛事：未指定 --tid ⇒ 跳过`。
+  - **为什么这两个 ❌ 是预期**：现在（三测已结、正式赛尚未发布）**没有 registering 赛事、也没有本场令牌** ⇒
+    `rules_guard` 只能 rc=3（读不到）、tid 解不出来。**它拒绝沿用历史 tid**（R1307 的修正）✓ —— 这正是“宁可不查也不查错赛事”。
+  - 另记一个读数细节：该工具的“策略=”一行取自 `var/_keeper_strategy.txt` ⇒ A/B 期间它会显示**当前轮到的那根臂**（本次=speedvaluebc），
+    这与 README 的“以 `_keeper_strategy.txt` 为准”一致 ✓（不是异常）。
