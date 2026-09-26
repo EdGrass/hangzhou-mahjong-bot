@@ -6673,3 +6673,50 @@ p99 曾达 **2827ms**、≥1s **1.9%**，后果是**真丢动作**（409 里 dis
 - **四测遗留的 7 台**（`HangzhouMaj4Test*`）**已无未来触发**（一次性且已执行过）⇒ **不会再点火**，可无视 ✓。
 
 **结论**：终局排程**无待办**；10/5 起只需按计划看产物（提案 → `.final_arm.txt` → `.final_installed` → `.final_submitted` → `.EVENT_*`）。
+
+
+### §V.281 ★★★★ 「役 5 槽位」在**副露未判正**分支会被整段空置 —— 该槽位应摆预登记好、已就绪的第 4 号臂 `speedvaluerank`（R1559）
+
+**为什么要现在说**：用户 2026-09-25 指令「在七号换上你能搓出来的最屌的模型 准备最后的比赛」。
+但按 **§V.280 记录的中期读数投影**，**最可能的分支**是：役 3 ⇒ `speedvaluebc` = **B2**、`speedvaluebaotouv5` = **B3** ⇒ **NONE 行**；
+役 4（副露 `speedvaluemeldp45`）若也未判正 ⇒ §V.186 与 `var/_next_yaku_notice.py` 的 `decide()` 都写死
+「**不起役 5**，直接进 §V.66 选臂」。**后果**：役 3/役 4 之后**没有任何 A/B 在跑**（1.7–3.2 天），
+10/7 的最终臂 = `speedvalue`（役 2 唯一判正的臂）⇒ 所谓「最屌的模型」**就是今天手上这一个**，
+而 §V.187 算术里**已按 240 房 / 2 臂预算过的第三个役位被整段空置**。
+
+**证据（本轮实测，全部可复现）**：
+
+| 项 | 读数 | 出处 |
+|---|---|---|
+| 该槽位会被空置 | `decide()` 在 `meld ✗` 且非（BC∧V）时返回 **`no_yaku5`** ⇒ 提醒正文只写「等 10/5 提案即可」 | `var/_next_yaku_notice.py`（`tests/test_next_yaku_notice.py` 逐字钉住） |
+| 第 4 号臂**早已排定** | 按「覆盖缺口的份额 × 成功率」排序：`speedvaluebc`(32%) → `speedvaluebaotouv5`(54%) → `speedvaluemeldp45`(14%) → **`speedvaluerank`（32%，「同侧第二次下注」）** → `speedvalueplain` | **§V.42** |
+| 它是**最宽的干净臂** | 足迹 **37.0%**（7,922 / 21,412 决策）、action 差 **0**、异常 **0** | §V.24 / R1208；`prereg-campaign5` §0/§2 |
+| 打的是**最大的缺口** | 同状态（同向听/同巡）到 k7 的听牌率差 **−5~−7pp**（本役口径：s0=1 −3.7pp、s0=2 −4.2pp） | R1202/R1206；`var/_campaign_status.py` §④ |
+| 臂**已就绪** | `var/_campaign_ready.py --arms speedvaluerank` ⇒ [1] 注册/可实例化/模型在场/有单测 **全 ✅**；冒烟全过 | 本轮实测 |
+| 预登记**已存在且格式合格** | `prereg-campaign5-speedvaluerank-20260924.md`；`var/_prereg_lint.py` ⇒ 主 z≥1.50 / 房≥80 / 副端点 / 机制 / 护栏 / 事前预测 / 判词分支 / 起役清单 / 风险 **全有 ✅** | 本轮实测（13 份预登记全绿） |
+| 排期**付得起** | §V.187：三役到盒 = **11.1 天**（⇒ ~10/6）；`var/_schedule_guard.py` 现值：剩余 785 房、**全到盒收口 10/04 20:03**、截止 10/7 08:30 **排期够** | §V.187；本轮实测 |
+
+**提议（分支条件式，只有一行规则）**：
+> 役 4 判词落地时：**副露判正** ⇒ 照 §V.186 起役 5（叠层，`--watch-mechanism none`）；
+> **副露未判正** ⇒ **用同一个槽位**起
+> `python -X utf8 var/_bsegment.py --go --label 役5 --baseline <当役基线> --candidates speedvaluerank --watch-mechanism draw`
+> （2 臂 ⇒ 正式线 160 房 ≈ **1.7 天**、到盒 240 房 ≈ **2.6 天**；都在 10/5 提案 / 10/7 08:30 之前）。
+> 若要第二发：**第二顺位 = `speedvalueplain`**（§V.42 排序 5；`prereg-campaign6-...` 同样已在库且格式合格）。
+
+**若采纳，起役前必须先接好的线**（全是 `var/` 工具，**不碰 `bot/`**）：
+1. ★ **机制 1 不会被自动量**：`_mech_watch.phases_for()` 只按名字里的 `meld` / `bc` / `baotou` 选相位
+   ⇒ `speedvaluerank` **一个相位都不命中**（实测该函数返回 `[]`）⇒ 预登记的机制 1（**改动率 ∈ [10%, 50%]**）
+   在役中**没有任何自动读数**（役 3 的 `speedvaluebc` 靠名字里的 `bc` 才自动命中 `draw`）。
+   ⇒ 二选一：给 `phases_for` 增一条 `rank` 规则（**行为改动** ⇒ 按 R1554 并成一次全量回归），
+   或在**读卡**里写死「这条由人手跑 `tools/offline_replay.py --phase draw`」。
+2. ★ **`_gate2 --mechanism` 与本役无关**：它的取值集是 `none/melds/gangs/pairs`（**没有「改动率」**）
+   ⇒ 改动率这条在 `_mech_watch` 的相位读数里，不在 `_gate2`；本役 `_gate2` 的 `--mechanism` 应仍是 **`none`**
+   （预登记 §2 的主/副端点 = 和牌率/房、番/房）。
+3. ★ **读卡会把人读错**：`yaku5-verdict-readcard.md` 现在整篇是**组合臂形状**（主端点 = `_pick_arm` 的强手房分/房、
+   `--watch-mechanism none`）⇒ 若真起 `speedvaluerank`，主端点其实是 **`_gate2` 的和牌率/房**。
+   ⇒ 起役前必须先在该读卡顶部加一句「**本役有两种形状：先看 `.ab_mode` 的 arms 再选读法**」。
+4. `_next_yaku_notice.py` 的 `no_yaku5` 分支要能给出上面那条命令（现在是空分支 ⇒ 只写「等 10/5」）。
+5. `_schedule_guard.PLAN` **不必改**（役 5 仍是 2 臂 ⇒ 房数口径不变）。
+
+**红线**：本节**只是提议** —— **不起役、不改 `.ab_mode`、不改任何预登记、不动台账**；
+起役与否**由用户拍**（§V.160：役序只由判词改）。**未获准前不动上面 1–4 任何一条。**
