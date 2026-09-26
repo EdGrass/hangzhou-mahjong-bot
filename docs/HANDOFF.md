@@ -1,16 +1,16 @@
-> ⚠ **入口指引（2026-09-26 08:15 更新 · 在此之前的内容均为历史记录）**
+> ⚠ **入口指引（2026-09-26 08:40 更新 · 在此之前的内容均为历史记录）**
 >
 > | 用途 | 看哪个 |
 > |---|---|
-> | **作战计划（唯一权威，§A–§V.261）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1539**） |
+> | **作战计划（唯一权威，§A–§V.262）** | `docs/iter/reports/next-month-plan-20260923.md` |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1540**） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | 当前役进度 | `python -X utf8 var/_verdict_watch.py --label 役3bc --since "2026-09-25 20:52:39" --baseline speedvalue --candidate speedvaluebc --mechanism none --check-only`（另一条把 `役3bc/speedvaluebc` 换成 `役3v/speedvaluebaotouv5`） |
 > | 一屏总览 / 排期 / 环境 | `var/_campaign_status.py` · `var/_schedule_guard.py` · `tools/preflight.py` |
 > | **完整性（R1526）** | `python -X utf8 tools/ab_integrity.py --since "役3起点" --arms speedvalue,speedvaluebc,speedvaluebaotouv5`（含**每房 10 份复盘**检查） |
 >
-> **当前状态（2026-09-26 08:15）**
+> **当前状态（2026-09-26 08:40）**
 > - **役 3 在跑**：`speedvalue`（共享基线）+ `speedvaluebc` + `speedvaluebaotouv5`；窗口 `started = 2026-09-25 20:52:39`。
 >   判词 ETA（★ 按实测 **1.23 房/时/臂**（20:52→06:36 走 12 房）重算）：**80 房/臂 ≈ 9/28 13:41**；役盒 120/臂 ≈ 9/29 22:06。当前 **36 房（12/12/12）**；已完成的 35 房**复盘各 10/10 份**（唯一未齐的是刚结束那房，抓取延迟）。
 > - **机制端点**：`speedvaluebc` 足迹 **15.6%**（预登记 10–20% 带内）✓；

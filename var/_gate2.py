@@ -186,7 +186,10 @@ def main():
         verdict.append('复盘覆盖 < %.0f%%（先补拉 tools/fetch_room_replays.py）' % (100 * MIN_COVER))
     print()
     print('%-18s %9s %9s %9s %8s %8s' % ('端点', '基线', '候选', '差', 'z', '判定'))
-    rows = [('和牌率/房(主)', 'hu_rate'), ('番/房(副)', 'fan_rate'),
+    # ★ R1540：`fan_rate` 的**实算口径**是 `100 × 番/轮`（R = 8 局 × 10 份文件 = 80，
+    #   10 份重复抵消后就是“番/轮”），**不是**“番/房”；两者只差一个常数因子
+    #   ⇒ 对 z 与符号**无影响**，但把它印成“番/房”会让人读错量级（≈ 12.5×）。
+    rows = [('和牌率/房(主)', 'hu_rate'), ('番/轮×100(副)', 'fan_rate'),
             ('副露/房(机制)', 'melds'), ('杠/房(机制)', 'gangs'), ('爆头/房(机制)', 'baotou'),
             ('平均对数(机制)', 'pair_mean'), ('>=3对占比(机制)', 'pair3')]
     res = {}
@@ -202,6 +205,9 @@ def main():
             tag = 'PASS' if (z > 0 and res['hu_rate'][0] >= 0) else 'CHECK'
         print('%-18s %9.2f %9.2f %+9.2f %+8.2f %8s' % (
             label, statistics.mean(A[key]), statistics.mean(B[key]), d, z, tag))
+    # ★ R1540：把量纲说清楚 —— 它与预登记的“番/房”只差常数倍，判定不受影响。
+    print('      注：番/轮×100 = 每轮番数×100；换算成真“番/房”≈ 该值×0.08（8 局/房）。'
+          '它与预登记“番/房”端点只差常数 ⇒ z/符号不变。')
     # ledger guardrails
     fr_a = 100.0 * sum(1 for r in led_a if r['rank'] == 1) / max(1, len(led_a))
     fr_b = 100.0 * sum(1 for r in led_b if r['rank'] == 1) / max(1, len(led_b))
