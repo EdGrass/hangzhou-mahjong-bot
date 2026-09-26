@@ -28408,3 +28408,11 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
 - [R1573 补记 2 | 2026-09-26 14:0x ★★★ 批量全量回归（覆盖 R1571 的 `_portal_watch` 行为改动，走 `_lowprio_run`）：
   `python -X utf8 var/_lowprio_run.py -- python -X utf8 -m unittest discover` ⇒ **Ran 1301 tests, OK (skipped=2, expected failures=1)**，**783s**。
   （自上次（1298）以来新增：门户连续失败告警 +2、操作卡防飘门 +1）。
+
+- [R1574 | 2026-09-26 14:0x ★★★ 看护全绿 + 今日改过的脚本在生产里没出假警报（只读）]
+  - **11 台常驻看护全部 `Ready` 且 `rc=0`**：PortalWatch 14:02:55、NextYakuNotice 13:56:41、MechWatch 12:27:32、AdoptPairWatch 14:04:19、
+    VerdictWatch3bc/3v 14:02:45、ReplayGuard 13:52、LadderSnapshot 13:43、OfficialGuard 14:05:07、AutoHeal 14:04:43、ScheduleGuard 04:12。
+  - **R1571 的新告警没误报**：`_portal_history.jsonl` 末两行 `tournaments_http=200`（n=0 属正常：三测已结），且 **`.portal_URGENT` / `.portal_new_event` 均不存在**。
+  - **R1569 的 `_submit_final` 改动未弄坏门禁**：`--dry-run` ⇒ `提交物检查 rc=0`、**门禁判定：GO**、“未加 --go：只走到门禁，不提交”，rc=0，且**未写 `.FINAL_NOT_READY`**。
+  - 标记面：仅 `.v_mech_unknown`（12:36:27，V 机制样本不足，预期且自愈）；`.CAMPAIGN_ABORTED` / `.SCHEDULE_TIGHT` / `.mech_warn` / `.ADOPT_V_MECH_STALL` 均无。
+  - （本轮无代码改动；属“已验证的等待”。）
