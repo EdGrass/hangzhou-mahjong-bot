@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """`var/_mech_watch.py` —— \u5f79\u4e2d**\u673a\u5236\u7aef\u70b9\u5b88\u62a4**\uff1a\u6bcf N \u5c0f\u65f6\u628a\u5f53\u524d\u5f79\u5019\u9009\u81c2\u7684\u79bb\u7ebf\u8db3\u8ff9\u91cd\u62bd\u4e00\u6b21\u3002
 
 ## \u4e3a\u4ec0\u4e48\uff08\u9884\u767b\u8bb0\u8981\u6c42\uff0c\u4e0d\u662f\u6211\u52a0\u7684\uff09
@@ -308,7 +308,11 @@ def main():
         if ph == "draw":
             m = re.search(r"tile \u4e0d\u540c \d+ \(([\d.]+)%\)\s+action \u4e0d\u540c \d+ \(([\d.]+)%\)", out)
             if not m:
-                log("!! %s draw \u8f93\u51fa\u672a\u8bc6\u522b\uff08rc=%s\uff09" % (cand, p.returncode))
+                # ★ R1576：**读数缺失不能当“正常”** —— 旧实现只写日志 + `continue`，
+                #   而 `warns` 为空时本脚本会打“**机制端点正常**”、并删掉 `.mech_warn` ⇒
+                #   一个“没量到”的机制会被读成“正常”（fail-open，与 R1534 给 V 修的那个同类）。
+                log("!! %s draw 输出未识别（rc=%s）⇒ 按**读数缺失**记入告警" % (cand, p.returncode))
+                warns.append("%s draw 读数缺失（输出未识别 rc=%s）⇒ **不是‘不达标’**，需人工看 `tools/offline_replay.py --phase draw`" % (cand, p.returncode))
                 continue
             tile_pct, act_pct = float(m.group(1)), float(m.group(2))
             # ★ R1430：只在“出牌层是**新加**的”时才拉 10–20% 带；若基线已含 bc
@@ -325,7 +329,9 @@ def main():
             m = re.search(r"\u7d22\u53d6\u7387\(\u6536\u526f\u9732/\u53ef\u7d22\u53d6\):\s+\u57fa\u7ebf ([\d.]+)%\s+\u5019\u9009 ([\d.]+)%", out)
             m2 = re.search(r"\u4ec5\u57fa\u7ebf\u6536 (\d+)", out)
             if not m:
-                log("!! %s window \u8f93\u51fa\u672a\u8bc6\u522b\uff08rc=%s\uff09" % (cand, p.returncode))
+                # ★ R1576（同上，且对役4 **更关键**）：副露臂只走 window 相位 ⇒ 读数缺失 = 本轴**完全没有机制证据**。
+                log("!! %s window 输出未识别（rc=%s）⇒ 按**读数缺失**记入告警" % (cand, p.returncode))
+                warns.append("%s window 读数缺失（输出未识别 rc=%s）⇒ **不是‘不达标’**，需人工看 `tools/offline_replay.py --phase window`" % (cand, p.returncode))
                 continue
             b, c = float(m.group(1)), float(m.group(2))
             base_only = int(m2.group(1)) if m2 else -1

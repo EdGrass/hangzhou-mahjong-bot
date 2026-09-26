@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """`var/_mech_watch.py` 的单测（R1481）。
 
 为什么要钉：这个看护是**役内机制端点**的唯一执行者，而两份役 3 预登记都把机制定为本役核心、
@@ -249,6 +249,55 @@ class TestR1534Clarity(unittest.TestCase):
         self.assertIsNone(ok)
         self.assertIn(u"爆头/胡", why)
 
+
+
+class TestR1576UnrecognizedIsNotOk(unittest.TestCase):
+    """★ R1576：实测足迹（draw/window）**输出未识别**时，不能被当“机制正常”。
+
+    为什么：旧实现只 `log("!! …未识别")` + `continue` ⇒ `warns` 为空 ⇒ 本脚本打
+    “**机制端点正常**”并**删掉** `.mech_warn` ⇒ “没量到”被读成“正常”（fail-open）。
+    对役4 尤其致命：副露臂**只走 window 相位** ⇒ 读数缺失 = 本轴完全没有机制证据。
+    """
+
+    def _run(self, stdout):
+        import json
+        import tempfile
+        from unittest import mock
+        d = tempfile.mkdtemp(prefix="r1576_")
+        ab = os.path.join(d, ".ab_mode")
+        with io.open(ab, "w", encoding="utf-8") as f:
+            f.write(json.dumps(
+                {"arms": ["speedvalue", "speedvaluemeldp45"], "bundles": ["speedvalue"],
+                 "started": "2026-09-25 20:52:39"}))
+        warn = os.path.join(d, ".mech_warn")
+        with io.open(warn, "w", encoding="utf-8") as f:   # 旧标记：若结果是“正常”就应被删
+            f.write("STALE\n")
+        argv = ["_mech_watch.py", "--ab-file", ab, "--log-file", os.path.join(d, "log.txt"), "--files", "1"]
+
+        class P(object):
+            returncode = 0
+            stderr = ""
+        p = P()
+        p.stdout = stdout
+        with mock.patch.object(M.subprocess, "run", return_value=p), \
+             mock.patch.object(sys, "argv", argv), \
+             mock.patch.dict(os.environ, {"HM_MECH_WARN": warn}), \
+             mock.patch("sys.stdout", io.StringIO()):
+            M.main()
+        return warn
+
+    def test_unrecognized_window_writes_missing_reading_warn(self):
+        warn = self._run(u"（什么都没解析出来）\n")
+        self.assertTrue(os.path.exists(warn), u"读数缺失必须落告警（不能被当正常）")
+        with io.open(warn, encoding="utf-8") as f:
+            body = f.read()
+        self.assertIn(u"读数缺失", body)
+        self.assertIn(u"不是", body)          # 明确写“不是‘不达标’”
+        self.assertIn(u"window", body)
+
+    def test_recognized_good_window_clears_stale_warn(self):
+        warn = self._run(u"索取率(收副露/可索取): 基线 30.0% 候选 35.0%\n仅基线收 0\n")
+        self.assertFalse(os.path.exists(warn), u"读数齐且达标 ⇒ 旧标记必须被清掉")
 
 if __name__ == "__main__":
     unittest.main()
