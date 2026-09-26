@@ -135,12 +135,24 @@ class TestMechSection(unittest.TestCase):
 
 class TestCmdsFor(unittest.TestCase):
     def test_order_and_count(self):
+        """★ R1553：固定顺序 = 2×gate2 → 2×veto → **pick_arm** → half-A → half-B。
+
+        `pick_arm` 必须在里面：**役5 的主端点就是它的强手分/房**（读卡 §1）。
+        """
         steps = g.cmds_for("T", "base", ["c1", "c2"], "none", 80, 32)
         names = [n for n, _ in steps]
-        self.assertEqual(6, len(steps), names)
+        self.assertEqual(7, len(steps), names)
         self.assertEqual(["gate2/c1", "gate2/c2", "veto/c1", "veto/c2"], names[:4])
-        self.assertTrue(names[4].startswith("half-A"))
-        self.assertTrue(names[5].startswith("half-B"))
+        self.assertTrue(names[4].startswith("pick_arm"), names)
+        self.assertTrue(names[5].startswith("half-A"), names)
+        self.assertTrue(names[6].startswith("half-B"), names)
+
+    def test_pick_arm_flags(self):
+        (_, cmd), = [x for x in g.cmds_for("T", "base", ["c1"], "none", 5, 32)
+                     if x[0].startswith("pick_arm")]
+        for flag in ("--since", "--min-rooms", "--strong-top"):
+            self.assertIn(flag, cmd, cmd)
+        self.assertIn("_pick_arm.py", " ".join(cmd))
 
     def test_gate2_flags(self):
         (_, cmd), = [x for x in g.cmds_for("T", "base", ["c1"], "melds", 80, 32)

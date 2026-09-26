@@ -6537,3 +6537,23 @@ runner 抛错时**报告而不抛**；源码必须真的接进 main）。
 
 **测试**：`tests/test_ab_readouts_arms.py` +2（`--arms` 在 `.ab_mode` 抛错时仍跑、且按候选逐个调用；
 缺 `since` 时 rc=1 且**一次报告都不发**）。
+
+### §V.275 摘要补上 `_pick_arm`（**役 5 的主端点**就在它里面）（R1553）
+
+**缺口**：`_verdict_digest` 的固定顺序原本是 2×`_gate2` + 2×强手房否决 + 两半 Pareto —— 这对役 3/役 4 够用
+（主端点是 `_gate2` 的和牌率/房），但**役 5 的主端点是"同席强手分/房非劣"**（读卡 §1 明写：**不是** `_gate2` 第一行）
+⇒ 摘要若不跑 `_pick_arm`，**役 5 判词当天会漏掉主端点**。
+
+**修**：把 `pick_arm` 插进固定顺序（2×gate2 → 2×veto → **pick_arm** → half-A → half-B），
+并让关键行摘取覆盖它的要紧两行（`前两名：…` / `不可区分`）+ 仍按**臂名**匹配它的表格行。
+
+**实测（今天，`--min-rooms 10`）**：摘要里出现
+```
+-- pick_arm(强手房分/房；役5 主端点)   rc=0
+前两名：speedvalue(-23.0) vs speedvaluebc(-54.2)  Δ=-31.2  2×SE=69.4  |z|=0.90  ⇒ **不可区分**（进入两半 Pareto 破平）
+〈R1505 读数〉**不可区分 ≠ 没差别**：…MDE≈41 分…必须按下面的 ② 两半 Pareto 读
+```
+⇒ 现在**一条命令**覆盖三种役的主端点、机制端点、否决与两半 ⇒ 判词当天不会再漏任何一块。
+
+**测试**：`tests/test_verdict_digest.py`：`test_order_and_count` 改为 **7 步**（并断言 `pick_arm` 在 veto 与 half-A 之间）、
+新增 `test_pick_arm_flags`（`--since/--min-rooms/--strong-top` 都在）。

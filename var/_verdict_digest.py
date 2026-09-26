@@ -31,7 +31,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "var")
 KEY_PREFIXES = ("\u2605 \u5224\u5b9a\uff1a", "\u2605 \u5f3a\u624b\u623f\u5426\u51b3", "\u21d2 UNKNOWN",
                 "\u5f3a\u624b\u623f(>=", "\u21d2 \u6837\u672c\u4e0d\u8db3", "\u7b2c1\u7387", "\u51c0\u5206/\u623f",
-                "\u548c\u724c\u7387/\u623f(\u4e3b)", "\u526f\u9732/\u623f(\u673a\u5236)", "!!")
+                "\u548c\u724c\u7387/\u623f(\u4e3b)", "\u526f\u9732/\u623f(\u673a\u5236)", "!!",
+                "\u524d\u4e24\u540d\uff1a", "\u4e0d\u53ef\u533a\u5206", "\u5b9a\u6848\uff1a", "\u5426\u51b3\u9884\u68c0")
 
 
 MARKERS = (".mech_warn", ".v_mech_unknown", ".ADOPT_V_MECH_STALL")
@@ -127,6 +128,10 @@ def cmds_for(since, baseline, cands, mechanism, min_rooms, strong_top):
         steps.append(("veto/%s" % c,
                       [py, "-X", "utf8", os.path.join(ROOT, "var", "_strong_veto.py"),
                        "--since", since, "--baseline", baseline, "--candidate", c]))
+    # \u2605 R1553\uff1a**\u5f795 \u7684\u4e3b\u7aef\u70b9\u662f `_pick_arm` \u7684\u5f3a\u624b\u5206/\u623f**\uff08\u8bfb\u5361 \u00a71\uff09\uff0c\u4e0d\u653e\u8fdb\u6765\u5c31\u4f1a\u6f0f\u4e3b\u7aef\u70b9\u3002
+    steps.append(("pick_arm(\u5f3a\u624b\u623f\u5206/\u623f\uff1b\u5f795 \u4e3b\u7aef\u70b9)",
+                  [py, "-X", "utf8", os.path.join(ROOT, "var", "_pick_arm.py"),
+                   "--since", since, "--min-rooms", str(min_rooms), "--strong-top", str(strong_top)]))
     steps.append(("half-A(\u80e1\u724c\u7387\u7f3a\u53e3\u4e24\u6bb5\u5206\u89e3)",
                   [py, "-X", "utf8", low, "--", py, "-X", "utf8",
                    os.path.join(ROOT, "tools", "hu_gap_split.py"),
@@ -185,8 +190,8 @@ def main(argv=None):
                       % (" ".join(cmd[1:]), rc, time.time() - t0))
             out.write(body)
             # ★ 两半 Pareto 的表行首列是臂名 ⇒ 额外按臂名匹配（否则那两段为空）
-            digest.append((name, rc, pick_lines(body, extra=(
-                _arms if name.startswith("half-") else ()))))
+            _byarm = name.startswith("half-") or name.startswith("pick_arm")
+            digest.append((name, rc, pick_lines(body, extra=(_arms if _byarm else ()))))
     print("\n===== 机制端点（读卡 §0b/§0c；_gate2 --mechanism none 看不到这一半）=====")
     for _t, _b in mech_section():
         print("  [%s] %s" % (_t, _b.replace("\n", " | ")[:200]))
