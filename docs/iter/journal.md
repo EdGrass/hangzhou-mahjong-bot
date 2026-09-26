@@ -28383,3 +28383,13 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - `_schedule_guard` 的推幻口径就是 `PLAN=((2,2),(3,3),(4,2),**(5,2)**)` —— **已含第五役（2 臂×120）**：实测“剩余 **776** 房 ⇒ **10/05 00:33**（截止 10/7 08:30 ⇒ 够）”。
   - 而 NONE 分支里 **役5 本来就不起** ⇒ 那 240 房的槽位空着；`speedvaluerank` 也是 2 臂（160 正式 / 240 到盒）⇒ **房数口径一致**；
     所以 A 不会把收口推晚，只是把**余量（~2.3 天）用掉**。已写进 §V.281 补记 5（供用户拍 A/B）。
+
+- [R1572 | 2026-09-26 13:5x ★★★ 逐项核对“9/28 判词到底由谁、用什么参数产生”（只读）—— 全对]
+  - **三个看护任务的动作参数**（实读 Task Scheduler）：
+    `VerdictWatch3bc` = `--label 役3bc --since "2026-09-25 20:52:39" --baseline speedvalue --candidate speedvaluebc --mechanism none`；
+    `VerdictWatch3v` 同上但 `役3v / speedvaluebaotouv5`；`AdoptPairWatch` = `_adopt_pair.py --go --label 役3 --baseline speedvalue`。
+    ⇒ `since` **逐字等于** `.ab_mode.started`（2026-09-25 20:52:39）、候选名与 `.ab_mode.arms` 一致、`--mechanism none` 与读卡 §0/§1 一致（役3 的机制在 `_mech_watch`）。
+  - **`_adopt_pair` 的口径**：候选从 `ab_config()`（读 `.ab_mode`）推出、**强手房否决无需额外开关**（与 `_adopt_when_ready` 需 `--strong-veto` 不同）⇒ 现有注册参数完整。
+  - **测试不会污染生产判词**：`tests/test_adopt_pair_e2e.py` 用 **假 label `自测_w9`** 写判词/哨兵（tearDown 删），
+    并把 `B2_OUT`/`CONFLICT_OUT`/`VREC`/`VSTALL_OUT`/`AB` **全指向临时路径** ⇒ 实查当前 `var/` 里**只有** `_verdict_役2.txt` + 3 份 digest 报告，**没有测试残留**。
+  - （小提醒：测试会往**真实** `var/_adopt_pair.log` 写几行 stub 日志（仅日志，标记已隔离）⇒ 读那个日志时以“`.verdict_done_*` 是否真存在”为准。）
