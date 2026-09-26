@@ -6647,3 +6647,29 @@ p99 曾达 **2827ms**、≥1s **1.9%**，后果是**真丢动作**（409 里 dis
 容易被读成“10/5 可以选 bc”。已在同一处加上 **R1557 订正**（“只能作旁证、不得据此写 `.final_arm.txt`；人只能在已判正的臂之间换行”）。
 
 **★ R1557c 补记（扫完最后一个读者）**：同样的“备选”措辞还在 **`.B2_CANDIDATES` 标记正文里**（`_adopt_pair` 写），而**心跳 0d 会把该正文原样贴给人** ⇒ 已在标记正文追加声明：“★ 注意：这只是**比较材料** —— 按 §V.161 A.1 与 campaign8 §4-4，**未判正的臂不入最终臂候选池**，**不得据此写 `var/.final_arm.txt`**。”并给 e2e 测试加断言钉住。⇒ 至此“按谁会读来扫”已覆盖：**工具打印行 / HANDOFF / 计划 / 读卡 / 标记正文（心跳 0d）**。
+
+### §V.280 ★★★★ 终局排程体检（10/5–10/10 九台一次性任务）—— 全部已挂载且动作脚本在场（R1558）
+
+**为什么做**：10/5–10/10 的关键动作**全靠计划任务**（提案 / 定臂 / 换臂 / 就绪复核 / 重试 / 提交 / 上线 / T-5 保险）。
+若某台被禁用、触发丢失或动作指向不存在的脚本，**在那几天才暴露就来不及**。
+
+**实测（只读；`Get-ScheduledTask` + `Get-ScheduledTaskInfo`）**：
+
+| 时间 | 任务 | State | NextRunTime | 动作脚本 |
+|---|---|---|---|---|
+| 10/5 09:00 | `HangzhouMajFinalPickProposal` | Ready | ✓ | `var/_final_pick_proposal.py` **存在** |
+| 10/7 08:30 | `HangzhouMajFinalArmConfirm` | Ready | ✓ | `var/_final_arm_confirm.py` **存在** |
+| 10/7 09:00 | `HangzhouMajFinalSwitch` | Ready | ✓ | `var/_switch_final.py` **存在** |
+| 10/7 10:30 | `HangzhouMajFinalCheck` | Ready | ✓ | `var/_final_ready_check.py` **存在** |
+| 10/7 12:00 | `HangzhouMajFinalSwitchRetry` | Ready | ✓ | `var/_final_switch_retry.ps1` **存在** |
+| 10/8 09:00 | `HangzhouMajFinalCheck2` | Ready | ✓ | `var/_final_ready_check.py` **存在** |
+| 10/8 10:00 | `HangzhouMajFinalSubmit` | Ready | ✓ | `var/_submit_final.py` **存在** |
+| 10/10 18:50 | `HangzhouMajFinalEventSwitch` | Ready | ✓ | `var/_final_event_switch.py` **存在** |
+| 10/10 19:25 | `HangzhouMajFinalEventReady` | Ready | ✓ | `var/_final_event_ready.py` **存在** |
+
+- 九台的 `LastTaskResult` 均为 **267011（从未运行）**、`LastRunTime` 为 1999 占位 ⇒ 与"一次性、未来才跑"一致 ✓；
+- **动作脚本 9/9 全部存在** ✓（另：这 9 条脚本路径**都已在提交清单/跟踪内** ⇒ clone 里也在）；
+- 循环看护（OfficialGuard 60s / AutoHeal 5min / VerdictWatch3bc·3v / AdoptPairWatch / NextYakuNotice / ReplayGuard / PortalWatch / LadderSnapshot / ScheduleGuard / MechWatch）**最近都跑过、RC=0** ✓；
+- **四测遗留的 7 台**（`HangzhouMaj4Test*`）**已无未来触发**（一次性且已执行过）⇒ **不会再点火**，可无视 ✓。
+
+**结论**：终局排程**无待办**；10/5 起只需按计划看产物（提案 → `.final_arm.txt` → `.final_installed` → `.final_submitted` → `.EVENT_*`）。
