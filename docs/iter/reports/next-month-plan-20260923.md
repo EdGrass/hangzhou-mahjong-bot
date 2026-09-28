@@ -7197,3 +7197,20 @@ driver 发现上一批 `speedvalue` 无归档记录后执行**同臂重跑**，�
 
 `ab_integrity` 验证：12 房 / 12 行，`speedvalue: 6`、`speedvaluemeldp45: 6`，无重复、未知策略、未完成、异常退出；
 关键失败/待决标记为空。全到盒投影 `10/03 19:41`，仍满足 10/7 08:30 截止。
+
+
+### §V.299 ★★★★★ 役4 候选真崩触发熔断；熔断标记的“只留基线”恢复命令是坏的（R1594）
+
+2026-09-29 04:16:50，`speedvaluemeldp45` 最近 12 房「净值−基线净值」= **−154.9/房**（基线同期 +7.6），低于慢档阈值 −150
+⇒ `_ab_driver` 写 `.CAMPAIGN_ABORTED`、删 `.ab_mode`、正常终止 A/B。最近 12 房候选为
+`-104/-144/-352/-212/-58.7/-44/-168/-170.7/+70.7/-86.7/-416/-82.7`，不是单点噪声，**不应原样续候选**。
+
+同时发现恢复说明里的真 bug：② 写了 `tools/ab_ctl.py start speedvalue 1 ...`，但 `ab_ctl.start` 明确要求
+`len(arms)>=2` ⇒ 该命令必然失败。已把 `var/_ab_driver.py::abort_note` 的恢复②改为已有单策略安全切换器：
+
+```text
+python -X utf8 var/_switch_test_strategy.py speedvalue
+```
+
+它只切换 keeper 策略（当前对局自然结束，不碰 `match_super/run_bot`）。`tests/test_ab_driver_abort_note.py`
+已改为断言该命令且拒绝单臂 `ab_ctl`（先红后绿）。

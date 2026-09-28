@@ -184,8 +184,8 @@ def abort_note(arms, started, bundles, bad_arm, gn, gmean, gbase):
         "== 恢复命令（先判断候选是不是真崩了）==",
         "① 熔断误伤 / 只是窗口噪声 ⇒ 原样续役（窗口与已有房数不变）：",
         '   python -X utf8 tools/ab_ctl.py start %s 1 --bundles=%s --started="%s"' % (arms_s, bundles_s, started),
-        "② 候选真的崩了 ⇒ 只留基线（把该候选判负，往下走）：",
-        '   python -X utf8 tools/ab_ctl.py start %s 1 --bundles=%s --started="%s"' % (arms[0], arms[0], started),
+        "② 候选真的崩了 ⇒ 回退基线、把该候选判负（只切 keeper，不碰当前对局）：",
+        '   python -X utf8 var/_switch_test_strategy.py %s' % arms[0],
         "",
         "下一轮驱动启动时**会自动清除本文件**。",
     ]) + "\n"

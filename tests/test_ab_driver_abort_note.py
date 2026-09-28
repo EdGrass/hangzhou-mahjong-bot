@@ -49,8 +49,9 @@ class TestAbortNote(unittest.TestCase):
 
     def test_baseline_only_command_when_candidate_is_really_broken(self):
         t = self._note()
-        hit = [x for x in t.splitlines() if "ab_ctl.py start speedvalue 1" in x]
-        self.assertEqual(1, len(hit), t)
+        self.assertIn("var/_switch_test_strategy.py speedvalue", t)
+        self.assertNotIn("ab_ctl.py start speedvalue 1", t,
+                         "单臂 ab_ctl start 会被 >=2 臂护栏拒绝；应使用 keeper 策略切换器")
 
     def test_bundles_defaults_to_baseline(self):
         self.assertIn("--bundles=speedvalue", self._note(bundles=None))

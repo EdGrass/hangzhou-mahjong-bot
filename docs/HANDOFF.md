@@ -1,21 +1,20 @@
 ﻿> ### ⏱ TL;DR（2026-09-28 14:3x 更新）—— “现在什么阶段 / 要我做什么”看这里
-> - **阶段**：役3 已判词（BC/V 均 REFUSE，落 **NONE 行**；两条候选只保留 B2 旁证）⇒ **役4（副露）已起役**：
->   `speedvalue` 基 + `speedvaluemeldp45` 候、机制 `melds`，`started=2026-09-28 15:28:13` ⇒ **10/5 提案** ⇒ **10/7 08:30 定臂 / 09:00 换臂** ⇒ **10/8 10:00 提交** ⇒ **10/10 19:30 正式赛**。
+> - **阶段**：役4 `speedvalue` vs `speedvaluemeldp45` 在 `2026-09-29 04:16:50` **触发熔断**（候选近 12 房差值 −154.9/房，真崩；`.ab_mode` 已删、`.CAMPAIGN_ABORTED` 在位）。**不要原样续候选**；恢复②正确命令是 `python -X utf8 var/_switch_test_strategy.py speedvalue`（只切 keeper）。⇒ 10/5 提案 ⇒ 10/7 定臂/换臂 ⇒ 10/8 提交 ⇒ 10/10 正式赛。
 > - **10/5 选臂提案当天**：只看 **`docs/iter/reports/pick-day-card-20261005.md`**（一屏版）。
 > - **9/28 判词当天**：只看 **`docs/iter/reports/verdict-day-card-20260928.md`**（一屏版 6 条）。
-> - **下一个数据点**：役4 攒够 80 房/臂后出判词（当前刚起、0 房；全链到盒投影 10/03 19:29）。
+> - **下一个决策**：熔断是误伤还是判负。当前数据显示候选近 12 房连续大负，**建议判负、回退基线**；未自动恢复。
 > - **要你拍两件**：① 空出的第三役位给不给 `speedvaluerank`（**默认 B：保余量、不动手**，详见 §V.281）；
 >   ② **申报页是否已提交**（已交 ⇒ 建 `var/.SUBMITTED_FORM` 收据，否则 10/8 09:00 就绪校验会提醒）。
 > - **10/10 正式赛当天**：只看 **`docs/iter/reports/event-day-card-20261010.md`**（一屏版；令牌最迟 18:00 放好）。
 > - **硬性人工输入**：**10/10 前**把当天令牌存成 `var/.token_final_20261010`（第 8 项会在 10/7/10/8/10/9 提醒）。
-> - **现场**：役4 `speedvalue`/`speedvaluemeldp45`，12 房（6/6）干净；18:49 重启后自愈链已恢复并继续跑，全到盒投影 10/03 19:41。
+> - **现场**：役4 熔断停摆；最后完整计数 49 房（25/24）干净；`.CAMPAIGN_ABORTED` 在位，watchdog 已回落 keeper `speedtugc`，需人拍恢复方向。
 >
 > ⚠ **入口指引（2026-09-28 14:3x 更新 · 在此之前的内容均为历史记录）**
 >
 > | 用途 | 看哪个 |
 > |---|---|
-> | **作战计划（唯一权威，§A–§V.298）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1593**） |
+> | **作战计划（唯一权威，§A–§V.299）** | `docs/iter/reports/next-month-plan-20260923.md` |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1594**） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | **关键日一屏卡（照做即可）** | **9/28 判词** → `verdict-day-card-20260928.md`；**10/5 提案** → `pick-day-card-20261005.md`；**10/7 换臂** → `final-switch-card-20261007.md`；**10/8 提交** → `submission-day-card.md`；**10/10 正式赛** → `event-day-card-20261010.md` |
