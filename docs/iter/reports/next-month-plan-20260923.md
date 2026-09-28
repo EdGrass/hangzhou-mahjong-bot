@@ -7178,3 +7178,10 @@ rc=0
 
 **现场**：当前运行中的 `_bsegment` 是旧代码，预计 14:59 超时退出；下一次 AdoptPairWatch（约 15:04）自动加载新逻辑，
 keeper 优雅让位，当前房自然打完后起役4。
+
+
+**★ R1592 实测成功（2026-09-28 15:28）**：对 R1592 之前启动、未重载新代码的旧 keeper，使用
+`tools/feature_pause.py pause/resume` 保持让位信号，旧 keeper 在 15s 内优雅退出，当前房继续自然打完；
+`_bsegment` 随后在 15:28:05 看到空档，P0 smoke、preflight、`_switch_campaign` 与通用看护注册全部通过。
+役4 已起：`speedvalue` vs `speedvaluemeldp45`，`started=2026-09-28 15:28:13`；`.bsegment_waiting` 已清除，keeper 不存在，
+`_ab_driver` 与首个 `match_super/run_bot` 在跑。`_schedule_guard` 投影全到盒 10/03 19:29 ⇒ 排期够。

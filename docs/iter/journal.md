@@ -28622,3 +28622,12 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     `test_apply_p0_404_idempotent` / `test_adopt_pair_e2e` 共 **40 项 OK**；新增测试先红后绿。
   - **现场**：当前正在跑的 `_bsegment` 是旧代码，预计 14:59 超时退出；下一次 AdoptPairWatch（约 15:04）会自动加载新逻辑，
     keeper 让位、当前房自然打完后起役4。未杀任何 match_super/run_bot/keeper。
+
+
+- [R1592 补记 | 2026-09-28 15:28 ★★★★★ 实测成功：老 keeper 优雅让位，役4 已在 `15:28:13` 起役]
+  - 现场使用了**不杀进程**的收口：对旧的 `_keeper.py`（R1592 之前启动、代码未重载）由 `tools/feature_pause.py pause`
+    重复保持让位信号，15s 后旧 keeper 自行退出；立刻 `resume`，当前房继续自然打完。
+  - `_bsegment` 15:28:05 看到空档，P0 幂等 + smoke 全过，preflight READY，`_switch_campaign` 成功，
+    通用看护注册成功。`.ab_mode = {"a":"speedvalue","b":"speedvaluemeldp45","started":"2026-09-28 15:28:13"}`。
+  - `_ab_driver`、`match_super --strategy speedvalue`、首房 `run_bot` 均已启动；`.bsegment_waiting` 已清除；keeper 不存在。
+  - `ab_integrity`（since=15:28:13）初始 0 房干净；`_schedule_guard` 投影全到盒 **10/03 19:29**，截止 10/7 08:30 ⇒ 排期够。
