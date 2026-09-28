@@ -28596,3 +28596,16 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **现场验证**：`python -X utf8 var/_apply_p0_404.py --check` rc=0；`--go` rc=0，`run_bot.py --smoke` 输出“全部通过”。
   - **仍有的外部等待**：当前有独立的 `speedtugc --rooms 4` 测试在打（13:27 起），所以 `_bsegment` 14:04 那次重试仍在等自然空档；
     若测试继续占用，脚本会在 25 分钟后**绝不强停**并退出，下一次 AdoptPairWatch 再重试。修复后下一次空档即可真正走完 P0/preflight/切役。
+
+
+- [R1591 | 2026-09-28 14:4x ★★★★★ 全量回归的 adopt_pair e2e 测试把 stub 写进真实 `_adopt_pair.log`，并一度写真实 `.v_mech_unknown`]
+  - **现象**：跑全量回归时，真实 `var/_adopt_pair.log` 在 14:30:42 冒出多条 `stub` 裁决行；同轮还出现了
+    “V 机制读不到……标记见 var/.v_mech_unknown”。当时真实 AB 链正处于役3→役4 的自动切换窗口，属于高危污染。
+  - **根因**：`tests/test_adopt_pair_e2e.py::setUp` 已隔离 `B2_OUT / CONFLICT_OUT / VREC / VSTALL_OUT / AB`，
+    但漏了 `LOG`、`UNK_OUT`、`MECH_WARN`。`AP.main()` 用真实 `LOG` 写日志；V unknown 用例还把真实
+    `.v_mech_unknown` 写出来。下一次真实 AdoptPairWatch 读到后清掉了该标记，未改四格结论，但污染事实成立。
+  - **已修**：e2e 夹具把 `LOG / UNK_OUT / MECH_WARN` 也指向临时目录并恢复；新增
+    `test_all_side_effect_paths_are_isolated`（先红：旧夹具 `LOG leaked to D:\hangzhouMaj\var\_adopt_pair.log`）。
+  - **验证**：`tests.test_adopt_pair_e2e` 8 项 OK；测试前后真实 `_adopt_pair.log` 均为 397511 字节，
+    且 `.v_mech_unknown` 不存在。
+  - **纪律**：在真实链跑着时，不把全量回归当“无副作用”；任何会调 `main()` 的测试必须先把**所有写路径**隔离。

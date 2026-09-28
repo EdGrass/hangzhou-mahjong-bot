@@ -7138,3 +7138,19 @@ rc=0
 **现场影响/下一步**：当前独立 `speedtugc --rooms 4` 测试仍在打，`_bsegment` 按红线等待它自然结束；
 若 25 分钟超时会退出、下一次 AdoptPairWatch 再试。P0 幂等修好后，下一次无占用空档即可完成
 `P0 → preflight → _switch_campaign → 注册役4 看护`；不手工改状态、不强停对局。
+
+
+### §V.296 ★★★★★ 全量回归的 adopt_pair e2e 测试会污染真实自动链日志/标记（R1591）
+
+**怎么发现**：在真实 AB 链做役3→役4 切换时跑全量回归，真实 `var/_adopt_pair.log` 出现 `stub` 裁决行；
+同轮 V unknown 用例一度写真实 `var/.v_mech_unknown`。当时下一次 `AdoptPairWatch` 读后已清掉该标记，
+四格结论仍为 NONE 行，但“测试能写生产状态”的漏洞必须先堵。
+
+**根因**：`tests/test_adopt_pair_e2e.py` 的夹具只隔离了 `B2_OUT / CONFLICT_OUT / VREC / VSTALL_OUT / AB`，
+漏掉 `LOG / UNK_OUT / MECH_WARN`；其中 `LOG` 是 `AP.main()` 的直接写路径，`UNK_OUT` 是 V unknown 的落盘路径。
+
+**已修**：e2e 夹具新增三条临时路径并恢复；新增 `test_all_side_effect_paths_are_isolated`，
+旧夹具先红（`LOG leaked to D:\hangzhouMaj\var\_adopt_pair.log`），修复后绿。
+
+**验证**：`tests.test_adopt_pair_e2e` 8 项 OK；测试前后真实 `_adopt_pair.log` 大小不变（397511），
+`.v_mech_unknown` 不存在。**纪律**：真实链在跑时，任何调 `main()` 的测试必须先隔离**全部写路径**。

@@ -40,11 +40,17 @@ class TestAdoptPairEndToEnd(unittest.TestCase):
         self.d = tempfile.TemporaryDirectory()
         # ★ R1534：V 的机制读数（`VREC`）与停摆标记（`VSTALL_OUT`）也必须改指临时路径，
         #   否则接线测试会读到**真实的** `var/_v_mech_readings.jsonl`、并可能写真实标记。
-        self._old = (AP.B2_OUT, AP.CONFLICT_OUT, AP.VREC, AP.VSTALL_OUT, AP.AB)
+        self._old = (AP.B2_OUT, AP.CONFLICT_OUT, AP.VREC, AP.VSTALL_OUT, AP.AB,
+                     AP.LOG, AP.UNK_OUT, AP.MECH_WARN)
         AP.B2_OUT = os.path.join(self.d.name, ".B2_CANDIDATES")
         AP.CONFLICT_OUT = os.path.join(self.d.name, ".VERDICT_RULE_CONFLICT")
         AP.VSTALL_OUT = os.path.join(self.d.name, ".ADOPT_V_MECH_STALL")
         AP.VREC = os.path.join(self.d.name, "_v_mech_readings.jsonl")
+        # ★ R1590/R1591：端到端测试还会写 adopt 日志、V unknown 标记、B3 足迹标记；
+        #   不隔离就会污染**正在跑的**自动链（R1591 实测命中）。
+        AP.LOG = os.path.join(self.d.name, "_adopt_pair.log")
+        AP.UNK_OUT = os.path.join(self.d.name, ".v_mech_unknown")
+        AP.MECH_WARN = os.path.join(self.d.name, ".mech_warn")
         # ★ R1543：`ab_config()` 会读 `.ab_mode` → 夹具必须隔离（否则读到**真实**役次）
         AP.AB = os.path.join(self.d.name, ".ab_mode")
         self.marker = AP.VSTALL_OUT
@@ -55,7 +61,8 @@ class TestAdoptPairEndToEnd(unittest.TestCase):
                 self._paths.append(p)
 
     def tearDown(self):
-        (AP.B2_OUT, AP.CONFLICT_OUT, AP.VREC, AP.VSTALL_OUT, AP.AB) = self._old
+        (AP.B2_OUT, AP.CONFLICT_OUT, AP.VREC, AP.VSTALL_OUT, AP.AB,
+         AP.LOG, AP.UNK_OUT, AP.MECH_WARN) = self._old
         for p in self._paths:
             if os.path.exists(p):
                 os.remove(p)
@@ -120,7 +127,8 @@ class TestAdoptPairEndToEnd(unittest.TestCase):
         self.assertIn("--candidates speedvaluemeldp45", t)
         # ★ R1535：B2 标记必须**记下本役窗口** —— 否则 10/5 提案拿到臂名也不知道用哪个 --since，
         #   预登记要求的“与 §V.66 口径并行比较”就没法做。
-        b2 = io.open(AP.B2_OUT, encoding="utf-8").read()
+        with io.open(AP.B2_OUT, encoding="utf-8") as f:
+            b2 = f.read()
         self.assertIn(u"窗口 since=2026-09-25 20:52:39", b2)
         # ★ R1557c：标记正文会**原样贴给人**（心跳 0d）⇒ 必须写明“只能比较、不得据此部署”。
         self.assertIn(u"未判正的臂不入最终臂候选池", b2)
@@ -142,7 +150,8 @@ class TestAdoptPairEndToEnd(unittest.TestCase):
         self.assertNotIn("--baseline", t)           # 不许打印任何起役命令
         self.assertIn(u"fail-closed", t)
         self.assertTrue(os.path.exists(self.marker), u"应落 .ADOPT_V_MECH_STALL")
-        body = io.open(self.marker, encoding="utf-8").read()
+        with io.open(self.marker, encoding="utf-8") as f:
+            body = f.read()
         self.assertIn(u"raw row = b", body)
 
     def test_dry_run_never_writes_the_stall_marker(self):
@@ -150,6 +159,14 @@ class TestAdoptPairEndToEnd(unittest.TestCase):
         t = self._run(REJECT_A, ADOPT_B, v_mech="unknown", dry_run=True)
         self.assertIn(u"fail-closed", t)
         self.assertFalse(os.path.exists(self.marker), u"dry-run 不得写标记")
+
+    def test_all_side_effect_paths_are_isolated(self):
+        """R1591：端到端测试不得写真实的 adopt 日志/标记。"""
+        root = os.path.abspath(self.d.name) + os.sep
+        for name in ("LOG", "UNK_OUT", "MECH_WARN"):
+            path = getattr(AP, name)
+            self.assertTrue(os.path.abspath(path).startswith(root),
+                            "%s leaked to %s" % (name, path))
 
     def test_mech_warn_on_bc_switches_row_to_b(self):
         # \u2605 R1480 \u7684\u673a\u5236\u95f8\uff1aBC \u8db3\u8ff9\u544a\u8b66 \u21d2 BC \u6309\u4e0d\u91c7\u7528\uff1b\u8fd9\u65f6 V \u5224\u6b63 \u21d2 \u56db\u683c\u5e94\u8d70 B \u884c\u3002\n
