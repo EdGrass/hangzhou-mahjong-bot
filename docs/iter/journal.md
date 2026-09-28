@@ -28581,3 +28581,18 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     该行改为“附件路线会超线 ⇒ **请用仓库链接**”，并写明判官 checkout 只有 ~9MB、权重 0.77MB。
   - （**不做** `git gc`：59MB 对 GitHub/clone 完全可接受，中途重包无必要。）
   - （顺手记：第一版补丁的锚点我凭记忆写错了前半句 ⇒ 断言当场抳住、一字未写；改用括号部分做锚点后一次通过。）
+
+
+- [R1590 | 2026-09-28 14:3x ★★★★★ 役间自动起役被 P0 补丁器自身卡死：代码已是 v35，但落地器仍要求 v34（现场已修，幂等）]
+  - **现象**：役3 判词落 NONE 行后，`HangzhouMajAdoptPairWatch` 按四格表自动起役4；`_bsegment` 前两次都以 rc=2 停在
+    `var/_apply_p0_404.py --go`：`❌ bot/__init__.py：未找到 GUIDE_VERSION_KNOWN = 34（可能已改过）`。
+    实际 `bot/__init__.py` 已是 **v35**，`bot/protocol.py` 也已有 v35 的 404 分流分支。
+  - **根因**：`_apply_p0_404.py` 的协议段本来是幂等的（已替换过的 404 分支再替换会得到同字节），
+    但版本段只认 `GUIDE_VERSION_KNOWN = 34`；一旦 P0 已落盘，第二次执行就 rc=2 ⇒ 役间任何重试都过不了这一步。
+  - **已修**：版本段改为二态：见 34 ⇒ 升 35；见 35 ⇒ 视为已应用、保持原字节；其它 ⇒ fail-closed rc=2。
+    同时把 `_replace_bytes` / `main` 的读写句柄改成 `with`，避免 ResourceWarning 噪声。
+  - **测试**：新增 `tests/test_apply_p0_404_idempotent.py`：已应用文件在 `--check` 下必须 rc=0（先看红：旧实现 rc=2，已见正确失败）。
+    相关回归 `test_apply_p0_404_idempotent + test_bsegment_resume + test_protocol_404_transient + test_submission_doc_version + test_line_endings`：19 项 OK（skipped=1）。
+  - **现场验证**：`python -X utf8 var/_apply_p0_404.py --check` rc=0；`--go` rc=0，`run_bot.py --smoke` 输出“全部通过”。
+  - **仍有的外部等待**：当前有独立的 `speedtugc --rooms 4` 测试在打（13:27 起），所以 `_bsegment` 14:04 那次重试仍在等自然空档；
+    若测试继续占用，脚本会在 25 分钟后**绝不强停**并退出，下一次 AdoptPairWatch 再重试。修复后下一次空档即可真正走完 P0/preflight/切役。

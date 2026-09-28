@@ -7104,3 +7104,37 @@ rc=0
 
 **顺手修了一个新问题的根因**：该文件原本 `import argparse, os, subprocess, sys`（**无 json**），而我的 `ab_defaults()` 第一版用 `json.loads` ⇒
 异常被 `except Exception` 吃掉 ⇒ **全部返 None**（探针当场抳住）⇒ 补 `import io, json`。
+
+
+### §V.295 ★★★★★ 役间自动起役被 P0 落地器自身卡死：P0 已是 v35，但脚本仍要求 v34（R1590）
+
+**怎么发现**：9/28 役3 判词后，`HangzhouMajAdoptPairWatch` 按四格表自动起役4（NONE 行：
+`speedvalue` 基 + `speedvaluemeldp45` 候）。`_bsegment` 连续两次 rc=2，日志第一处硬错误是：
+
+```text
+✓ protocol.py：404 分支可替换（15903 → 15903 字节）
+❌ bot/__init__.py：未找到 `GUIDE_VERSION_KNOWN = 34`（可能已改过）
+```
+
+现场核对：`bot/__init__.py` 实际为 **`GUIDE_VERSION_KNOWN = 35`**，`bot/protocol.py` 也已经有
+`TOURNAMENT_NOT_FOUND` / `TOURNAMENT_GONE` 的 v35 分支 ⇒ P0 内容已经落盘，失败来自**落地器不幂等**。
+
+**根因**：404 协议段的字节替换本身是幂等的（已替换过的分支再替换会得到同字节），但版本段只接受
+`= 34`；一旦内容已落盘，第二次执行就 rc=2。`_bsegment` 每次起役都会无条件调用它 ⇒ 役间自动链被卡死。
+
+**已修**：
+
+- `var/_apply_p0_404.py` 版本段改为二态：`34` ⇒ 升 `35`；`35` ⇒ 视为已应用、保持原字节；
+  其它 ⇒ fail-closed rc=2。
+- 文件读写改成 `with open(...)`，去掉 ResourceWarning 噪声；协议段的行尾保护不变。
+- 新增 `tests/test_apply_p0_404_idempotent.py`：已应用文件在 `--check` 下必须 rc=0（旧实现先红、修复后绿）。
+
+**验证**：
+
+- 相关回归 19 项 OK（skipped=1）：`test_apply_p0_404_idempotent` / `test_bsegment_resume` /
+  `test_protocol_404_transient` / `test_submission_doc_version` / `test_line_endings`。
+- `python -X utf8 var/_apply_p0_404.py --check` rc=0；`--go` rc=0，`run_bot.py --smoke` 输出“全部通过”。
+
+**现场影响/下一步**：当前独立 `speedtugc --rooms 4` 测试仍在打，`_bsegment` 按红线等待它自然结束；
+若 25 分钟超时会退出、下一次 AdoptPairWatch 再试。P0 幂等修好后，下一次无占用空档即可完成
+`P0 → preflight → _switch_campaign → 注册役4 看护`；不手工改状态、不强停对局。

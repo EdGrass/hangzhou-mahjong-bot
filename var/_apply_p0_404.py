@@ -70,7 +70,8 @@ def _replace_bytes(path, old_start, old_end_marker, new_bytes):
       而这步是“**必须成功**”（B 段 25 秒窗口 + 10/8 提交要求 P0 入库）。
       现在：先按文件真实行尾匹配，匹不到再试另一种行尾，**写回时统一用该文件的行尾**。
     """
-    b = open(path, "rb").read()
+    with open(path, "rb") as _f:
+        b = _f.read()
     eol = _eol_of(b)
     for cand in (eol, b"\n" if eol == b"\r\n" else b"\r\n"):
         s_ = _to_eol(old_start, cand)
@@ -101,24 +102,32 @@ def main():
     if err:
         print("❌ protocol.py：%s" % err)
         return 2
-    print("✓ protocol.py：404 分支可替换（%d → %d 字节）" % (len(open(PROT, "rb").read()), len(nb)))
+    print("✓ protocol.py：404 分支可替换（%d → %d 字节）" % (os.path.getsize(PROT), len(nb)))
 
     # ---- (2) __init__.py：版本号 ----
-    ib = open(INIT, "rb").read()
+    with open(INIT, "rb") as _f:
+        ib = _f.read()
     nl = b"\r\n" if b"\r\n" in ib else b"\n"
     old_ver = b"GUIDE_VERSION_KNOWN = 34"
-    if old_ver not in ib:
-        print("❌ bot/__init__.py：未找到 `GUIDE_VERSION_KNOWN = 34`（可能已改过）")
+    new_ver = b"GUIDE_VERSION_KNOWN = 35"
+    if old_ver in ib:
+        ib2 = ib.replace(old_ver, new_ver, 1)
+        print("✓ bot/__init__.py：版本号 34 → 35 可替换")
+    elif new_ver in ib:
+        ib2 = ib
+        print("✓ bot/__init__.py：已是 GUIDE_VERSION_KNOWN = 35（幂等）")
+    else:
+        print("❌ bot/__init__.py：未找到 `GUIDE_VERSION_KNOWN = 34` 或 `= 35`（可能已改过）")
         return 2
-    ib2 = ib.replace(old_ver, b"GUIDE_VERSION_KNOWN = 35", 1)
-    print("✓ bot/__init__.py：版本号 34 → 35 可替换")
 
     if not a.go:
         print("（--check 通过；加 --go 才写盘）")
         return 0
 
-    open(PROT, "wb").write(nb)
-    open(INIT, "wb").write(ib2)
+    with open(PROT, "wb") as _f:
+        _f.write(nb)
+    with open(INIT, "wb") as _f:
+        _f.write(ib2)
     print("已写盘。接下来自动跑验收：")
     r = subprocess.run([sys.executable, "-X", "utf8", os.path.join(ROOT, "run_bot.py"), "--smoke"],
                        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
