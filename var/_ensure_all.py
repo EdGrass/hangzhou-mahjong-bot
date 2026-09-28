@@ -155,6 +155,10 @@ def main():
         if not _has("_ab_driver.py"):
             _start("_ab_driver.py")
         return
+    if _fm.bsegment_waiting():
+        if not _has("_watchdog.py"):
+            _start("_watchdog.py")
+        return
     if not _has("_watchdog.py"):
         _start("_watchdog.py")
     if not _has("_keeper.py"):

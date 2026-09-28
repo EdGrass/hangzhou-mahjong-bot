@@ -7154,3 +7154,27 @@ rc=0
 
 **验证**：`tests.test_adopt_pair_e2e` 8 项 OK；测试前后真实 `_adopt_pair.log` 大小不变（397511），
 `.v_mech_unknown` 不存在。**纪律**：真实链在跑时，任何调 `main()` 的测试必须先隔离**全部写路径**。
+
+
+### §V.297 ★★★★★ 换役等待与 keeper 互锁：`_bsegment` 等房结束，keeper 却不断补新房（R1592）
+
+**现象**：役4 自动起役时，`_bsegment` 在“等对局自然结束”里循环；同时 `_keeper.py speedtugc 4` 持续补
+`match_super --rooms 4`。`.ab_mode` 不存在 ⇒ keeper 不让位；`_bsegment` 又要等到没有 match_super/run_bot 才写 `.ab_mode`
+⇒ 二者互锁，永远不会自然结束。
+
+**根因**：keeper 只在 `.ab_mode` / `.official_mode` / `.pause_mode` 存在时退出；而 `_bsegment` 要等房结束才切役，
+顺序反了。仅靠增加等待时间无法解决。
+
+**已修（不杀进程）**：新增 `var/.bsegment_waiting` 换役让位标记：
+
+- `var/_bsegment.py --go`：进入等待前置位，`finally` 清除；即使异常/超时也不会留下永久标记（另有过期保护）。
+- `var/_keeper.py`：看到标记即优雅退出，释放账号；不碰当前 `match_super/run_bot`。
+- `var/_watchdog.py` / `var/_ensure_all.py`：标记存在时不补拉 keeper，防止它被重新拉起。
+- `var/_feature_mode.py`：`set_bsegment_waiting()` / `bsegment_waiting()`；标记 mtime 超过 1 小时自动判陈旧并删除。
+
+**验证**：相关 7 个测试模块共 **40 项 OK**（新增测试全部先红后绿）：
+`test_feature_pause` / `test_keeper_yield` / `test_ensure_all_ab_mode` / `test_bsegment_resume` /
+`test_watchdog_decide` / `test_apply_p0_404_idempotent` / `test_adopt_pair_e2e`。
+
+**现场**：当前运行中的 `_bsegment` 是旧代码，预计 14:59 超时退出；下一次 AdoptPairWatch（约 15:04）自动加载新逻辑，
+keeper 优雅让位，当前房自然打完后起役4。

@@ -79,6 +79,14 @@ def main():
             except Exception:
                 pass
             return
+        if _fm.bsegment_waiting():
+            log("B 段换役等待中（.bsegment_waiting）→ keeper 退出（让出账号，不杀对局）")
+            try:
+                if os.path.exists(LOCK):
+                    os.remove(LOCK)
+            except Exception:
+                pass
+            return
         # ★ 2026-09-17 修：A/B 或正式赛模式在跑时，keeper **必须立刻停手**
         #   （否则它会先起一个 4 房批次，把 A/B 的第一房推迟最长 ~2 小时——已发生两次）
         if os.path.exists(AB_FLAG) or os.path.exists(OFFICIAL_FLAG):

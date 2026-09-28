@@ -28609,3 +28609,16 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
   - **验证**：`tests.test_adopt_pair_e2e` 8 项 OK；测试前后真实 `_adopt_pair.log` 均为 397511 字节，
     且 `.v_mech_unknown` 不存在。
   - **纪律**：在真实链跑着时，不把全量回归当“无副作用”；任何会调 `main()` 的测试必须先把**所有写路径**隔离。
+
+
+- [R1592 | 2026-09-28 15:0x ★★★★★ 换役等待与 keeper 互锁：`_bsegment` 等房结束，keeper 却不断补新房（已修，优雅让位）]
+  - **现象**：役4 自动起役时，`_bsegment` 在“等对局自然结束”里循环；同时 `_keeper.py speedtugc 4` 持续补 `match_super --rooms 4`。
+    `.ab_mode` 不存在 ⇒ keeper 不会让位；`_bsegment` 又要等到没有 match_super/run_bot 才写 `.ab_mode` ⇒ 互锁，永远不会自然结束。
+  - **根因**：keeper 只在 `.ab_mode`/`.official_mode`/`.pause_mode` 存在时退出；`_bsegment` 要等房结束才切役，二者顺序反过来。
+  - **已修（不杀进程）**：新增 `var/.bsegment_waiting` 换役让位标记：
+    `_bsegment --go` 进入等待前置位、退出 finally 清除；`_keeper.py` 看到它优雅退出；`_watchdog.py` 与 `_ensure_all.py` 在它存在时不补拉 keeper；
+    标记带 1 小时陈旧保护，脚本被强杀也不会永久停掉自愈链。
+  - **验证**：`test_feature_pause` / `test_keeper_yield` / `test_ensure_all_ab_mode` / `test_bsegment_resume` / `test_watchdog_decide` /
+    `test_apply_p0_404_idempotent` / `test_adopt_pair_e2e` 共 **40 项 OK**；新增测试先红后绿。
+  - **现场**：当前正在跑的 `_bsegment` 是旧代码，预计 14:59 超时退出；下一次 AdoptPairWatch（约 15:04）会自动加载新逻辑，
+    keeper 让位、当前房自然打完后起役4。未杀任何 match_super/run_bot/keeper。

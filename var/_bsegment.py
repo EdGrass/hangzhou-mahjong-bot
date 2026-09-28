@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 import _ps  # noqa: E402  （★ R1379）
+import _feature_mode as _fm  # noqa: E402
 import argparse, io, os, re, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -70,7 +71,8 @@ def already_switched(label, mark_path=None, ab_path=None):
     if not os.path.exists(mp):
         return False, "", "无切役标记"
     try:
-        d = parse_switched(io.open(mp, encoding="utf-8-sig", errors="replace").read())
+        with io.open(mp, encoding="utf-8-sig", errors="replace") as f:
+            d = parse_switched(f.read())
     except Exception:
         return False, "", "切役标记读不出"
     started, arms, bundle = read_ab(ab_path)
@@ -156,6 +158,7 @@ def main(argv=None):
         return 0
     fh = io.open(LOG, "a", encoding="utf-8")
     try:
+        _fm.set_bsegment_waiting(True)
         done, prev_ts, why = already_switched(a.label)
         if done:
             ts = prev_ts
@@ -215,6 +218,7 @@ def main(argv=None):
         say("★ B 段完成（起役时间戳 %s）" % ts, fh)
         return 0
     finally:
+        _fm.set_bsegment_waiting(False)
         fh.close()
 
 

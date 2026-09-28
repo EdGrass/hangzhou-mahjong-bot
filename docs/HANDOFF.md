@@ -3,19 +3,19 @@
 >   `speedvalue` 基 + `speedvaluemeldp45` 候、机制 `melds` ⇒ **10/5 提案** ⇒ **10/7 08:30 定臂 / 09:00 换臂** ⇒ **10/8 10:00 提交** ⇒ **10/10 19:30 正式赛**。
 > - **10/5 选臂提案当天**：只看 **`docs/iter/reports/pick-day-card-20261005.md`**（一屏版）。
 > - **9/28 判词当天**：只看 **`docs/iter/reports/verdict-day-card-20260928.md`**（一屏版 6 条）。
-> - **下一个数据点**：**役4 自动起役**（R1590 已修好 P0 幂等；当前等独立 `speedtugc --rooms 4` 测试自然结束，`AdoptPairWatch` 每 10 分钟重试）。
+> - **下一个数据点**：**役4 自动起役**（R1590 修 P0 幂等、R1592 修换役互锁；下一次 `AdoptPairWatch` 重试时 keeper 会优雅让位并让当前房自然结束）。
 > - **要你拍两件**：① 空出的第三役位给不给 `speedvaluerank`（**默认 B：保余量、不动手**，详见 §V.281）；
 >   ② **申报页是否已提交**（已交 ⇒ 建 `var/.SUBMITTED_FORM` 收据，否则 10/8 09:00 就绪校验会提醒）。
 > - **10/10 正式赛当天**：只看 **`docs/iter/reports/event-day-card-20261010.md`**（一屏版；令牌最迟 18:00 放好）。
 > - **硬性人工输入**：**10/10 前**把当天令牌存成 `var/.token_final_20261010`（第 8 项会在 10/7/10/8/10/9 提醒）。
-> - **现场**：役3 **81/80/80 房**、完整性干净；P0 幂等已修且 `--go --smoke` 通过；`.ab_mode` 暂停在换役窗口，`_bsegment` 在等独立 `speedtugc` 测试空档。
+> - **现场**：役3 **81/80/80 房**、完整性干净；P0 幂等已修且 `--go --smoke` 通过；R1592 换役让位已接，等待下一次 `AdoptPairWatch` 重试起役4。
 >
 > ⚠ **入口指引（2026-09-28 14:3x 更新 · 在此之前的内容均为历史记录）**
 >
 > | 用途 | 看哪个 |
 > |---|---|
-> | **作战计划（唯一权威，§A–§V.296）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1591**） |
+> | **作战计划（唯一权威，§A–§V.297）** | `docs/iter/reports/next-month-plan-20260923.md` |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1592**） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | **关键日一屏卡（照做即可）** | **9/28 判词** → `verdict-day-card-20260928.md`；**10/5 提案** → `pick-day-card-20261005.md`；**10/7 换臂** → `final-switch-card-20261007.md`；**10/8 提交** → `submission-day-card.md`；**10/10 正式赛** → `event-day-card-20261010.md` |

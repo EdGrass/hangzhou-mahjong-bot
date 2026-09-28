@@ -86,8 +86,18 @@ class TestAlreadySwitched(unittest.TestCase):
         self._mark("ts=2026-09-29 03:00:00 base=speedvaluebc cands=speedvaluebcmeldp45\n")
         self.assertFalse(g.already_switched("yaku4", self.mk, self.ab)[0])
 
+    def test_source_arms_transition_flag_around_wait(self):
+        with io.open(os.path.join(ROOT, "var", "_bsegment.py"), encoding="utf-8") as f:
+            src = f.read()
+        i_set = src.index("_fm.set_bsegment_waiting(True)")
+        i_wait = src.index("while time.time() - t0")
+        i_clear = src.rindex("_fm.set_bsegment_waiting(False)")
+        self.assertLess(i_set, i_wait, "必须先设换役让位标记再等房")
+        self.assertGreater(i_clear, i_wait, "等待结束后必须清标记")
+
     def test_source_writes_marker_before_registering(self):
-        src = io.open(os.path.join(ROOT, "var", "_bsegment.py"), encoding="utf-8").read()
+        with io.open(os.path.join(ROOT, "var", "_bsegment.py"), encoding="utf-8") as f:
+            src = f.read()
         self.assertIn("switched_mark(a.label)", src)
         self.assertIn("already_switched(a.label)", src)
         # ★ 标记必须写在**注册看护之前**（否则注册失败时重试会重切）

@@ -40,7 +40,7 @@ class TestEnsureAllAbMode(unittest.TestCase):
         self.addCleanup(lambda: os.path.exists(p) and os.unlink(p))
         return p
 
-    def _run(self, ab_present, official_present, running=(), spec_present=False):
+    def _run(self, ab_present, official_present, running=(), spec_present=False, transition=False):
         ab = self._tmp_flag(".ab_mode", ab_present)
         off = self._tmp_flag(".official_mode", official_present)
         spec = self._tmp_flag(".official_spec.json", spec_present)
@@ -51,10 +51,11 @@ class TestEnsureAllAbMode(unittest.TestCase):
         # ★ R1537：KEEPALIVE_OUT 也指向 temp —— 保证“测试绝不写生产 var/”（本文件第 79 行那条教训）
         ka = os.path.join(os.path.dirname(logp), 'ka_keepalive.out')
         old = (ea.AB_FLAG, ea.FLAG, ea.LOG_PATH, ea.SPEC, ea.KEEPALIVE_OUT,
-               ea._has, ea._start, ea._fm.handle_pause_on_startup)
+               ea._has, ea._start, ea._fm.handle_pause_on_startup, ea._fm.bsegment_waiting)
         started = []
         ea.AB_FLAG, ea.FLAG, ea.LOG_PATH, ea.SPEC, ea.KEEPALIVE_OUT = ab, off, logp, spec, ka
         ea._fm.handle_pause_on_startup = lambda: False
+        ea._fm.bsegment_waiting = lambda: transition
         running = set(running)
         ea._has = lambda name: name in running
         ea._start = lambda name, *a, **k: started.append(name)
@@ -62,7 +63,7 @@ class TestEnsureAllAbMode(unittest.TestCase):
             ea.main()
         finally:
             (ea.AB_FLAG, ea.FLAG, ea.LOG_PATH, ea.SPEC, ea.KEEPALIVE_OUT,
-             ea._has, ea._start, ea._fm.handle_pause_on_startup) = old
+             ea._has, ea._start, ea._fm.handle_pause_on_startup, ea._fm.bsegment_waiting) = old
         return started
 
     def test_start_writes_child_output_when_log_path_given(self):
@@ -132,6 +133,11 @@ class TestEnsureAllAbMode(unittest.TestCase):
                           "警告应写进测试的 tempfile")
         after = (os.path.getsize(prod), os.path.getmtime(prod)) if os.path.exists(prod) else None
         self.assertEqual(before, after, "生产日志被测试污染了")
+
+    def test_transition_wait_does_not_start_keeper(self):
+        started = self._run(ab_present=False, official_present=False,
+                            running=("_watchdog.py",), transition=True)
+        self.assertNotIn("_keeper.py", started, "B 段换役等待时不得补拉 keeper")
 
     def test_real_flags_untouched(self):
         real_off = os.path.join(ROOT, "var", ".official_mode")

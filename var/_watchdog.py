@@ -155,6 +155,8 @@ def run_rate_guard():
 
 def ensure_keeper():
     """守夜人自愈：keeper 不在就按 var/_keeper_strategy.txt 的策略拉起（幂等，keeper 自带锁）。"""
+    if _fm.bsegment_waiting():
+        return
     ks = [p for p in procs("_keeper.py")]
     if ks:
         return
@@ -221,6 +223,12 @@ def main():
                 log("A/B 模式（.ab_mode 存在）：排批交给 _ab_driver.py")
                 last_state = "A/B模式"
             ensure_ab_driver()
+            time.sleep(90)
+            continue
+        if _fm.bsegment_waiting():
+            if last_state != "B段换役等待":
+                log("B 段换役等待（.bsegment_waiting）：不启/不杀任何进程")
+                last_state = "B段换役等待"
             time.sleep(90)
             continue
         lg = newest(os.path.join(ROOT, "logs", "auto_*.log"))

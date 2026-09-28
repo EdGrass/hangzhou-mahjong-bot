@@ -4,6 +4,7 @@ import importlib.util
 import os
 import sys
 import tempfile
+import time
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -57,6 +58,30 @@ class TestFeaturePause(unittest.TestCase):
             self.assertFalse(os.path.exists(p))
         finally:
             fm.PAUSE_FLAG = old
+
+    def test_bsegment_transition_flag_round_trip_and_stale(self):
+        """R1592：B 段换役让位标记必须能设/清，且崩溃残留会自动过期。"""
+        with tempfile.TemporaryDirectory() as d:
+            old_flag = fm.BSEG_WAIT_FLAG
+            old_stale = fm.BSEG_WAIT_STALE_SEC
+            try:
+                fm.BSEG_WAIT_FLAG = os.path.join(d, ".bsegment_waiting")
+                fm.BSEG_WAIT_STALE_SEC = 60
+                fm.set_bsegment_waiting(True)
+                self.assertTrue(fm.bsegment_waiting())
+                fm.set_bsegment_waiting(False)
+                self.assertFalse(fm.bsegment_waiting())
+                fm.set_bsegment_waiting(True)
+                young = time.time() - 30
+                os.utime(fm.BSEG_WAIT_FLAG, (young, young))
+                self.assertTrue(fm.bsegment_waiting())
+                old = time.time() - 61
+                os.utime(fm.BSEG_WAIT_FLAG, (old, old))
+                self.assertFalse(fm.bsegment_waiting())
+                self.assertFalse(os.path.exists(fm.BSEG_WAIT_FLAG))
+            finally:
+                fm.BSEG_WAIT_FLAG = old_flag
+                fm.BSEG_WAIT_STALE_SEC = old_stale
 
     def test_self_healing_scripts_wire_the_gate(self):
         for rel in ("var/_ensure_all.py", "var/_watchdog.py", "var/_keeper.py", "var/_ab_driver.py"):

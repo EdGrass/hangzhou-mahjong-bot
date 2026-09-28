@@ -43,6 +43,19 @@ class TestKeeperYield(unittest.TestCase):
         seg = self.src[i_flag:i_flag + 400]
         self.assertIn("return", seg)
 
+    def test_checks_bsegment_transition_sentinel_before_launch(self):
+        self.assertIn("_fm.bsegment_waiting()", self.src)
+        i_wait = self.src.index("if _fm.bsegment_waiting():")
+        i_launch = self.src.index("subprocess.Popen(argv")
+        self.assertLess(i_wait, i_launch, "B 段让位标记必须在启动批次之前检查")
+
+    def test_watchdog_does_not_restart_keeper_during_transition(self):
+        w = _load("wd", os.path.join("var", "_watchdog.py"))
+        self.assertIn("_fm.bsegment_waiting()", w)
+        i_wait = w.index("_fm.bsegment_waiting()")
+        i_launch = w.index('os.path.join(ROOT, "var", "_keeper.py")')
+        self.assertLess(i_wait, i_launch, "watchdog 在换役窗口不得重拉 keeper")
+
     def test_yield_message_mentions_driver(self):
         self.assertIn("_ab_driver", self.src)
 
