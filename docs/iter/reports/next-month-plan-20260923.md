@@ -7185,3 +7185,15 @@ keeper 优雅让位，当前房自然打完后起役4。
 `_bsegment` 随后在 15:28:05 看到空档，P0 smoke、preflight、`_switch_campaign` 与通用看护注册全部通过。
 役4 已起：`speedvalue` vs `speedvaluemeldp45`，`started=2026-09-28 15:28:13`；`.bsegment_waiting` 已清除，keeper 不存在，
 `_ab_driver` 与首个 `match_super/run_bot` 在跑。`_schedule_guard` 投影全到盒 10/03 19:29 ⇒ 排期够。
+
+
+### §V.298 ★★★★★ 真实重启恢复演练通过：18:49 重启后役4 自动续跑、A/B 台账零污染（R1593）
+
+2026-09-28 18:49:48 Windows 重启，所有 AB/Keeper/Watchdog 进程终止；`.ab_mode` 与 `.ab_mode.last` 完整保留役4：
+`speedvalue` vs `speedvaluemeldp45`，`started=2026-09-28 15:28:13`。
+
+自愈链在 18:53:20 由 `HangzhouMajAutoHeal` 拉起 `_watchdog.py`，随后 watchdog 拉起 `_ab_driver.py`；
+driver 发现上一批 `speedvalue` 无归档记录后执行**同臂重跑**，没有把候选臂拉进同一房；首房 18:53:50 启动。
+
+`ab_integrity` 验证：12 房 / 12 行，`speedvalue: 6`、`speedvaluemeldp45: 6`，无重复、未知策略、未完成、异常退出；
+关键失败/待决标记为空。全到盒投影 `10/03 19:41`，仍满足 10/7 08:30 截止。

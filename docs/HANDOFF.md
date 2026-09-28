@@ -8,14 +8,14 @@
 >   ② **申报页是否已提交**（已交 ⇒ 建 `var/.SUBMITTED_FORM` 收据，否则 10/8 09:00 就绪校验会提醒）。
 > - **10/10 正式赛当天**：只看 **`docs/iter/reports/event-day-card-20261010.md`**（一屏版；令牌最迟 18:00 放好）。
 > - **硬性人工输入**：**10/10 前**把当天令牌存成 `var/.token_final_20261010`（第 8 项会在 10/7/10/8/10/9 提醒）。
-> - **现场**：`.ab_mode` 在位（`speedvalue`/`speedvaluemeldp45`，started 2026-09-28 15:28:13）；`_ab_driver` 与首房在跑，keeper 不存在，`.bsegment_waiting` 已清；排期够。
+> - **现场**：役4 `speedvalue`/`speedvaluemeldp45`，12 房（6/6）干净；18:49 重启后自愈链已恢复并继续跑，全到盒投影 10/03 19:41。
 >
 > ⚠ **入口指引（2026-09-28 14:3x 更新 · 在此之前的内容均为历史记录）**
 >
 > | 用途 | 看哪个 |
 > |---|---|
-> | **作战计划（唯一权威，§A–§V.297）** | `docs/iter/reports/next-month-plan-20260923.md` |
-> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1592**） |
+> | **作战计划（唯一权威，§A–§V.298）** | `docs/iter/reports/next-month-plan-20260923.md` |
+> | **运行日志 / 全部证据与撤回** | `docs/iter/journal.md`（最新 **R1593**） |
 > | **役次判词读卡（必读）** | `yaku2-` / `yaku3-` / **`yaku4-`** / **`yaku5-verdict-readcard.md`** |
 > | **运行期标记总账** | `docs/iter/reports/heartbeat-marker-inventory.md` |
 > | **关键日一屏卡（照做即可）** | **9/28 判词** → `verdict-day-card-20260928.md`；**10/5 提案** → `pick-day-card-20261005.md`；**10/7 换臂** → `final-switch-card-20261007.md`；**10/8 提交** → `submission-day-card.md`；**10/10 正式赛** → `event-day-card-20261010.md` |

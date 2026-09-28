@@ -28631,3 +28631,13 @@ R1004–R1026 的时间戳是当时按"每轮约 30 分钟"递增估算出来的
     通用看护注册成功。`.ab_mode = {"a":"speedvalue","b":"speedvaluemeldp45","started":"2026-09-28 15:28:13"}`。
   - `_ab_driver`、`match_super --strategy speedvalue`、首房 `run_bot` 均已启动；`.bsegment_waiting` 已清除；keeper 不存在。
   - `ab_integrity`（since=15:28:13）初始 0 房干净；`_schedule_guard` 投影全到盒 **10/03 19:29**，截止 10/7 08:30 ⇒ 排期够。
+
+
+- [R1593 | 2026-09-28 18:5x ★★★★★ 真实重启故障演练通过：Windows 18:49:48 重启，役4 自动恢复且台账零污染]
+  - **故障**：机器 `LastBootUpTime=2026-09-28 18:49:48`；所有 AB/Keeper/Watchdog 进程消失，只剩 Codex/后台 Python。
+    `.ab_mode` 与 `.ab_mode.last` 都完整保留役4：`speedvalue` vs `speedvaluemeldp45`，`started=2026-09-28 15:28:13`。
+  - **自愈**：`HangzhouMajAutoHeal` 在 `18:53:20` 拉起 `_watchdog.py`；watchdog 于 `18:53:21` 识别 A/B 模式并拉起 `_ab_driver.py`；
+    driver 于 `18:53:31` 发现上一批 `speedvalue` 无归档记录后**同臂重跑**，没有错误轮转到候选臂；首房 `18:53:50` 启动。
+  - **数据完整性**：`ab_integrity --since 15:28:13` = **12 房 / 12 行**，`speedvalue: 6`、`speedvaluemeldp45: 6`，
+    无重复、未知策略、未完成、异常退出；关键失败/待决标记为空。
+  - **排期**：全到盒投影滑至 `10/03 19:41`，仍远早于 `10/07 08:30`。
